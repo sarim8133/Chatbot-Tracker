@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Single source of truth for the signal accent — exposes `accent` / `accent-dark`
+   as Tailwind color utilities (bg-accent, ring-accent/40, text-accent-dark, …).
+   Keep these in sync with the ACCENT / ACCENT_DK JS consts used for inline styles. */
+@theme {
+  --color-accent: #f5471d;
+  --color-accent-dark: #d63a12;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background: #eeeff0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Technical readout: tabular figures for all data digits */
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Reduced-motion: neutralize CSS animations (pulse) and transitions.
+   Framer transforms are handled separately via <MotionConfig reducedMotion="user">. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
