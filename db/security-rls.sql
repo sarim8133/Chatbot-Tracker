@@ -24,6 +24,12 @@ DROP POLICY IF EXISTS authenticated_read ON n8n_chat_histories;
 DROP POLICY IF EXISTS authenticated_read ON chat_archive;
 DROP POLICY IF EXISTS authenticated_read ON semantic_cache;
 
+-- CRITICAL: drop the leftover anon-readable policies from the original (pre-login)
+-- dashboard. These are what still let the public/anon key read data, even with RLS
+-- on — an "anon SELECT USING (true)" policy. Dropping them is the real lock.
+DROP POLICY IF EXISTS dashboard_read_history ON n8n_chat_histories;
+DROP POLICY IF EXISTS dashboard_read_cache   ON semantic_cache;
+
 CREATE POLICY authenticated_read ON n8n_chat_histories FOR SELECT TO authenticated USING (true);
 CREATE POLICY authenticated_read ON chat_archive       FOR SELECT TO authenticated USING (true);
 CREATE POLICY authenticated_read ON semantic_cache     FOR SELECT TO authenticated USING (true);

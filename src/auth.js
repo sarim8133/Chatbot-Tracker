@@ -5,8 +5,8 @@
 // nothing; only a signed-in session's JWT can read data. A hardcoded password here
 // would be pointless: anyone could read it in the shipped JS.
 
-const SB_URL = 'https://oocmjiuymmvwvyvwlfpd.supabase.co';
-const SB_KEY = 'sb_publishable_c1l29L8ehKEmfreuQ-txcA_vv6vy06O';
+import { SB_URL, SB_KEY } from './config';
+
 const DOMAIN = '@hitech.local';   // bare usernames ("sarim") map to sarim@hitech.local
 const LS_KEY = 'ht_session';
 
@@ -34,7 +34,7 @@ export async function signIn(username, password) {
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok || !d.access_token) {
-    console.error('[auth] sign-in failed', r.status, d);   // open DevTools console to see the exact reason
+    if (import.meta.env.DEV) console.error('[auth] sign-in failed', r.status, d);   // dev-only diagnostic
     throw new Error(d.error_description || d.msg || d.error || `Sign in failed (HTTP ${r.status})`);
   }
   const s = toSession(d);

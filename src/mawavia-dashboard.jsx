@@ -10,14 +10,10 @@ import {
   RefreshCw, Search, ChevronDown, ChevronUp, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut,
 } from 'lucide-react';
 import { getAccessToken } from './auth';
+import { SB_URL, SB_KEY, MSG_SOURCE } from './config';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const SB_URL = 'https://oocmjiuymmvwvyvwlfpd.supabase.co';
-const SB_KEY = 'sb_publishable_c1l29L8ehKEmfreuQ-txcA_vv6vy06O';
-// Read from the `chat_all` view (live n8n_chat_histories ∪ chat_archive) so the
-// dashboard keeps full history even though the live table is pruned to 5 days.
-// Backend setup lives in db/chat-archive.sql — run that BEFORE this takes effect.
-const MSG_SOURCE = 'chat_all';
+// SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
 const REP_NAMES = {
   '923366179838': 'Sarim',
   '923004471122': 'Ahmed Raza',
@@ -67,7 +63,11 @@ const trunc = (s, n = 65) => !s ? '—' : s.length > n ? s.slice(0,n)+'…' : s;
 // ── CSV export ────────────────────────────────────────────────────────────────
 // Quote fields containing commas, quotes, or newlines (double internal quotes).
 const csvCell = v => {
-  const s = v == null ? '' : String(v);
+  let s = v == null ? '' : String(v);
+  // Neutralize spreadsheet formula injection (CWE-1236): a cell starting with
+  // = + - @ (or tab/CR) can execute as a formula when opened in Excel/Sheets.
+  // Prefix with an apostrophe so it's forced to plain text.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 // 7×24 weekday-by-hour activity matrix from a list of timestamped items.
@@ -984,6 +984,18 @@ export default function Dashboard({ onLogout }) {
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
   },[]);
+
+  // Idle auto-logout — sign out after 30 min of no interaction, so a session left
+  // open on a shared/kiosk machine doesn't stay readable.
+  useEffect(()=>{
+    if (!onLogout) return;
+    let timer;
+    const reset = () => { clearTimeout(timer); timer = setTimeout(onLogout, 30*60*1000); };
+    const evts = ['mousemove','keydown','click','scroll','touchstart'];
+    evts.forEach(e=>window.addEventListener(e, reset, {passive:true}));
+    reset();
+    return ()=>{ clearTimeout(timer); evts.forEach(e=>window.removeEventListener(e, reset)); };
+  },[onLogout]);
 
   return (
     <MotionConfig reducedMotion="user">
