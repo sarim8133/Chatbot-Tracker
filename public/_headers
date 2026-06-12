@@ -1,0 +1,10 @@
+# Security headers for Netlify / Cloudflare Pages (this file is copied into dist/
+# and applied to every response). For Vercel, see vercel.json instead. GitHub
+# Pages does NOT support custom headers — host on Netlify/Cloudflare/Vercel to use
+# these (all have free tiers).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=()

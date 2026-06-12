@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     chunkSizeWarningLimit: 900,
+    // Skip the inline module-preload polyfill so a strict `script-src 'self'` CSP
+    // (no 'unsafe-inline') isn't tripped by an injected inline script. Modern
+    // browsers support modulepreload natively.
+    modulePreload: { polyfill: false },
     rollupOptions: {
       output: {
         // Keep long-lived vendor code in its own cacheable chunk, separate from
