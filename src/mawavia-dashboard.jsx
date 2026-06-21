@@ -4,10 +4,11 @@
 // Ink + one hot signal-orange accent, concrete-paper blueprint grid, hairline panels.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, useContext, createContext, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone,
 } from 'lucide-react';
 import { getAccessToken } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE } from './config';
@@ -19,20 +20,36 @@ const REP_NAMES = {
   '923004471122': 'Ahmed Raza',
 };
 
+// Deterministic pastel color per rep — assigned from the last 2 digits of their number
+const AVATAR_PALETTE = [
+  { bg:'#DBEAFE', fg:'#1E40AF' }, // sky blue
+  { bg:'#D1FAE5', fg:'#065F46' }, // emerald
+  { bg:'#EDE9FE', fg:'#5B21B6' }, // violet
+  { bg:'#FCE7F3', fg:'#9D174D' }, // pink
+  { bg:'#FEF3C7', fg:'#92400E' }, // amber
+  { bg:'#CFFAFE', fg:'#155E75' }, // cyan
+  { bg:'#FFE4E6', fg:'#9F1239' }, // rose
+  { bg:'#E0E7FF', fg:'#3730A3' }, // indigo
+];
+const avatarColor = n => AVATAR_PALETTE[parseInt(clean(n).slice(-2), 10) % AVATAR_PALETTE.length];
+
 // ── Palette — disciplined: ink structure + one committed signal accent ─────────
-const INK       = '#18181B';   // zinc-900 — text, structure, the color that "owns" the page
+const INK       = '#1E293B';   // dark slate — text, structure, the color that "owns" the page
 const ACCENT    = '#F5471D';   // hot signal-orange — hero markers, active state, alerts
 const ACCENT_DK = '#D63A12';   // pressed/hover accent + accent-as-text (AA-safe)
+const BLUE      = '#2258B8';   // brand blue (logo hex) — secondary/informational
 const POS       = '#16794C';   // muted emerald — positive delta only
 const NEG       = '#B91C1C';   // alert red — negative delta only
+
+const PER_PAGE = 25;
 
 // Charts live in a lazily-loaded chunk so Recharts doesn't block first paint.
 const ChartsRow = lazy(() => import('./charts'));
 const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTrend})));
 const ChartsFallback = () => (
   <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
-    <div className="h-[300px] rounded-lg bg-white border border-zinc-200 animate-pulse"/>
-    <div className="h-[300px] rounded-lg bg-white border border-zinc-200 animate-pulse"/>
+    <div className="h-[300px] rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
+    <div className="h-[300px] rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
   </div>
 );
 
@@ -305,14 +322,68 @@ function useCountUp(target, dur=900) {
 const stagger = { hidden:{}, show:{ transition:{ staggerChildren:0.05, delayChildren:0.03 } } };
 const fadeUp  = { hidden:{opacity:0,y:10}, show:{opacity:1,y:0,transition:{duration:0.4,ease:[0.22,1,0.36,1]}} };
 
+// ── Content expand modal (portal-rendered, used for heatmap + inline panels) ──
+function ContentModal({ title, sub, open, onClose, children }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [open, onClose]);
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+          transition={{duration:0.2}}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-10"
+          style={{background:'rgba(15,23,42,0.65)', backdropFilter:'blur(4px)'}}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{opacity:0,scale:0.96,y:16}} animate={{opacity:1,scale:1,y:0}}
+            exit={{opacity:0,scale:0.96,y:16}}
+            transition={{duration:0.22,ease:[0.22,1,0.36,1]}}
+            onClick={e=>e.stopPropagation()}
+            className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-7 py-5 border-b border-zinc-100">
+              <div>
+                <h2 className="text-[16px] font-semibold text-zinc-900 tracking-tight">{title}</h2>
+                {sub && <p className="text-[14px] text-zinc-500 mt-0.5">{sub}</p>}
+              </div>
+              <button onClick={onClose} aria-label="Close"
+                className="flex items-center justify-center w-9 h-9 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none">
+                <X size={16}/>
+              </button>
+            </div>
+            <div className="p-7 overflow-auto max-h-[72vh]">
+              {children}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
+  );
+}
+
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
-// Hairline-bordered instrument panel. Hover sharpens the border to ink (fast).
+// Soft-shadow card — depth through shadow, not a heavy border
 const Panel = ({children, className='', hover=false, ...rest}) => (
   <motion.div
     variants={fadeUp}
-    whileHover={hover ? {borderColor:INK, transition:{duration:0.12}} : undefined}
-    className={`bg-white border border-zinc-200 rounded-lg ${className}`}
+    whileHover={hover ? {
+      boxShadow:'0 4px 24px -4px rgba(30,41,59,0.16)',
+      transition:{duration:0.15}
+    } : undefined}
+    className={`bg-white border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
     {...rest}
   >
     {children}
@@ -321,7 +392,7 @@ const Panel = ({children, className='', hover=false, ...rest}) => (
 
 // Mono uppercase micro-label — the system's field-tag voice
 const Label = ({children, className=''}) => (
-  <span className={`mono text-[10px] uppercase tracking-[0.16em] text-zinc-500 ${className}`}>{children}</span>
+  <span className={`mono text-[11px] font-medium tracking-[0.02em] text-zinc-500 ${className}`}>{children}</span>
 );
 
 // Signed delta in mono with an arrow glyph (never color-alone)
@@ -336,21 +407,25 @@ const Delta = ({value}) => {
   );
 };
 
-// Square equipment-tag avatar (ink chip, mono initials)
-const Tag = ({number, lg=false}) => (
-  <div
-    className={`${lg?'w-10 h-10 text-[12px] rounded-md':'w-7 h-7 text-[10px] rounded'} flex items-center justify-center font-semibold shrink-0 bg-zinc-900 text-white mono`}
-  >
-    {initials(number)}
-  </div>
-);
+// Circular avatar with deterministic pastel color per rep
+const Tag = ({number, lg=false}) => {
+  const {bg, fg} = avatarColor(number);
+  return (
+    <div
+      className={`${lg?'w-10 h-10 text-[13px]':'w-7 h-7 text-[11px]'} rounded-full flex items-center justify-center font-bold shrink-0`}
+      style={{background: bg, color: fg}}
+    >
+      {initials(number)}
+    </div>
+  );
+};
 
 // Secondary action — ghost button matching the system (white, hairline, ink on hover)
 const ExportButton = ({onClick, disabled=false, label='Export'}) => (
   <button
     onClick={onClick} disabled={disabled}
     aria-label={`${label} as CSV`} title={`${label} as CSV`}
-    className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-md bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+    className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
   >
     <Download size={13}/>
     <span>{label}</span>
@@ -437,15 +512,16 @@ function OverviewTab({s, onDrill}) {
   const delta  = s.todayCount - s.ystCount;
   const total  = useCountUp(s.totalMsgs);
   const peak   = heatPeak(s.heat);
+  const [heatExpanded, setHeatExpanded] = useState(false);
   const ledger = [
     {label:'Today',       value:s.todayCount, delta, hint:'Messages today, compared with yesterday'},
     {label:'Active reps', value:s.userCount,         hint:'Reps who messaged the assistant in this period'},
     {label:'Cache',       value:s.cacheTotal,        hint:'Answers served instantly from cache — no AI call'},
   ];
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-4">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
 
-      <HelpNote>Headline counts for the loaded period. “Today” shows the change vs yesterday; “Cache” is answers served instantly without an AI call.</HelpNote>
+      <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday; "Cache" is answers served instantly without an AI call.</HelpNote>
 
       {/* Readout cluster — one instrument panel, hero + ledger, divided by hairlines */}
       <Panel className="grid grid-cols-1 md:grid-cols-[1.6fr_repeat(3,1fr)] divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden">
@@ -464,7 +540,7 @@ function OverviewTab({s, onDrill}) {
           </div>
           <div className="mt-4 flex items-center gap-2">
             <Delta value={delta}/>
-            <span className="mono text-[10px] uppercase tracking-wide text-zinc-500">vs yesterday</span>
+            <span className="text-[12px] text-zinc-400">vs yesterday</span>
           </div>
         </div>
         {/* Ledger cells */}
@@ -494,18 +570,18 @@ function OverviewTab({s, onDrill}) {
 
         {/* Most asked — ledger rows, leader bar in accent */}
         <Panel className="p-6">
-          <h2 className="text-[14px] font-semibold text-zinc-900 tracking-tight">Most asked</h2>
-          <Label className="mt-1 mb-5 block">By topic · paraphrases merged</Label>
-          <HelpNote>Grouped by the assistant’s answer, so different wordings of the same question count as one topic. “2 phrasings merged” shows when wordings were combined.</HelpNote>
+          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Most asked</h2>
+          <p className="text-[14px] text-zinc-500 mt-1 mb-5">By topic — paraphrases merged</p>
+          <HelpNote>Grouped by the assistant’s answer, so different wordings of the same question count as one topic. "2 phrasings merged" shows when wordings were combined.</HelpNote>
           <div className="space-y-3.5">
             {s.topQ.slice(0,6).map((q,i)=>(
               <button key={i} type="button"
                 onClick={()=>onDrill({type:'answer', answer:q.answer, label:q.text})}
                 aria-label={`Show conversations for: ${q.text}`}
-                className="group block w-full text-left -mx-2 px-2 py-1 rounded-md transition-colors hover:bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                className="group block w-full text-left -mx-2 px-2 py-1 rounded-lg transition-colors hover:bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[13px] text-zinc-700 group-hover:text-zinc-900 truncate">{trunc(q.text,40)}</span>
+                    <span className="text-[14px] text-zinc-700 group-hover:text-zinc-900 truncate">{trunc(q.text,40)}</span>
                     <ArrowRight size={11} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{color:ACCENT}}/>
                   </span>
                   <span className="mono text-[11px] text-zinc-500 shrink-0 tabular-nums">{q.count}</span>
@@ -517,7 +593,7 @@ function OverviewTab({s, onDrill}) {
                     className="h-full" style={{background: i===0 ? ACCENT : INK}}/>
                 </div>
                 {q.variants>1 && (
-                  <p className="mono text-[9px] uppercase tracking-[0.12em] text-zinc-500 mt-1">{q.variants} phrasings merged</p>
+                  <p className="text-[11px] text-zinc-400 mt-1">{q.variants} phrasings merged</p>
                 )}
               </button>
             ))}
@@ -526,8 +602,8 @@ function OverviewTab({s, onDrill}) {
 
         {/* Recent activity — mono log feed, diamond markers, latest in accent */}
         <Panel className="p-6">
-          <h2 className="text-[14px] font-semibold text-zinc-900 tracking-tight">Recent activity</h2>
-          <Label className="mt-1 mb-4 block">Live message log</Label>
+          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Recent activity</h2>
+          <p className="text-[14px] text-zinc-500 mt-1 mb-4">Live message log</p>
           <HelpNote>The latest messages reps sent the assistant, newest first.</HelpNote>
           <div>
             {s.recent.slice(0,7).map((m,i)=>(
@@ -537,8 +613,8 @@ function OverviewTab({s, onDrill}) {
                 <span className="mt-[7px] w-1.5 h-1.5 rotate-45 shrink-0"
                   style={{background: i===0 ? ACCENT : INK}}/>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] text-zinc-800 truncate leading-snug">{trunc(m.User_Message,46)}</p>
-                  <p className="mono text-[10px] text-zinc-500 mt-0.5 uppercase tracking-wide truncate">
+                  <p className="text-[14px] text-zinc-800 truncate leading-snug">{trunc(m.User_Message,46)}</p>
+                  <p className="text-[12px] text-zinc-500 mt-0.5 truncate">
                     {repName(m.User_Number)} · {ago(m.Timestamp)}
                   </p>
                 </div>
@@ -552,8 +628,8 @@ function OverviewTab({s, onDrill}) {
       <Panel className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-[14px] font-semibold text-zinc-900 tracking-tight">Knowledge gaps</h2>
-            <Label className="mt-1 block">Questions the assistant couldn’t answer</Label>
+            <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Knowledge gaps</h2>
+            <p className="text-[14px] text-zinc-500 mt-1">Questions the assistant couldn’t answer</p>
           </div>
           {s.gaps?.length > 0 && (
             <ExportButton
@@ -568,15 +644,15 @@ function OverviewTab({s, onDrill}) {
         <HelpNote>Questions where the assistant gave no real answer (a near-empty reply). These are the highest-value things to teach it next — sorted by how often reps hit them.</HelpNote>
         {!s.gaps?.length
           ? <div className="py-10 text-center">
-              <p className="mono text-[12px] uppercase tracking-widest text-zinc-500">No gaps detected</p>
+              <p className="text-[13px] text-zinc-500">No gaps detected</p>
               <p className="text-[12px] text-zinc-500 mt-2">Every question in the loaded period got a real answer.</p>
             </div>
           : <ul className="mt-2 divide-y divide-zinc-100">
               {s.gaps.map((g,i)=>(
                 <li key={i} className="flex items-center gap-3 py-2.5">
                   <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{background:ACCENT}}/>
-                  <span className="flex-1 text-[13px] text-zinc-800 truncate">{trunc(g.text,72)}</span>
-                  <span className="mono text-[10px] uppercase tracking-wide text-zinc-400 shrink-0 hidden sm:inline">{ago(g.last)}</span>
+                  <span className="flex-1 text-[14px] text-zinc-800 truncate">{trunc(g.text,72)}</span>
+                  <span className="text-[11px] text-zinc-400 shrink-0 hidden sm:inline">{ago(g.last)}</span>
                   <span className="mono text-[11px] font-semibold text-zinc-900 tabular-nums shrink-0 w-9 text-right">{g.count}×</span>
                 </li>
               ))}
@@ -589,14 +665,20 @@ function OverviewTab({s, onDrill}) {
         <Panel className="p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[14px] font-semibold text-zinc-900 tracking-tight">Busiest hours</h2>
-              <Label className="mt-1 block">When reps message · by weekday &amp; hour</Label>
+              <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Busiest hours</h2>
+              <p className="text-[14px] text-zinc-500 mt-1">When reps message — by weekday &amp; hour</p>
             </div>
-            <div className="text-right shrink-0">
-              <Label>Peak</Label>
-              <p className="mono text-[13px] font-bold text-zinc-900 mt-1">
-                {peak.c>0 ? `${DAY[peak.d]} ${fmtHour(peak.h)}` : '—'}
-              </p>
+            <div className="flex items-start gap-4 shrink-0">
+              <div className="text-right">
+                <Label>Peak</Label>
+                <p className="mono text-[14px] font-bold text-zinc-900 mt-1">
+                  {peak.c>0 ? `${DAY[peak.d]} ${fmtHour(peak.h)}` : '—'}
+                </p>
+              </div>
+              <button onClick={() => setHeatExpanded(true)} aria-label="Expand heatmap" title="Click to expand"
+                className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 mt-0.5">
+                <Maximize2 size={14}/>
+              </button>
             </div>
           </div>
           <HelpNote>When reps message the assistant, by weekday and hour. Darker cells = busier; hover a cell for the exact count.</HelpNote>
@@ -606,7 +688,66 @@ function OverviewTab({s, onDrill}) {
           </div>
         </Panel>
       )}
+
+      <ContentModal
+        title="Busiest hours"
+        sub={peak.c>0 ? `Peak: ${DAY[peak.d]} at ${fmtHour(peak.h)} — ${peak.c} messages` : 'When reps message the assistant'}
+        open={heatExpanded}
+        onClose={() => setHeatExpanded(false)}
+      >
+        {s.heat && <Heatmap heat={s.heat}/>}
+      </ContentModal>
     </motion.div>
+  );
+}
+
+// ── Paginator ─────────────────────────────────────────────────────────────────
+function Paginator({ page, total, perPage = PER_PAGE, onChange }) {
+  const totalPages = Math.ceil(total / perPage);
+  if (totalPages <= 1) return null;
+  const from = (page - 1) * perPage + 1;
+  const to   = Math.min(page * perPage, total);
+
+  // Always show 1 and last; cluster ±1 around current; fill with ellipses for gaps
+  const raw    = new Set([1, totalPages, page - 1, page, page + 1].filter(p => p >= 1 && p <= totalPages));
+  const sorted = [...raw].sort((a, b) => a - b);
+  const items  = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) items.push('…');
+    items.push(sorted[i]);
+  }
+
+  const NavBtn = ({ children, disabled, onClick }) => (
+    <button type="button" disabled={disabled} onClick={onClick}
+      className="flex items-center justify-center w-7 h-7 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 disabled:opacity-35 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40 transition-colors">
+      {children}
+    </button>
+  );
+
+  return (
+    <div className="flex items-center justify-between gap-4 px-6 py-3.5 border-t border-zinc-200">
+      <span className="mono text-[11px] text-zinc-500 tabular-nums select-none">
+        {from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}
+      </span>
+      <div className="flex items-center gap-0.5">
+        <NavBtn disabled={page === 1} onClick={() => onChange(page - 1)}>
+          <ChevronLeft size={13}/>
+        </NavBtn>
+        {items.map((item, i) =>
+          item === '…'
+            ? <span key={`e${i}`} className="mono text-[12px] text-zinc-400 w-7 text-center select-none">…</span>
+            : <button key={item} type="button"
+                onClick={() => onChange(item)}
+                aria-current={item === page ? 'page' : undefined}
+                className={`mono text-[12px] w-7 h-7 rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${item === page ? 'font-semibold text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'}`}
+                style={item === page ? { background: INK } : undefined}
+              >{item}</button>
+        )}
+        <NavBtn disabled={page === totalPages} onClick={() => onChange(page + 1)}>
+          <ChevronRight size={13}/>
+        </NavBtn>
+      </div>
+    </div>
   );
 }
 
@@ -616,9 +757,12 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
   const [filter,     setFilter]     = useState('all');
   const [expanded,   setExpanded]   = useState(null);
   const [topicDrill, setTopicDrill] = useState(null);   // {answer, label} from a Most-asked drill
+  const [page,       setPage]       = useState(1);
   const searchRef = useRef(null);
   // Focus the search box when the parent fires the "/" shortcut.
   useEffect(()=>{ if (focusSignal) searchRef.current?.focus(); }, [focusSignal]);
+  // Reset to page 1 whenever the active filter set changes.
+  useEffect(()=>{ setPage(1); setExpanded(null); }, [search, filter, topicDrill]);
 
   // Apply an incoming drill (Most-asked → answer filter, rep card → rep filter), then clear it upstream.
   useEffect(()=>{
@@ -638,10 +782,10 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
     })
   ,[s,search,filter,topicDrill]);
 
-  const field = "bg-white border border-zinc-300 rounded-md text-[13px] text-zinc-900 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20";
+  const field = "bg-white border border-zinc-300 rounded-lg text-[14px] text-zinc-900 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20";
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-4">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       {/* Filters */}
       <motion.div variants={fadeUp} className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[160px] relative">
@@ -684,10 +828,10 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
 
       {topicDrill && (
         <motion.div variants={fadeUp}
-          className="flex items-center gap-2 rounded-md border px-3 py-2"
+          className="flex items-center gap-2 rounded-lg border px-3 py-2"
           style={{borderColor:`${ACCENT}40`, background:`${ACCENT}0D`}}>
-          <span className="mono text-[10px] uppercase tracking-wide font-semibold shrink-0" style={{color:ACCENT_DK}}>Topic</span>
-          <span className="text-[13px] text-zinc-800 truncate">{trunc(topicDrill.label,60)}</span>
+          <span className="text-[11px] font-semibold shrink-0" style={{color:ACCENT_DK}}>Topic</span>
+          <span className="text-[14px] text-zinc-800 truncate">{trunc(topicDrill.label,60)}</span>
           <button onClick={()=>setTopicDrill(null)} aria-label="Clear topic filter"
             className="ml-auto shrink-0 flex items-center justify-center w-6 h-6 rounded text-zinc-500 hover:text-zinc-900 hover:bg-white outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
             <X size={14}/>
@@ -705,10 +849,10 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
 
         {!filtered.length
           ? <div className="py-16 text-center">
-              <p className="mono text-[12px] uppercase tracking-widest text-zinc-500">No conversations found</p>
-              <p className="text-[12px] text-zinc-500 mt-2">Try a different search term, or set the rep filter back to “All reps”.</p>
+              <p className="text-[13px] text-zinc-500">No conversations found</p>
+              <p className="text-[12px] text-zinc-500 mt-2">Try a different search term, or set the rep filter back to "All reps".</p>
             </div>
-          : filtered.slice(0,40).map((m)=>{
+          : filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE).map((m)=>{
             const rowKey = `${m.Timestamp}__${m.User_Number}`;
             const ex = expanded===rowKey;
             return (
@@ -722,9 +866,9 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                 >
                   <div className="order-1 md:order-none flex items-center gap-3 min-w-0 basis-[calc(100%-3rem)] md:basis-auto">
                     <Tag number={m.User_Number}/>
-                    <span className="text-[13px] text-zinc-900 font-medium truncate">{repName(m.User_Number)}</span>
+                    <span className="text-[14px] text-zinc-900 font-medium truncate">{repName(m.User_Number)}</span>
                   </div>
-                  <span className="order-3 md:order-none basis-full md:basis-auto text-[13px] text-zinc-500 truncate md:pr-4">{trunc(m.User_Message,52)}</span>
+                  <span className="order-3 md:order-none basis-full md:basis-auto text-[14px] text-zinc-500 truncate md:pr-4">{trunc(m.User_Message,52)}</span>
                   <span className="order-4 md:order-none basis-full md:basis-auto mono text-[11px] text-zinc-500 tabular-nums">{ago(m.Timestamp)}</span>
                   <div className="order-2 md:order-none ml-auto md:ml-0 flex items-center justify-center transition-colors"
                     style={{color: ex ? ACCENT : '#71717A'}}>
@@ -740,25 +884,25 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                       className="overflow-hidden border-b border-zinc-200"
                     >
                       <div className="px-6 py-5 bg-zinc-50 space-y-4">
-                        <p className="mono text-[10px] text-zinc-500 uppercase tracking-widest">
+                        <p className="text-[12px] text-zinc-400">
                           {repName(m.User_Number)} · {fmtPhone(m.User_Number)}
                         </p>
                         <div>
-                          <Label className="mb-1.5 block" >Inbound</Label>
-                          <div className="rounded-md p-3.5 bg-white border border-zinc-300">
-                            <p className="text-[13px] text-zinc-800 leading-relaxed">{m.User_Message}</p>
+                          <p className="text-[12px] text-zinc-500 mb-1.5">Inbound</p>
+                          <div className="rounded-lg p-3.5 bg-white border border-zinc-300">
+                            <p className="text-[14px] text-zinc-800 leading-relaxed">{m.User_Message}</p>
                           </div>
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <span className="mono text-[10px] uppercase tracking-[0.16em]" style={{color:ACCENT_DK}}>Assistant</span>
-                            <span className="mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded"
-                              style={m.from_cache ? {color:ACCENT_DK, background:`${ACCENT}14`} : {color:'#52525B', background:'#f4f4f5'}}>
-                              {m.from_cache ? 'from cache' : 'AI call'}
+                            <span className="text-[12px] font-medium" style={{color:ACCENT_DK}}>Assistant</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded"
+                              style={m.from_cache ? {color:BLUE, background:'#EFF6FF'} : {color:'#52525B', background:'#f4f4f5'}}>
+                              {m.from_cache ? 'From cache' : 'AI call'}
                             </span>
                           </div>
-                          <div className="rounded-md p-3.5 bg-white border border-zinc-300 max-h-36 overflow-y-auto">
-                            <p className="text-[13px] text-zinc-600 leading-relaxed whitespace-pre-wrap">{m.AI_Response}</p>
+                          <div className="rounded-lg p-3.5 bg-white border border-zinc-300 max-h-36 overflow-y-auto">
+                            <p className="text-[14px] text-zinc-600 leading-relaxed whitespace-pre-wrap">{m.AI_Response}</p>
                           </div>
                         </div>
                       </div>
@@ -769,12 +913,8 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
             );
           })
         }
+        <Paginator page={page} total={filtered.length} onChange={p => { setPage(p); setExpanded(null); }}/>
       </Panel>
-      {filtered.length > 40 && (
-        <p className="mono text-[10px] uppercase tracking-wide text-zinc-500 text-center">
-          Showing 40 of {filtered.length} — export includes all {filtered.length}
-        </p>
-      )}
     </motion.div>
   );
 }
@@ -784,16 +924,16 @@ function UsersTab({s, onDrill}) {
   if (!s.users.length) return (
     <motion.div variants={stagger} initial="hidden" animate="show">
       <Panel className="py-16 text-center">
-        <p className="mono text-[12px] uppercase tracking-widest text-zinc-500">No reps yet</p>
+        <p className="text-[13px] text-zinc-500">No reps yet</p>
         <p className="text-[12px] text-zinc-500 mt-2">Once reps message the WhatsApp assistant, they’ll appear here ranked by activity.</p>
       </Panel>
     </motion.div>
   );
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-4">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <HelpNote>Your sales reps, ranked by how many messages they sent the assistant. Each card shows their message count, rank, latest question, and last-active time.</HelpNote>
       <motion.div variants={fadeUp} className="flex items-center justify-between gap-3">
-        <Label>{s.users.length} {s.users.length===1?'rep':'reps'}</Label>
+        <p className="text-[14px] text-zinc-500">{s.users.length} {s.users.length===1?'rep':'reps'}</p>
         <ExportButton
           onClick={()=>exportCSV('reps', [
             {label:'Rank',        get:r=>r._rank},
@@ -815,23 +955,28 @@ function UsersTab({s, onDrill}) {
             <Tag number={u.number} lg/>
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-zinc-900 truncate">{repName(u.number)}</p>
-              <p className="mono text-[11px] text-zinc-500 mt-0.5 truncate">{fmtPhone(u.number)}</p>
+              <p className="flex items-center gap-1 text-[11px] text-zinc-500 mt-0.5 truncate">
+                <Phone size={10} className="shrink-0 text-zinc-400"/>
+                {fmtPhone(u.number)}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 border-t border-b border-zinc-200 divide-x divide-zinc-200">
             {[['Messages', u.count.toLocaleString(), INK], ['Rank', `#${i+1}`, i===0 ? ACCENT : INK]].map(([l,v,c])=>(
               <div key={l} className="py-3.5 px-1 first:pr-3">
                 <p className="mono text-[24px] font-bold leading-none tracking-tight" style={{color:c}}>{v}</p>
-                <Label className="mt-1.5 block">{l}</Label>
+                <p className="text-[12px] text-zinc-400 mt-1.5">{l}</p>
               </div>
             ))}
           </div>
           {u.msgs[0] && (
-            <p className="text-[12px] text-zinc-500 leading-snug mt-4">{trunc(u.msgs[0].User_Message,56)}</p>
+            <div className="mt-4 rounded-lg px-3 py-2.5" style={{background:'#F8FAFC'}}>
+              <p className="text-[12px] text-zinc-500 leading-snug">{trunc(u.msgs[0].User_Message,56)}</p>
+            </div>
           )}
           <div className="flex items-center gap-1.5 mt-3.5">
-            <Clock size={11} className="text-zinc-500"/>
-            <span className="mono text-[10px] uppercase tracking-wide text-zinc-500">{ago(u.lastActive)}</span>
+            <Clock size={11} className="text-zinc-400 shrink-0"/>
+            <span className="text-[12px] text-zinc-400">Last active {ago(u.lastActive)}</span>
             <ArrowRight size={12} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{color:ACCENT}}/>
           </div>
         </Panel>
@@ -845,24 +990,25 @@ function UsersTab({s, onDrill}) {
 function CacheTab({s}) {
   const pct = Math.round((s.hitRate||0)*100);
   const trend = (s.cacheDaily||[]).filter(d=>d.total>0);   // only days with activity
+  const [cachePage, setCachePage] = useState(1);
   const cells = [
     {label:'Hit rate',   value:`${pct}%`,          icon:Zap,      hint:'Share of messages answered from cache instead of calling the AI', accent:true},
     {label:'From cache', value:s.cacheHits ?? 0,   icon:Database, hint:'Messages answered instantly from cache — AI calls (and their cost/latency) saved'},
     {label:'AI calls',   value:s.cacheMisses ?? 0, icon:Cpu,      hint:'Messages that required a live AI call (cache miss)'},
   ];
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-4">
-      <HelpNote>“Hit rate” is the share of reps’ messages answered straight from cache. Every cache hit is one AI call — and its cost and latency — saved.</HelpNote>
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+      <HelpNote>"Hit rate" is the share of reps’ messages answered straight from cache. Every cache hit is one AI call — and its cost and latency — saved.</HelpNote>
 
       <Panel className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 overflow-hidden">
         {cells.map(c=>(
           <div key={c.label} title={c.hint} className="p-6 flex flex-col justify-between gap-6">
             <div className="flex items-center justify-between">
               <Label>{c.label}</Label>
-              <c.icon size={14} style={c.accent ? {color:ACCENT} : undefined} className={c.accent ? '' : 'text-zinc-500'}/>
+              <c.icon size={14} style={c.accent ? {color:BLUE} : undefined} className={c.accent ? '' : 'text-zinc-500'}/>
             </div>
             <span className="mono text-[30px] leading-none font-bold tracking-tight"
-              style={{color: c.accent ? ACCENT : INK}}>
+              style={{color: c.accent ? BLUE : INK}}>
               {typeof c.value==='number' ? c.value.toLocaleString() : c.value}
             </span>
           </div>
@@ -879,9 +1025,9 @@ function CacheTab({s}) {
         </div>
         <div className="h-2.5 flex rounded-full overflow-hidden bg-zinc-100"
           role="img" aria-label={`${pct} percent of messages answered from cache, ${100-pct} percent required an AI call`}>
-          <div style={{width:`${pct}%`, background:ACCENT}}/>
+          <div style={{width:`${pct}%`, background:BLUE}}/>
         </div>
-        <div className="flex justify-between mt-2 mono text-[10px] uppercase tracking-wide">
+        <div className="flex justify-between mt-2 text-[12px]">
           <span style={{color:ACCENT_DK}}>{pct}% from cache</span>
           <span className="text-zinc-500">{100-pct}% AI</span>
         </div>
@@ -890,8 +1036,8 @@ function CacheTab({s}) {
       {/* Hit rate over time — is the cache improving as it fills? */}
       {trend.length >= 2 && (
         <Panel className="p-6">
-          <h2 className="text-[14px] font-semibold text-zinc-900 tracking-tight">Hit rate over time</h2>
-          <Label className="mt-1 block">Daily · is the cache improving?</Label>
+          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Hit rate over time</h2>
+          <p className="text-[14px] text-zinc-500 mt-1">Daily — is the cache improving?</p>
           <HelpNote>Cache hit rate for each day with activity. As reps ask more, the cache fills and this should trend upward — flat or falling means new questions keep missing.</HelpNote>
           <div className="mt-4">
             <Suspense fallback={<div className="h-44 rounded bg-zinc-50 animate-pulse"/>}>
@@ -904,7 +1050,7 @@ function CacheTab({s}) {
       <Panel className="overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-[14px] font-semibold text-zinc-900 tracking-tight">Cached queries</h2>
+            <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Cached queries</h2>
             <p className="text-[12px] text-zinc-500 mt-1 leading-snug">Questions the assistant has answered before — served instantly from cache instead of calling the AI. {(s.cacheTotal||0).toLocaleString()} cached in total, most recent first.</p>
           </div>
           <ExportButton
@@ -915,21 +1061,27 @@ function CacheTab({s}) {
             ], s.cacheEntries)}
           />
         </div>
-        <div className="max-h-[420px] overflow-y-auto">
-          {!s.cacheEntries.length
-            ? <div className="py-16 text-center">
-                <p className="mono text-[12px] uppercase tracking-widest text-zinc-500">Nothing cached yet</p>
-                <p className="text-[12px] text-zinc-500 mt-2">The assistant caches answers as reps ask new questions — entries will appear here.</p>
-              </div>
-            : s.cacheEntries.map((c,i)=>(
-              <div key={i} className="flex items-center gap-4 px-6 py-3 border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
-                <span className="mono text-[10px] text-zinc-500 w-6 shrink-0 text-right tabular-nums">{String(i+1).padStart(2,'0')}</span>
-                <span className="flex-1 text-[13px] text-zinc-700 truncate">{trunc(c.query_text,82)}</span>
-                <span className="mono text-[11px] text-zinc-500 shrink-0 tabular-nums">{ago(c.created_at)}</span>
-              </div>
-            ))
-          }
-        </div>
+        {!s.cacheEntries.length
+          ? <div className="py-16 text-center">
+              <p className="text-[13px] text-zinc-500">Nothing cached yet</p>
+              <p className="text-[12px] text-zinc-500 mt-2">The assistant caches answers as reps ask new questions — entries will appear here.</p>
+            </div>
+          : <>
+              {s.cacheEntries.slice((cachePage-1)*PER_PAGE, cachePage*PER_PAGE).map((c,i) => {
+                const absIdx = (cachePage - 1) * PER_PAGE + i;
+                return (
+                  <div key={absIdx} className="flex items-baseline gap-4 px-6 py-3.5 border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
+                    <span className="mono text-[11px] text-zinc-400 w-7 shrink-0 text-right tabular-nums">{String(absIdx+1).padStart(2,'0')}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[14px] text-zinc-700 truncate">{trunc(c.query_text,82)}</span>
+                    </span>
+                    <span className="mono text-[11px] text-zinc-500 shrink-0 tabular-nums">{ago(c.created_at)}</span>
+                  </div>
+                );
+              })}
+              <Paginator page={cachePage} total={s.cacheEntries.length} onChange={setCachePage}/>
+            </>
+        }
       </Panel>
     </motion.div>
   );
@@ -937,9 +1089,9 @@ function CacheTab({s}) {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton() {
-  const block = "rounded-lg bg-white border border-zinc-200 animate-pulse";
+  const block = "rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse";
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-4">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <div className={`h-32 ${block}`}/>
       <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
         <div className={`h-64 ${block}`}/>
@@ -966,6 +1118,7 @@ export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState('overview');
   const [searchFocus, setSearchFocus] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [navOpen,  setNavOpen]  = useState(false);
   const [drill, setDrill] = useState(null);
   const {stats,loading,demo,lastUp,refreshing,refresh} = useData(onLogout);
 
@@ -978,8 +1131,9 @@ export default function Dashboard({ onLogout }) {
     const onKey = e => {
       const t = e.target;
       if (t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
-      if (e.key>='1' && e.key<=String(NAV.length)) setTab(NAV[+e.key-1].id);
-      else if (e.key==='/') { e.preventDefault(); setTab('conversations'); setSearchFocus(n=>n+1); }
+      if (e.key==='Escape') { setNavOpen(false); return; }
+      if (e.key>='1' && e.key<=String(NAV.length)) { setTab(NAV[+e.key-1].id); setNavOpen(false); }
+      else if (e.key==='/') { e.preventDefault(); setTab('conversations'); setSearchFocus(n=>n+1); setNavOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
@@ -1002,31 +1156,40 @@ export default function Dashboard({ onLogout }) {
     <HelpContext.Provider value={helpOpen}>
     <div className="relative min-h-screen text-zinc-900">
 
-      {/* Blueprint grid on concrete paper — static, no motion */}
+      {/* Clean slate surface — cards float via shadow, no grid texture */}
       <div className="fixed inset-0 -z-10 pointer-events-none" aria-hidden="true"
-        style={{
-          background:'#eeeff0',
-          backgroundImage:`linear-gradient(rgba(24,24,27,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(24,24,27,0.045) 1px, transparent 1px)`,
-          backgroundSize:'34px 34px',
-        }}/>
+        style={{background:'#F1F5F9'}}/>
 
       {/* ── Top navigation ── */}
-      <header className="sticky top-0 z-20 bg-[#eeeff0] border-b border-zinc-300">
+      <header className="sticky top-0 z-20 bg-[#F1F5F9] border-b border-slate-200">
         {/* signal strip */}
-        <div className="h-[3px] w-full" style={{background:ACCENT}}/>
-        <div className="max-w-6xl mx-auto px-6 lg:px-8 h-16 flex items-center gap-6">
+        <div className="h-[3px] w-full" style={{background:BLUE}}/>
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center gap-6">
 
           {/* Wordmark */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-md bg-zinc-900 text-white flex items-center justify-center mono text-[13px] font-bold tracking-tight">HT</div>
-            <div className="leading-none hidden sm:block">
-              <p className="text-[14px] font-bold tracking-tight text-zinc-900">HI-TECH</p>
-              <p className="mono text-[8px] uppercase tracking-[0.2em] text-zinc-500 mt-1">Sales Intelligence</p>
+            <img src="/logo.png" alt="Hi-Tech" className="h-11 w-auto"/>
+            <div className="leading-none hidden md:block">
+              <p className="text-[16px] font-bold tracking-tight" style={{color:BLUE}}>Hi-Tech</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">Sales Intelligence</p>
             </div>
           </div>
 
-          {/* Tab strip */}
-          <nav className="flex items-stretch h-16 flex-1">
+          {/* Mobile nav picker — visible below lg, replaced by full strip above */}
+          {(()=>{ const cur = NAV.find(n=>n.id===tab)||NAV[0]; return (
+            <div className="flex-1 min-w-0 lg:hidden flex items-center overflow-hidden">
+              <button onClick={()=>setNavOpen(o=>!o)}
+                aria-haspopup="listbox" aria-expanded={navOpen}
+                className="flex items-center gap-2 min-w-0 max-w-full px-3.5 py-2 rounded-lg border border-zinc-200 bg-white text-[14px] font-medium text-zinc-800 hover:border-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                <cur.icon size={15} className="shrink-0" style={{color:ACCENT}}/>
+                <span className="truncate">{cur.label}</span>
+                <ChevronDown size={13} className={`shrink-0 text-zinc-400 ml-0.5 transition-transform duration-200${navOpen?' rotate-180':''}`}/>
+              </button>
+            </div>
+          ); })()}
+
+          {/* Tab strip (lg+) */}
+          <nav className="hidden lg:flex items-stretch h-20 flex-1 min-w-0 overflow-hidden">
             {NAV.map((n,idx)=>{
               const active = tab===n.id;
               return (
@@ -1034,11 +1197,11 @@ export default function Dashboard({ onLogout }) {
                   onClick={()=>{ if(!active) setTab(n.id); }}
                   aria-current={active ? 'page' : undefined}
                   title={`${n.label} · press ${idx+1}`}
-                  className={`relative flex items-center gap-2 px-4 text-[13px] transition-colors outline-none focus-visible:bg-zinc-900/5
+                  className={`relative flex items-center gap-2 px-4 text-[14px] transition-colors outline-none focus-visible:bg-zinc-900/5
                     ${active ? 'text-zinc-900 font-semibold' : 'text-zinc-500 hover:text-zinc-900 font-medium'}`}
                 >
                   <n.icon size={15} style={active ? {color:ACCENT} : undefined}/>
-                  <span className="hidden md:inline">{n.label}</span>
+                  <span className="hidden lg:inline">{n.label}</span>
                   {active && (
                     <motion.span layoutId="tabUnderline"
                       className="absolute bottom-0 left-2 right-2 h-[2px]"
@@ -1057,14 +1220,14 @@ export default function Dashboard({ onLogout }) {
               aria-pressed={helpOpen}
               aria-label="Toggle help captions"
               title="Toggle help"
-              className={`flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
+              className={`flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
             >
               <HelpCircle size={15}/>
             </button>
             <div aria-live="polite" className="flex items-center gap-3 empty:hidden">
               {lastUp && (
-                <span className="hidden md:inline mono text-[10px] uppercase tracking-wide text-zinc-500 tabular-nums">
-                  upd {ago(lastUp)}
+                <span className="hidden xl:inline text-[12px] text-zinc-500 tabular-nums">
+                  Updated {ago(lastUp)}
                 </span>
               )}
               {demo && (
@@ -1080,7 +1243,7 @@ export default function Dashboard({ onLogout }) {
               aria-label="Refresh data"
               aria-busy={refreshing}
               whileTap={{scale:0.96}}
-              className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] min-w-[44px] rounded-md bg-zinc-900 text-white text-[12px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-white text-[12px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <motion.div
                 animate={refreshing ? {rotate:360} : {}}
@@ -1088,13 +1251,13 @@ export default function Dashboard({ onLogout }) {
               >
                 <RefreshCw size={12}/>
               </motion.div>
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden lg:inline">Refresh</span>
             </motion.button>
             <button
               onClick={onLogout}
               aria-label="Sign out"
               title="Sign out"
-              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md border bg-white text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-white text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               <LogOut size={15}/>
             </button>
@@ -1103,22 +1266,22 @@ export default function Dashboard({ onLogout }) {
       </header>
 
       {/* ── Page ── */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 lg:px-8 py-8">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-8">
 
         {/* Backend unreachable — sample data is showing. Make it unmistakable. */}
         {demo && (
           <div role="alert"
-            className="mb-6 flex items-center justify-between gap-4 rounded-md border px-4 py-3"
+            className="mb-6 flex items-center justify-between gap-4 rounded-lg border px-4 py-3"
             style={{borderColor:`${ACCENT}66`, background:`${ACCENT}10`}}>
             <div className="flex items-center gap-2.5 min-w-0">
               <AlertTriangle size={16} style={{color:ACCENT_DK}} className="shrink-0"/>
-              <p className="text-[13px] text-zinc-800 leading-snug">
+              <p className="text-[14px] text-zinc-800 leading-snug">
                 <span className="font-semibold">Couldn't reach the database.</span>
                 <span className="text-zinc-600"> Showing sample data — the figures below are not live.</span>
               </p>
             </div>
             <button onClick={refresh} disabled={refreshing}
-              className="shrink-0 mono text-[11px] uppercase tracking-wide font-semibold px-3 py-2 rounded text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               Retry
             </button>
           </div>
@@ -1134,8 +1297,8 @@ export default function Dashboard({ onLogout }) {
             <h1 className="text-[30px] font-extrabold tracking-[-0.02em] text-zinc-900 leading-none">
               {NAV.find(n=>n.id===tab)?.label}
             </h1>
-            <p className="mono text-[10px] uppercase tracking-[0.18em] text-zinc-500 mt-2.5">
-              WhatsApp sales assistant · analytics
+            <p className="text-[14px] text-zinc-500 mt-2">
+              WhatsApp Sales Analytics
             </p>
           </div>
         </motion.div>
@@ -1159,6 +1322,37 @@ export default function Dashboard({ onLogout }) {
           ) : null}
         </AnimatePresence>
       </main>
+      {/* Mobile nav dropdown — AnimatePresence must live INSIDE the portal, not around it */}
+      {createPortal(
+        <AnimatePresence>
+          {navOpen && (
+            <>
+              <div className="fixed inset-0 z-[98]" onClick={()=>setNavOpen(false)} aria-hidden="true"/>
+              <motion.div
+                initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}
+                transition={{duration:0.15,ease:[0.22,1,0.36,1]}}
+                className="fixed left-0 right-0 z-[99] bg-white border-b border-zinc-200 shadow-[0_8px_24px_-4px_rgba(30,41,59,0.12)]"
+                style={{top:'83px'}}
+              >
+                {NAV.map(n=>{
+                  const active = tab===n.id;
+                  return (
+                    <button key={n.id} role="option" aria-selected={active}
+                      onClick={()=>{ setTab(n.id); setNavOpen(false); }}
+                      className={`flex items-center gap-3 w-full px-6 py-4 text-[15px] transition-colors border-b border-zinc-100 last:border-b-0 outline-none focus-visible:bg-zinc-50 ${active?'bg-zinc-50':'hover:bg-zinc-50'}`}
+                    >
+                      <n.icon size={16} style={{color:active?ACCENT:'#71717A'}}/>
+                      <span className={active?'font-semibold':'font-medium'} style={{color:active?INK:'#52525B'}}>{n.label}</span>
+                      {active && <span className="ml-auto w-2 h-2 rounded-full" style={{background:ACCENT}}/>}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
     </HelpContext.Provider>
     </MotionConfig>
