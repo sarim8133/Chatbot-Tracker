@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -11,13 +11,15 @@
 @theme {
   --color-accent: #f5471d;
   --color-accent-dark: #d63a12;
+  --color-blue: #2258b8;   /* brand blue from logo hex */
 }
 
 html, body, #root { height: 100%; }
 
 body {
   font-family: var(--font-sans);
-  background: #eeeff0;
+  background: #F1F5F9;
+  color: #1e293b;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
