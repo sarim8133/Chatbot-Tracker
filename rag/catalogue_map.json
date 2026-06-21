@@ -1,0 +1,52 @@
+{
+  "_comment": "Folder (catalogue id) -> clean {company, catalogue}. Review the entries marked \"review\": true. company = brand/OEM; catalogue = product line/series shown to users.",
+
+  "3_NEO-EII_Parameters_Brochure_20241219_EN":      { "company": "Tederic", "catalogue": "NEO-EII" },
+  "2-DT_Parameters_Brochure_20241227_EN":           { "company": "Tederic", "catalogue": "DT (Toggle-Clamp)" },
+  "4_NEO-HII_Parameters_Brochure__20250102_EN":     { "company": "Tederic", "catalogue": "NEO-HII (Two-Platen)" },
+  "5-Pallet_Product_&Parameters_Brochure__20240801_EN": { "company": "Tederic", "catalogue": "Pallet IMM" },
+  "PET_preform___Product_&Parameters_Brochure_20250212_EN_(1)": { "company": "Tederic", "catalogue": "PET Preform IMM" },
+  "1_DD_Parameters_Brochure_20241224_EN":           { "company": "Tederic", "catalogue": "Tederic DD (Double-Color)" },
+
+  "1_YH_Generation_5":          { "company": "UWA", "catalogue": "YH Gen 5" },
+  "2_YH_Gen_5_Low_Interita":    { "company": "UWA", "catalogue": "YH Gen 5 Low-Inertia" },
+  "3_PET_Generation_5":         { "company": "UWA", "catalogue": "PET Gen 5" },
+  "4_YE_All_Electric_Gen5":     { "company": "UWA", "catalogue": "YE All-Electric Gen 5" },
+  "5_YE_Medical_Gen_5":         { "company": "UWA", "catalogue": "YE Medical Gen 5" },
+  "6_YU_Gen_5":                 { "company": "UWA", "catalogue": "YU Gen 5 (Two-Platen)" },
+  "7_YHSP_Gen_5":               { "company": "UWA", "catalogue": "YHSP Gen 5" },
+  "8_YHS":                      { "company": "UWA", "catalogue": "YHS Gen 5" },
+  "9_UPVC_Gen_5":               { "company": "UWA", "catalogue": "UPVC Gen 5" },
+  "10_CPVC_Gen_5":              { "company": "UWA", "catalogue": "CPVC Gen 5" },
+  "11_Basket_Series_Gen_5":     { "company": "UWA", "catalogue": "Basket Series Gen 5" },
+
+  "JOBO_and_HiTech_Machinery":  { "company": "JOBO", "catalogue": "JOBO Cap Machines" },
+  "MEGA_and_HiTech_Machinery":  { "company": "MEGA", "catalogue": "MEGA Blow Molding" },
+  "Demaji_and_HiTech_Machinery":{ "company": "Demaji", "catalogue": "Demaji Extruders & Mould Steel" },
+  "ECENG_and_HiTech_Machinery": { "company": "ECENG", "catalogue": "ECENG", "review": true },
+  "Huare":                      { "company": "Huare", "catalogue": "Huare Machinery", "review": true },
+
+  "JINHU_01": { "company": "JINHU", "catalogue": "JINHU (Booklet 1)", "review": true },
+  "JINHU_02": { "company": "JINHU", "catalogue": "JINHU Downstream / Extrusion", "review": true },
+  "JINHU_03": { "company": "JINHU", "catalogue": "JINHU (Booklet 3)", "review": true },
+  "JINHU_04": { "company": "JINHU", "catalogue": "JINHU Heat-Transfer Fluid", "review": true },
+
+  "Shangair_01": { "company": "Shangair", "catalogue": "Shangair Compressor" },
+  "Shangair_02": { "company": "Shangair", "catalogue": "Shangair Compressor" },
+
+  "SCR_Compressor_Booklet": { "company": "SCR", "catalogue": "SCR Compressor" },
+  "100APM":                 { "company": "SCR", "catalogue": "SCR APM Screw Air Compressor" },
+  "EPM,_EPM2":              { "company": "SCR", "catalogue": "SCR EPM / EPM2", "review": true },
+  "Downstream_Equipment":   { "company": "SCR", "catalogue": "Downstream / Filters", "review": true },
+
+  "YANGSEN_01": { "company": "Yangsen", "catalogue": "Yangsen Robots" },
+  "YANGSEN_02": { "company": "Yangsen", "catalogue": "Yangsen Robots" },
+  "YIJIU":      { "company": "Yijiu", "catalogue": "Yijiu", "review": true },
+  "autoandHiTech": { "company": "HiTech Machinery", "catalogue": "Automation", "review": true },
+
+  "HiTech-Air-Dryer":            { "company": "HiTech Machinery", "catalogue": "Air Dryer" },
+  "HiTech-IBM-ISBM-Machines":    { "company": "HiTech Machinery", "catalogue": "IBM / ISBM" },
+  "HiTech-Paint-Bucket-IMM":     { "company": "HiTech Machinery", "catalogue": "Paint-Bucket IMM" },
+  "HiTech-Laser-Marking-Machine":{ "company": "HiTech Machinery", "catalogue": "Laser Marking" },
+  "Extrusion-Auxileries":        { "company": "HiTech Machinery", "catalogue": "Extrusion Auxiliaries" }
+}

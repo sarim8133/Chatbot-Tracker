@@ -27,9 +27,14 @@ CREATE OR REPLACE VIEW chat_all AS
   UNION ALL
   SELECT * FROM chat_archive;
 
--- 3. Expose to the Supabase API roles (match the access the live table already has).
-GRANT SELECT ON chat_archive TO anon, authenticated;
-GRANT SELECT ON chat_all     TO anon, authenticated;
+-- 3. Enable RLS on the archive (security-rls.sql adds the policies; this ensures
+--    re-running this file alone doesn't leave the table wide-open).
+ALTER TABLE chat_archive ENABLE ROW LEVEL SECURITY;
+
+-- Expose to authenticated users only. Anon is locked out here and in security-rls.sql.
+-- security-rls.sql also does an explicit REVOKE anon — this is defense in depth.
+GRANT SELECT ON chat_archive TO authenticated;
+GRANT SELECT ON chat_all     TO authenticated;
 
 -- ============================================================================
 -- 4. THE CLEANER — replaces your old DELETE. Run this on your existing schedule
