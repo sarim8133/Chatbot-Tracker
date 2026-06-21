@@ -8,10 +8,10 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send,
 } from 'lucide-react';
 import { getAccessToken } from './auth';
-import { SB_URL, SB_KEY, MSG_SOURCE } from './config';
+import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE } from './config';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1205,12 +1205,339 @@ function Skeleton() {
   );
 }
 
+// ── Chat Tab ──────────────────────────────────────────────────────────────────
+// Talk to the n8n assistant live from inside the dashboard. Posts to the n8n
+// webhook (VITE_N8N_CHAT_WEBHOOK), which runs the same AI/RAG path as the WhatsApp
+// bot and writes each turn to web_chat_histories (separate table → web traffic
+// never distorts the WhatsApp rep analytics). This session's history is restored
+// on mount so a page refresh doesn't lose the thread.
+
+const genSessionId = () =>
+  globalThis.crypto?.randomUUID?.() ?? `sess-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+// The rendered thread — including image URLs, which the DB doesn't store — lives
+// in localStorage so it survives tab switches and reloads. Keyed per session.
+const threadKey  = sid => `ht_web_chat_thread_${sid}`;
+const loadThread = sid => { try { return JSON.parse(localStorage.getItem(threadKey(sid)) || '[]'); } catch { return []; } };
+
+// The signed-in username, pulled from the JWT, to tag rows (Name column).
+function currentUserName() {
+  try {
+    const s = JSON.parse(localStorage.getItem('ht_session') || 'null');
+    // JWT uses base64url (- and _ instead of + and /); atob() needs standard base64.
+    const b64 = s.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64));
+    return (payload.email || '').split('@')[0] || null;
+  } catch { return null; }
+}
+
+// Normalize n8n's webhook response → { text, images, from_cache }. The cloned
+// workflow answers with { reply, images }, but we check the other common field
+// names too so a tweak to the "Respond to Webhook" node won't break the UI.
+async function parseChatReply(res) {
+  const raw = await res.text();
+  let data = null;
+  try { data = JSON.parse(raw); } catch { /* plain-text response */ }
+  if (data == null) return { text: raw.trim() || '(empty response)', images: [], from_cache: false };
+  const obj = Array.isArray(data) ? (data[0] ?? {}) : data;
+  if (typeof obj === 'string') return { text: obj, images: [], from_cache: false };
+  const t = obj.reply ?? obj.output ?? obj.response ?? obj.text ?? obj.message ?? obj.answer ?? obj.AI_Response ?? '';
+  const imgs = obj.images ?? obj.image_urls ?? [];
+  return {
+    text: (typeof t === 'string' && t) ? t : JSON.stringify(obj),
+    images: Array.isArray(imgs) ? imgs.filter(u => typeof u === 'string' && u.startsWith('https://')) : [],
+    from_cache: !!(obj.from_cache ?? obj.cached),
+  };
+}
+
+// The assistant replies in WhatsApp style: *single-asterisk bold* and \n line
+// breaks (the web clone shares the WhatsApp semantic_cache, so cached hits arrive
+// pre-formatted that way). Render *bold* via React nodes — never innerHTML.
+function formatReply(text) {
+  return String(text).split(/(\*[^*\n]+\*)/g).map((p, i) =>
+    /^\*[^*\n]+\*$/.test(p)
+      ? <strong key={i} className="font-semibold">{p.slice(1, -1)}</strong>
+      : <span key={i}>{p}</span>
+  );
+}
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-1" aria-label="Assistant is typing">
+      {[0,1,2].map(i=>(
+        <motion.span key={i}
+          className="w-1.5 h-1.5 rounded-full bg-zinc-400"
+          animate={{opacity:[0.3,1,0.3], y:[0,-2,0]}}
+          transition={{duration:0.9, repeat:Infinity, ease:'easeInOut', delay:i*0.15}}
+        />
+      ))}
+    </span>
+  );
+}
+
+const AssistantTag = ({error=false, from_cache=false}) => (
+  <span className="flex items-center gap-1.5 px-1">
+    <span className="flex items-center justify-center w-4 h-4 rounded" style={{background:`${ACCENT}1A`}}>
+      <Bot size={11} style={{color:ACCENT_DK}}/>
+    </span>
+    <span className="mono text-[10px] uppercase tracking-widest" style={{color: error ? NEG : ACCENT_DK}}>
+      {error ? 'Error' : 'Assistant'}
+    </span>
+    {from_cache && (
+      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{color:BLUE, background:'#EFF6FF'}}>From cache</span>
+    )}
+  </span>
+);
+
+function ChatBubble({ m }) {
+  const isUser = m.role === 'user';
+  return (
+    <motion.div
+      initial={{opacity:0, y:6}} animate={{opacity:1, y:0}}
+      transition={{duration:0.22, ease:[0.22,1,0.36,1]}}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+    >
+      <div className={`flex flex-col gap-1.5 max-w-[80%] sm:max-w-[68%] ${isUser ? 'items-end' : 'items-start'}`}>
+        {!isUser && <AssistantTag error={m.error} from_cache={m.from_cache}/>}
+        <div
+          className={`px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
+            isUser ? 'text-white rounded-br-sm'
+            : m.error ? 'rounded-bl-sm border'
+            : 'bg-white border border-zinc-200 text-zinc-800 rounded-bl-sm'
+          }`}
+          style={
+            isUser ? {background:INK}
+            : m.error ? {background:'#FEF2F2', borderColor:'#FECACA', color:'#991B1B'}
+            : undefined
+          }
+        >
+          {isUser ? m.text : formatReply(m.text)}
+        </div>
+        {!isUser && m.images?.length > 0 && (
+          <div className={`grid gap-1.5 w-full ${m.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {m.images.map((src, i) => (
+              <a key={i} href={src} target="_blank" rel="noreferrer noopener"
+                 title="Open full spec sheet"
+                 className="block rounded-lg overflow-hidden border border-zinc-200 bg-white transition-shadow hover:shadow-[0_4px_16px_-4px_rgba(30,41,59,0.18)] outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                <img src={src} alt={`Spec sheet ${i+1}`} loading="lazy"
+                     className="w-full h-auto object-cover"/>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function ChatTab() {
+  const reduce = useReducedMotion();
+  const [sessionId, setSessionId] = useState(() => {
+    const user = currentUserName() || 'anon';
+    const key = `ht_web_chat_session_${user}`;
+    let id = localStorage.getItem(key);
+    if (!id) { id = genSessionId(); localStorage.setItem(key, id); }
+    return id;
+  });
+  const [messages, setMessages] = useState(() => loadThread(sessionId));
+  const [input,    setInput]    = useState('');
+  const [sending,  setSending]  = useState(false);
+  const scrollRef = useRef(null);
+  const taRef     = useRef(null);
+
+  const configured = !!N8N_CHAT_WEBHOOK;
+
+  // Restore on mount / "New chat". localStorage is the source of truth (it keeps
+  // image URLs); only fall back to the DB (text-only) when there's no local thread.
+  useEffect(() => {
+    if (loadThread(sessionId).length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        const { data } = await sbFetch(token, WEB_CHAT_SOURCE,
+          `select=Timestamp,User_Message,AI_Response,from_cache&session_id=eq.${encodeURIComponent(sessionId)}&order=Timestamp.asc&limit=200`);
+        if (cancelled) return;
+        setMessages(data.flatMap(r => [
+          r.User_Message ? {role:'user',      text:r.User_Message, ts:r.Timestamp} : null,
+          r.AI_Response  ? {role:'assistant', text:r.AI_Response, from_cache:r.from_cache, ts:r.Timestamp} : null,
+        ].filter(Boolean)));
+      } catch { /* no history / unreachable → start empty */ }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId]);
+
+  // Persist the thread (with images) so switching tabs / reloading keeps it intact.
+  useEffect(() => {
+    try { localStorage.setItem(threadKey(sessionId), JSON.stringify(messages)); }
+    catch { /* storage full — ignore */ }
+  }, [messages, sessionId]);
+
+  // Keep the thread pinned to the newest message.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: reduce ? 'auto' : 'smooth' });
+  }, [messages, sending, reduce]);
+
+  const grow = useCallback(() => {
+    const ta = taRef.current; if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
+  }, []);
+
+  const send = useCallback(async () => {
+    const text = input.trim();
+    if (!text || sending || !configured) return;
+    setMessages(m => [...m, { role:'user', text, ts:Date.now() }]);
+    setInput('');
+    requestAnimationFrame(() => { if (taRef.current) taRef.current.style.height = 'auto'; });
+    setSending(true);
+    try {
+      const res = await fetch(N8N_CHAT_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, session_id: sessionId, name: currentUserName() }),
+      });
+      // The request reached n8n but the workflow errored (e.g. a failing node).
+      // Surface the status + server message so it's clear this isn't a CORS issue.
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
+        setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
+        return;
+      }
+      const { text: reply, images, from_cache } = await parseChatReply(res);
+      setMessages(m => [...m, { role:'assistant', text: reply, images, from_cache, ts:Date.now() }]);
+    } catch {
+      // fetch itself threw → the request never completed (network down, wrong URL,
+      // or a genuine CORS block where no response is readable).
+      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+    } finally {
+      setSending(false);
+    }
+  }, [input, sending, configured, sessionId]);
+
+  const newChat = useCallback(() => {
+    const user = currentUserName() || 'anon';
+    localStorage.removeItem(threadKey(sessionId));
+    const id = genSessionId();
+    localStorage.setItem(`ht_web_chat_session_${user}`, id);
+    setSessionId(id);
+    setMessages([]);
+    setInput('');
+  }, [sessionId]);
+
+  const onKeyDown = e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  };
+
+  return (
+    <motion.div variants={stagger} initial="hidden" animate="show">
+      <Panel className="flex flex-col overflow-hidden" style={{height:'calc(100vh - 260px)', minHeight:'440px'}}>
+
+        {/* Header — bot identity + new-chat reset */}
+        <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-zinc-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{background:`${ACCENT}14`}}>
+              <Bot size={18} style={{color:ACCENT_DK}}/>
+            </span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-zinc-900 leading-tight">Hi-Tech Assistant</p>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
+                <span className="mono text-[10px] uppercase tracking-widest text-zinc-500">live · n8n</span>
+              </span>
+            </div>
+          </div>
+          <button onClick={newChat}
+            aria-label="Start a new chat"
+            className="flex items-center gap-1.5 px-3 min-h-[40px] shrink-0 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+            <RefreshCw size={13}/><span className="hidden sm:inline">New chat</span>
+          </button>
+        </div>
+
+        {/* Thread */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" style={{background:'#FAFAFA'}}>
+          {!configured ? (
+            <div className="h-full flex items-center justify-center text-center px-6">
+              <div className="max-w-sm">
+                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:`${ACCENT}14`}}>
+                  <AlertTriangle size={22} style={{color:ACCENT_DK}}/>
+                </span>
+                <p className="text-[15px] font-semibold text-zinc-900">Chat webhook not configured</p>
+                <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
+                  Set <span className="mono text-[12px] px-1 py-0.5 rounded bg-zinc-100 text-zinc-700">VITE_N8N_CHAT_WEBHOOK</span> in your <span className="mono text-[12px] px-1 py-0.5 rounded bg-zinc-100 text-zinc-700">.env</span> to your n8n webhook URL, then reload.
+                </p>
+              </div>
+            </div>
+          ) : messages.length === 0 && !sending ? (
+            <div className="h-full flex items-center justify-center text-center px-6">
+              <div className="max-w-sm">
+                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:`${ACCENT}14`}}>
+                  <Bot size={22} style={{color:ACCENT_DK}}/>
+                </span>
+                <p className="text-[15px] font-semibold text-zinc-900">Talk to your assistant</p>
+                <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
+                  This runs the same n8n workflow as the WhatsApp bot. Ask a product question to test it.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {messages.map((m,i)=><ChatBubble key={`${m.ts}_${i}`} m={m}/>)}
+              {sending && (
+                <div className="flex justify-start">
+                  <div className="flex flex-col gap-1 items-start">
+                    <AssistantTag/>
+                    <div className="px-4 py-3 bg-white border border-zinc-200 rounded-2xl rounded-bl-sm"><TypingDots/></div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Composer */}
+        <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={taRef}
+              rows={1}
+              value={input}
+              maxLength={1500}
+              disabled={!configured}
+              onChange={e=>{ setInput(e.target.value); grow(); }}
+              onKeyDown={onKeyDown}
+              placeholder={configured ? 'Message the assistant…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
+              aria-label="Message the assistant"
+              className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-white border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            <button
+              onClick={send}
+              disabled={!configured || sending || !input.trim()}
+              aria-label="Send message"
+              className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
+              style={{background: (!configured || sending || !input.trim()) ? '#A1A1AA' : ACCENT}}
+            >
+              <Send size={17}/>
+            </button>
+          </div>
+        </div>
+
+      </Panel>
+    </motion.div>
+  );
+}
+
 // ── Nav Config ────────────────────────────────────────────────────────────────
 const NAV = [
   {id:'overview',      label:'Overview',      icon:LayoutDashboard},
   {id:'conversations', label:'Conversations', icon:MessageSquare},
   {id:'users',         label:'Reps',          icon:Users},
   {id:'cache',         label:'Cache',         icon:Database},
+  {id:'chat',          label:'Chat',          icon:Bot, sub:'Test your assistant live'},
 ];
 
 // ── Root Component ────────────────────────────────────────────────────────────
@@ -1227,7 +1554,19 @@ export default function Dashboard({ onLogout }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [navOpen,  setNavOpen]  = useState(false);
   const [drill, setDrill] = useState(null);
-  const {stats,loading,demo,lastUp,refreshing,refresh} = useData(onLogout);
+
+  // Clear this user's chat thread from localStorage before signing out so
+  // the next person on the same machine can't see it in devtools.
+  const handleLogout = useCallback(() => {
+    const user = currentUserName() || 'anon';
+    const sessionKey = `ht_web_chat_session_${user}`;
+    const sessionId  = localStorage.getItem(sessionKey);
+    if (sessionId) localStorage.removeItem(threadKey(sessionId));
+    localStorage.removeItem(sessionKey);
+    onLogout?.();
+  }, [onLogout]);
+
+  const {stats,loading,demo,lastUp,refreshing,refresh} = useData(handleLogout);
 
   // Toast notifications
   const [toast, setToast]    = useState(null);
@@ -1281,7 +1620,7 @@ export default function Dashboard({ onLogout }) {
   useEffect(()=>{
     if (!onLogout) return;
     let timer;
-    const reset = () => { clearTimeout(timer); timer = setTimeout(onLogout, 30*60*1000); };
+    const reset = () => { clearTimeout(timer); timer = setTimeout(handleLogout, 30*60*1000); };
     const evts = ['mousemove','keydown','click','scroll','touchstart'];
     evts.forEach(e=>window.addEventListener(e, reset, {passive:true}));
     reset();
@@ -1392,7 +1731,7 @@ export default function Dashboard({ onLogout }) {
               <span className="hidden lg:inline">Refresh</span>
             </motion.button>
             <button
-              onClick={onLogout}
+              onClick={handleLogout}
               aria-label="Sign out"
               title="Sign out"
               className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-white text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
@@ -1436,7 +1775,7 @@ export default function Dashboard({ onLogout }) {
               {NAV.find(n=>n.id===tab)?.label}
             </h1>
             <p className="text-[14px] text-zinc-500 mt-2">
-              WhatsApp Sales Analytics
+              {NAV.find(n=>n.id===tab)?.sub || 'WhatsApp Sales Analytics'}
             </p>
           </div>
         </motion.div>
@@ -1456,6 +1795,7 @@ export default function Dashboard({ onLogout }) {
               {tab==='conversations' && <ConversationsTab s={stats} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill}/>}
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
               {tab==='cache'         && <CacheTab         s={stats}/>}
+              {tab==='chat'          && <ChatTab/>}
             </motion.div>
           ) : null}
         </AnimatePresence>
