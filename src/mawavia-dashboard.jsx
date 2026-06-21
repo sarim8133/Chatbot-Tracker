@@ -15,10 +15,8 @@ import { SB_URL, SB_KEY, MSG_SOURCE } from './config';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
-const REP_NAMES = {
-  '923366179838': 'Sarim',
-  '923004471122': 'Ahmed Raza',
-};
+// Rep names are populated from the Name column in n8n_chat_histories when data loads.
+let _repNames = {};
 
 // Deterministic pastel color per rep — assigned from the last 2 digits of their number
 const AVATAR_PALETTE = [
@@ -61,9 +59,9 @@ const fmtPhone = n => {
     return `+92 ${s.slice(2,5)} ${s.slice(5,8)} ${s.slice(8)}`;
   return `+${s}`;
 };
-const repName  = n => REP_NAMES[clean(n)] || fmtPhone(n);
+const repName  = n => _repNames[clean(n)] || fmtPhone(n);
 const initials = n => {
-  const nm = REP_NAMES[clean(n)];
+  const nm = _repNames[clean(n)];
   if (nm) { const p = nm.trim().split(/\s+/); return (p[0][0] + (p[1]?.[0] ?? '')).toUpperCase(); }
   return String(n).slice(-2);
 };
@@ -228,7 +226,7 @@ function useData(onAuthError) {
     catch { onAuthError?.(); setLoading(false); setRefreshing(false); return; }   // session gone → back to login
     try {
       const [m,c] = await Promise.all([
-        sbFetch(token, MSG_SOURCE,'select=Timestamp,User_Number,User_Message,AI_Response,from_cache&order=Timestamp.desc&limit=500'),
+        sbFetch(token, MSG_SOURCE,'select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache&order=Timestamp.desc&limit=500'),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
       ]);
       const msgs=m.data, cache=c.data, now=new Date();
@@ -242,12 +240,14 @@ function useData(onAuthError) {
       const um={};
       msgs.forEach(x=>{
         const u=String(x.User_Number);
-        if(!um[u])um[u]={number:u,count:0,lastActive:x.Timestamp,msgs:[]};
+        if(!um[u])um[u]={number:u,name:x.Name||null,count:0,lastActive:x.Timestamp,msgs:[]};
+        if(!um[u].name && x.Name) um[u].name = x.Name;
         um[u].count++;
         if(um[u].msgs.length<50)um[u].msgs.push(x);
         if(new Date(x.Timestamp)>new Date(um[u].lastActive))um[u].lastActive=x.Timestamp;
       });
       const users=Object.values(um).sort((a,b)=>b.count-a.count);
+      _repNames = Object.fromEntries(users.filter(u=>u.name).map(u=>[u.number,u.name]));
       // "Most asked" groups by the cached ANSWER, not the question text: paraphrases
       // that hit the same cache entry share an identical answer, so they merge into
       // one topic. Skip empty/short answers so generic fallbacks can't cluster
