@@ -29,61 +29,57 @@ export default function Login({ onSuccess }) {
     }
   };
 
-  const field = "w-full px-3.5 py-3 text-[14px] text-zinc-900 bg-white border border-zinc-300 rounded-md outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 placeholder-zinc-400";
+  const field = "w-full px-3.5 py-3 text-[14px] text-zinc-900 bg-white border border-zinc-300 rounded-lg outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 placeholder-zinc-400";
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-5 text-zinc-900">
-      {/* Blueprint grid on concrete paper — same surface as the dashboard */}
+      {/* Clean slate surface — matches the dashboard background */}
       <div className="fixed inset-0 -z-10 pointer-events-none" aria-hidden="true"
-        style={{
-          background:'#eeeff0',
-          backgroundImage:'linear-gradient(rgba(24,24,27,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(24,24,27,0.045) 1px, transparent 1px)',
-          backgroundSize:'34px 34px',
-        }}/>
+        style={{background:'#F1F5F9'}}/>
 
-      <div className="w-full max-w-[380px]">
-        <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden shadow-[0_1px_0_0_rgba(24,24,27,0.04),0_18px_40px_-18px_rgba(24,24,27,0.25)]">
+      <div className="w-full max-w-[440px]">
+        <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden shadow-[0_2px_8px_-2px_rgba(30,41,59,0.1),0_12px_32px_-8px_rgba(30,41,59,0.18)]">
           {/* signal strip */}
-          <div className="h-[3px] w-full" style={{background:ACCENT}}/>
-          <div className="p-7">
+          <div className="h-[3px] w-full" style={{background:'#2258B8'}}/>
+          <div className="p-9">
             {/* Wordmark */}
             <div className="flex items-center gap-2.5 mb-7">
-              <div className="w-9 h-9 rounded-md bg-zinc-900 text-white flex items-center justify-center mono text-[14px] font-bold tracking-tight">HT</div>
+              <img src="/logo.png" alt="Hi-Tech" className="h-9 w-auto"/>
               <div className="leading-none">
-                <p className="text-[15px] font-bold tracking-tight text-zinc-900">HI-TECH</p>
-                <p className="mono text-[8px] uppercase tracking-[0.2em] text-zinc-500 mt-1">Sales Intelligence</p>
+                <p className="text-[15px] font-semibold tracking-tight" style={{color:'#2258B8'}}>Hi-Tech</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Sales Intelligence</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <Lock size={15} className="text-zinc-400"/>
-              <h1 className="text-[20px] font-extrabold tracking-[-0.02em] text-zinc-900">Sign in</h1>
+              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">Sign in</h1>
             </div>
-            <p className="text-[12.5px] text-zinc-500 mt-1 mb-6">Restricted — authorized staff only.</p>
+            <p className="text-[13px] text-zinc-500 mt-1 mb-6">Restricted — authorized staff only.</p>
 
             <form onSubmit={submit} className="space-y-3.5">
               <div>
-                <label htmlFor="login-id" className="mono text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1.5 block">ID</label>
+                <label htmlFor="login-id" className="text-[12px] font-medium text-zinc-600 mb-1.5 block">ID / Email</label>
                 <input id="login-id" type="text" autoComplete="username" autoFocus
                   value={user} onChange={e=>setUser(e.target.value)}
-                  placeholder="sarim" className={field}/>
+                  placeholder="Username" className={field}/>
               </div>
               <div>
-                <label htmlFor="login-pass" className="mono text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1.5 block">Password</label>
+                <label htmlFor="login-pass" className="text-[12px] font-medium text-zinc-600 mb-1.5 block">Password</label>
                 <div className="relative">
                   <input id="login-pass" type={show ? 'text' : 'password'} autoComplete="current-password"
                     value={pass} onChange={e=>setPass(e.target.value)}
                     placeholder="••••••••" className={`${field} pr-11`}/>
                   <button type="button" onClick={()=>setShow(s=>!s)}
                     aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded text-zinc-400 hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-lg text-zinc-400 hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                     {show ? <EyeOff size={15}/> : <Eye size={15}/>}
                   </button>
                 </div>
               </div>
 
               {err && (
-                <p role="alert" className="flex items-start gap-1.5 text-[12px] leading-snug rounded-md px-3 py-2"
+                <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-snug rounded-lg px-3 py-2"
                   style={{color:ACCENT_DK, background:`${ACCENT}0D`, border:`1px solid ${ACCENT}33`}}>
                   <AlertTriangle size={13} className="mt-0.5 shrink-0"/>
                   <span>{err}</span>
@@ -91,7 +87,7 @@ export default function Login({ onSuccess }) {
               )}
 
               <button type="submit" disabled={busy || !user || !pass}
-                className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-md bg-zinc-900 text-white text-[13px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
                 {busy
                   ? <><RefreshCw size={14} className="animate-spin"/> Signing in…</>
                   : <><LogIn size={14}/> Sign in</>}
@@ -100,8 +96,8 @@ export default function Login({ onSuccess }) {
           </div>
         </div>
 
-        <p className="mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 text-center mt-5">
-          Hi-Tech · WhatsApp Sales Assistant
+        <p className="text-[12px] text-zinc-400 text-center mt-5">
+          Hi-Tech Machinery · Authorized access only
         </p>
       </div>
     </div>
