@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info,
 } from 'lucide-react';
 import { getAccessToken } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE } from './config';
@@ -395,6 +395,57 @@ const Label = ({children, className=''}) => (
   <span className={`mono text-[11px] font-medium tracking-[0.02em] text-zinc-500 ${className}`}>{children}</span>
 );
 
+// Hover tooltip for metric labels — portal-rendered so overflow:hidden panels can't clip it.
+function HintIcon({ text }) {
+  const ref   = useRef(null);
+  const [pos, setPos] = useState(null);
+  const show = () => {
+    if (!ref.current) return;
+    const r   = ref.current.getBoundingClientRect();
+    const vpW = window.innerWidth;
+    const W   = 220;
+    let x = r.left + r.width / 2;
+    if (x - W / 2 < 8)       x = W / 2 + 8;
+    if (x + W / 2 > vpW - 8) x = vpW - W / 2 - 8;
+    setPos({ x, y: r.bottom + 7 });
+  };
+  return (
+    <>
+      <button ref={ref} type="button" tabIndex={0}
+        onMouseEnter={show} onMouseLeave={()=>setPos(null)}
+        onFocus={show}      onBlur={()=>setPos(null)}
+        aria-label={text}
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded text-zinc-400 hover:text-zinc-600 outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 transition-colors"
+      >
+        <Info size={10}/>
+      </button>
+      {createPortal(
+        <AnimatePresence>
+          {pos && (
+            <motion.div
+              key="hint"
+              initial={{opacity:0, y:-4, scale:0.97}}
+              animate={{opacity:1, y:0,  scale:1}}
+              exit={{opacity:0,   y:-4,  scale:0.97}}
+              transition={{duration:0.12, ease:[0.22,1,0.36,1]}}
+              style={{
+                position:'fixed', left:pos.x, top:pos.y,
+                transform:'translateX(-50%)',
+                background:INK,
+                zIndex:400,
+              }}
+              className="pointer-events-none max-w-[220px] px-3 py-2 rounded-lg text-[11.5px] text-white leading-snug shadow-[0_8px_24px_-4px_rgba(0,0,0,0.4)]"
+            >
+              {text}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
+  );
+}
+
 // Signed delta in mono with an arrow glyph (never color-alone)
 const Delta = ({value}) => {
   if (value == null) return null;
@@ -421,16 +472,26 @@ const Tag = ({number, lg=false}) => {
 };
 
 // Secondary action — ghost button matching the system (white, hairline, ink on hover)
-const ExportButton = ({onClick, disabled=false, label='Export'}) => (
-  <button
-    onClick={onClick} disabled={disabled}
-    aria-label={`${label} as CSV`} title={`${label} as CSV`}
-    className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    <Download size={13}/>
-    <span>{label}</span>
-  </button>
-);
+const ExportButton = ({exportFn, disabled=false, label='Export'}) => {
+  const ctx = useContext(ToastContext);
+  const handleClick = async () => {
+    if (!exportFn) return;
+    ctx?.pushToast({state:'preparing', msg:'Preparing CSV export…'});
+    await new Promise(r => setTimeout(r, 60));
+    exportFn();
+    ctx?.pushToast({state:'done', msg:'Export complete!'});
+  };
+  return (
+    <button
+      onClick={handleClick} disabled={disabled}
+      aria-label={`${label} as CSV`} title={`${label} as CSV`}
+      className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <Download size={13}/>
+      <span>{label}</span>
+    </button>
+  );
+};
 
 // Inline SVG sparkline — single accent stroke, last point marked
 function Sparkline({data, w=128, h=36, color=ACCENT}) {
@@ -454,6 +515,36 @@ function Sparkline({data, w=128, h=36, color=ACCENT}) {
 // A page-level "?" toggle reveals plain-language captions inline (no popovers to
 // clip or position, fully keyboard/touch accessible).
 const HelpContext = createContext(false);
+
+const ToastContext = createContext(null);
+function ToastPortal() {
+  const ctx = useContext(ToastContext);
+  if (!ctx) return null;
+  const { toast } = ctx;
+  return createPortal(
+    <AnimatePresence>
+      {toast && (
+        <motion.div
+          key={toast.id}
+          initial={{opacity:0, y:14, scale:0.96}}
+          animate={{opacity:1, y:0,  scale:1}}
+          exit={{opacity:0,   y:8,   scale:0.96}}
+          transition={{duration:0.2, ease:[0.22,1,0.36,1]}}
+          className="fixed bottom-6 right-6 z-[300] flex items-center gap-2.5 px-4 py-3 rounded-xl text-[13px] font-medium text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35)]"
+          style={{background:INK}}
+          role="status" aria-live="polite"
+        >
+          {toast.state === 'preparing'
+            ? <motion.div animate={{rotate:360}} transition={{duration:0.7,repeat:Infinity,ease:'linear'}}><RefreshCw size={13} className="text-zinc-400"/></motion.div>
+            : <CheckCircle2 size={14} className="text-emerald-400 shrink-0"/>
+          }
+          <span>{toast.msg}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
+  );
+}
 const HelpNote = ({children}) => {
   const on = useContext(HelpContext);
   if (!on) return null;
@@ -526,9 +617,12 @@ function OverviewTab({s, onDrill}) {
       {/* Readout cluster — one instrument panel, hero + ledger, divided by hairlines */}
       <Panel className="grid grid-cols-1 md:grid-cols-[1.6fr_repeat(3,1fr)] divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden">
         {/* Primary readout */}
-        <div className="p-6" title="All messages exchanged with the assistant">
+        <div className="p-6">
           <div className="flex items-center justify-between">
-            <Label>Total messages</Label>
+            <span className="flex items-center gap-1">
+              <Label>Total messages</Label>
+              <HintIcon text="All messages exchanged with the assistant, across every rep"/>
+            </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
               <span className="mono text-[9px] uppercase tracking-widest text-zinc-500">live</span>
@@ -545,9 +639,12 @@ function OverviewTab({s, onDrill}) {
         </div>
         {/* Ledger cells */}
         {ledger.map(c=>(
-          <div key={c.label} title={c.hint} className="p-6 flex flex-col justify-between gap-6">
+          <div key={c.label} className="p-6 flex flex-col justify-between gap-6">
             <div className="flex items-center justify-between">
-              <Label>{c.label}</Label>
+              <span className="flex items-center gap-1">
+                <Label>{c.label}</Label>
+                {c.hint && <HintIcon text={c.hint}/>}
+              </span>
               {c.delta!=null && <Delta value={c.delta}/>}
             </div>
             <span className="mono text-[30px] leading-none font-bold tracking-tight text-zinc-900">
@@ -633,7 +730,7 @@ function OverviewTab({s, onDrill}) {
           </div>
           {s.gaps?.length > 0 && (
             <ExportButton
-              onClick={()=>exportCSV('gaps', [
+              exportFn={()=>exportCSV('gaps', [
                 {label:'Question',    get:g=>g.text},
                 {label:'Times asked', get:g=>g.count},
                 {label:'Last asked',  get:g=>new Date(g.last).toISOString()},
@@ -814,7 +911,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
         </select>
         <ExportButton
           disabled={!filtered.length}
-          onClick={()=>exportCSV('conversations', [
+          exportFn={()=>exportCSV('conversations', [
             {label:'Rep',         get:m=>repName(m.User_Number)},
             {label:'Phone',       get:m=>fmtPhone(m.User_Number)},
             {label:'Message',     get:m=>m.User_Message},
@@ -935,7 +1032,7 @@ function UsersTab({s, onDrill}) {
       <motion.div variants={fadeUp} className="flex items-center justify-between gap-3">
         <p className="text-[14px] text-zinc-500">{s.users.length} {s.users.length===1?'rep':'reps'}</p>
         <ExportButton
-          onClick={()=>exportCSV('reps', [
+          exportFn={()=>exportCSV('reps', [
             {label:'Rank',        get:r=>r._rank},
             {label:'Rep',         get:r=>repName(r.number)},
             {label:'Phone',       get:r=>fmtPhone(r.number)},
@@ -1002,9 +1099,12 @@ function CacheTab({s}) {
 
       <Panel className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 overflow-hidden">
         {cells.map(c=>(
-          <div key={c.label} title={c.hint} className="p-6 flex flex-col justify-between gap-6">
+          <div key={c.label} className="p-6 flex flex-col justify-between gap-6">
             <div className="flex items-center justify-between">
-              <Label>{c.label}</Label>
+              <span className="flex items-center gap-1">
+                <Label>{c.label}</Label>
+                {c.hint && <HintIcon text={c.hint}/>}
+              </span>
               <c.icon size={14} style={c.accent ? {color:BLUE} : undefined} className={c.accent ? '' : 'text-zinc-500'}/>
             </div>
             <span className="mono text-[30px] leading-none font-bold tracking-tight"
@@ -1055,7 +1155,7 @@ function CacheTab({s}) {
           </div>
           <ExportButton
             disabled={!s.cacheEntries.length}
-            onClick={()=>exportCSV('cache', [
+            exportFn={()=>exportCSV('cache', [
               {label:'Query',     get:c=>c.query_text},
               {label:'Cached at', get:c=>new Date(c.created_at).toISOString()},
             ], s.cacheEntries)}
@@ -1115,15 +1215,42 @@ const NAV = [
 
 // ── Root Component ────────────────────────────────────────────────────────────
 export default function Dashboard({ onLogout }) {
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(() => {
+    const hash = window.location.hash.slice(1);
+    return NAV.some(n => n.id === hash) ? hash : 'overview';
+  });
+  const goTab = useCallback(id => {
+    history.pushState(null, '', `#${id}`);
+    setTab(id);
+  }, []);
   const [searchFocus, setSearchFocus] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [navOpen,  setNavOpen]  = useState(false);
   const [drill, setDrill] = useState(null);
   const {stats,loading,demo,lastUp,refreshing,refresh} = useData(onLogout);
 
+  // Toast notifications
+  const [toast, setToast]    = useState(null);
+  const toastTimer            = useRef(null);
+  const pushToast = useCallback(({ state, msg }) => {
+    clearTimeout(toastTimer.current);
+    setToast({ id: Date.now(), state, msg });
+    if (state === 'done') {
+      toastTimer.current = setTimeout(() => setToast(null), 2500);
+    }
+  }, []);
+
+  // Show "Data refreshed" toast when a refresh completes.
+  const prevRefreshing = useRef(false);
+  useEffect(() => {
+    if (prevRefreshing.current && !refreshing) {
+      pushToast({ state: 'done', msg: 'Data refreshed' });
+    }
+    prevRefreshing.current = refreshing;
+  }, [refreshing, pushToast]);
+
   // Drill-through: jump to Conversations with a topic (answer) or rep pre-filter.
-  const goDrill    = useCallback(d => { setTab('conversations'); setDrill(d); }, []);
+  const goDrill    = useCallback(d => { goTab('conversations'); setDrill(d); }, [goTab]);
   const clearDrill = useCallback(() => setDrill(null), []);
 
   // Keyboard accelerators: 1–4 switch tabs, "/" jumps to Conversations search.
@@ -1132,11 +1259,21 @@ export default function Dashboard({ onLogout }) {
       const t = e.target;
       if (t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
       if (e.key==='Escape') { setNavOpen(false); return; }
-      if (e.key>='1' && e.key<=String(NAV.length)) { setTab(NAV[+e.key-1].id); setNavOpen(false); }
-      else if (e.key==='/') { e.preventDefault(); setTab('conversations'); setSearchFocus(n=>n+1); setNavOpen(false); }
+      if (e.key>='1' && e.key<=String(NAV.length)) { goTab(NAV[+e.key-1].id); setNavOpen(false); }
+      else if (e.key==='/') { e.preventDefault(); goTab('conversations'); setSearchFocus(n=>n+1); setNavOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
+  },[goTab]);
+
+  // Sync tab from browser back/forward.
+  useEffect(()=>{
+    const onPop = () => {
+      const hash = window.location.hash.slice(1);
+      setTab(NAV.some(n => n.id === hash) ? hash : 'overview');
+    };
+    window.addEventListener('popstate', onPop);
+    return ()=>window.removeEventListener('popstate', onPop);
   },[]);
 
   // Idle auto-logout — sign out after 30 min of no interaction, so a session left
@@ -1153,6 +1290,7 @@ export default function Dashboard({ onLogout }) {
 
   return (
     <MotionConfig reducedMotion="user">
+    <ToastContext.Provider value={{ toast, pushToast }}>
     <HelpContext.Provider value={helpOpen}>
     <div className="relative min-h-screen text-zinc-900">
 
@@ -1194,7 +1332,7 @@ export default function Dashboard({ onLogout }) {
               const active = tab===n.id;
               return (
                 <button key={n.id}
-                  onClick={()=>{ if(!active) setTab(n.id); }}
+                  onClick={()=>{ if(!active) goTab(n.id); }}
                   aria-current={active ? 'page' : undefined}
                   title={`${n.label} · press ${idx+1}`}
                   className={`relative flex items-center gap-2 px-4 text-[14px] transition-colors outline-none focus-visible:bg-zinc-900/5
@@ -1338,7 +1476,7 @@ export default function Dashboard({ onLogout }) {
                   const active = tab===n.id;
                   return (
                     <button key={n.id} role="option" aria-selected={active}
-                      onClick={()=>{ setTab(n.id); setNavOpen(false); }}
+                      onClick={()=>{ goTab(n.id); setNavOpen(false); }}
                       className={`flex items-center gap-3 w-full px-6 py-4 text-[15px] transition-colors border-b border-zinc-100 last:border-b-0 outline-none focus-visible:bg-zinc-50 ${active?'bg-zinc-50':'hover:bg-zinc-50'}`}
                     >
                       <n.icon size={16} style={{color:active?ACCENT:'#71717A'}}/>
@@ -1354,7 +1492,9 @@ export default function Dashboard({ onLogout }) {
         document.body
       )}
     </div>
+    <ToastPortal/>
     </HelpContext.Provider>
+    </ToastContext.Provider>
     </MotionConfig>
   );
 }
