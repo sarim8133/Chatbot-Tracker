@@ -148,3 +148,9 @@ grant execute on function public.admin_set_role(uuid,text,text,text,text) to aut
 --                       (+ flips the employee's roster active flag; blocks self-lockout)
 -- Users change their own password client-side via GoTrue PUT /auth/v1/user
 -- (see changePassword in src/auth.js) — no service key needed.
+
+-- 6) Web receipt uploads --------------------------------------------------------
+-- wap_expenses.image_path holds the Supabase Storage object path (bucket "receipts")
+-- for receipts submitted through the website chat. WhatsApp receipts keep using Drive
+-- (drive_link). Objects are stored at "<uploader_auth_uid>/<expense_id>.jpg".
+alter table public.wap_expenses add column if not exists image_path text;
