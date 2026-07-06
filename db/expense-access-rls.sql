@@ -154,3 +154,23 @@ grant execute on function public.admin_set_role(uuid,text,text,text,text) to aut
 -- for receipts submitted through the website chat. WhatsApp receipts keep using Drive
 -- (drive_link). Objects are stored at "<uploader_auth_uid>/<expense_id>.jpg".
 alter table public.wap_expenses add column if not exists image_path text;
+
+-- Private receipts bucket + read policy (own folder, or admin/accountant):
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('receipts', 'receipts', false, 10485760,
+        array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update
+  set public = false,
+      file_size_limit = 10485760,
+      allowed_mime_types = array['image/jpeg','image/png','image/webp'];
+
+drop policy if exists receipts_read_own_or_admin on storage.objects;
+create policy receipts_read_own_or_admin on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'receipts'
+    and (
+      (storage.foldername(name))[1] = (select auth.uid())::text
+      or private.can_view_all_expenses()
+    )
+  );
