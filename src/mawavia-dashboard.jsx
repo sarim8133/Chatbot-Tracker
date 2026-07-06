@@ -61,20 +61,24 @@ const ChartsFallback = () => (
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// Web-chat reps have no phone, so their identity is stored as "web:<name>" (a name can
+// itself contain digits, e.g. "sales01", so we mark them explicitly rather than infer
+// from digits). WHATSAPP reps are plain phone-number strings.
+const WEB = 'web:';
+const isWebRep = v => String(v).startsWith(WEB);
 const clean    = n => String(n).replace(/\D/g, '');
 const fmtPhone = n => {
+  if (isWebRep(n)) return '—';              // web reps have no phone
   const s = clean(n);
-  if (!s) return '—';                       // web reps have no phone (name-keyed)
+  if (!s) return '—';
   if (s.startsWith('92') && s.length === 12)
     return `+92 ${s.slice(2,5)} ${s.slice(5,8)} ${s.slice(8)}`;
   return `+${s}`;
 };
-// Web-chat users have no phone (their rep "id" is their name), so when there are no
-// digits fall back to the name itself instead of formatting it as a phone number.
-const repName  = n => _repNames[clean(n)] || (clean(n) ? fmtPhone(n) : String(n));
+const repName  = n => isWebRep(n) ? String(n).slice(WEB.length) : (_repNames[clean(n)] || fmtPhone(n));
 const initials = n => {
-  const nm = _repNames[clean(n)] || (clean(n) ? null : String(n));
-  if (nm) { const p = nm.trim().split(/\s+/); return (p[0][0] + (p[1]?.[0] ?? '')).toUpperCase(); }
+  const nm = isWebRep(n) ? String(n).slice(WEB.length) : _repNames[clean(n)];
+  if (nm) { const p = nm.trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0] || '') + (p[1]?.[0] ?? '')).toUpperCase() || nm.slice(0,2).toUpperCase(); }
   return String(n).slice(-2);
 };
 const fmtDay = ts => { const d = new Date(ts); return `${d.getDate()} ${d.toLocaleString('default',{month:'short'})}`; };
@@ -272,7 +276,7 @@ function useData(onAuthError) {
       // Web chats have no phone. Use the display name as the rep identity so the whole
       // phone-keyed pipeline (grouping, the Conversations filter, rep drill-down, CSV)
       // treats them uniformly instead of collapsing every web row into a null rep.
-      msgs.forEach(x=>{ if(x.channel==='web' || x.User_Number==null) x.User_Number = x.Name || 'Website user'; });
+      msgs.forEach(x=>{ if(x.channel==='web' || x.User_Number==null) x.User_Number = WEB + (x.Name || 'Website user'); });
       const tStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
       const yStart=new Date(+tStart-86400000);
       const today=msgs.filter(x=>new Date(x.Timestamp)>=tStart).length;
@@ -290,9 +294,9 @@ function useData(onAuthError) {
         if(new Date(x.Timestamp)>new Date(um[u].lastActive))um[u].lastActive=x.Timestamp;
       });
       const users=Object.values(um).sort((a,b)=>b.count-a.count);
-      // Web reps are name-keyed (no digits) → clean() is empty; exclude them here so
-      // repName falls back to the name instead of a bogus phone. WhatsApp reps register.
-      _repNames = Object.fromEntries(users.filter(u=>u.name && clean(u.number)).map(u=>[u.number,u.name]));
+      // Register only WhatsApp reps (phone-keyed) — web reps carry their name in the
+      // "web:" identity itself, so repName reads it directly without a lookup.
+      _repNames = Object.fromEntries(users.filter(u=>u.name && !isWebRep(u.number)).map(u=>[clean(u.number),u.name]));
       // "Most asked" groups by the cached ANSWER, not the question text: paraphrases
       // that hit the same cache entry share an identical answer, so they merge into
       // one topic. Skip empty/short answers so generic fallbacks can't cluster
