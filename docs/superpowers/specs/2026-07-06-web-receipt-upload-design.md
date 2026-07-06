@@ -27,11 +27,12 @@ after confirm.
    its Supabase access token; n8n validates it via `GET /auth/v1/user` and looks up
    `app_users` to get the trusted `phone` / `full_name` / `department`. `sender_phone`
    cannot be spoofed.
-4. **Two-step status flip, no client-held data.** Step 1 writes the row immediately with
-   `status = 'pending'`; the dashboard hides pending rows. Confirm flips it to the normal
-   status; Reject flips it to `rejected` (already hidden) and deletes the stored image.
-   The extracted numbers live in the DB from the start, so there is nothing for the client
-   to tamper with between the two steps.
+4. **Nothing is saved until Accept.** Step 1 only *reads* the image and returns the
+   extracted fields — it writes **nothing** to the database or Storage. On **Accept**,
+   the image is uploaded to Storage and the row is inserted. On **Reject**, it is
+   discarded entirely client-side (no DB row, no stored file ever existed) and the user
+   is prompted to resend. The browser holds the picked image locally between the two
+   steps, so Accept re-sends it; there is no server-side temp state to clean up.
 
 ## Attribution rules
 
@@ -52,30 +53,35 @@ Derived server-side in n8n from the validated JWT → `app_users`:
 ```
 Browser (Chat tab)                     n8n (new workflow)                 Supabase
 ─────────────────                      ──────────────────                 ────────
-[pick image] ──base64 + JWT──▶  POST /webhook/receipt-web
+[pick image] ──base64 + JWT──▶  POST /webhook/receipt-web  (action=extract)
                                   1. validate JWT  ──GET /auth/v1/user──▶  Auth
                                   2. lookup app_users ─────────────────▶  app_users
                                   3. gate by attribution rules
-                                  4. upload file ─────────────────────▶  Storage: receipts/
-                                  5. Gemini vision extract (reuse WA sub-chain)
-                                  6. INSERT wap_expenses(status='pending')▶ wap_expenses
-                              ◀── { expense_id, fields, image_url } ──
-[preview card] ──[Confirm]/[Reject] + expense_id + JWT──▶ POST /webhook/receipt-web-confirm
-                                  1. validate JWT + ownership (row.sender_phone == caller)
-                                  2. Confirm → UPDATE status='processed'
-                                     Reject  → UPDATE status='rejected' + delete Storage object
-                              ◀── { ok } ──
-[card resolves to ✓ Saved / ✗ Discarded]
+                                  4. Gemini vision extract (reuse WA sub-chain)
+                                     (NOTHING written to DB or Storage yet)
+                              ◀── { fields, ai_confidence } ──
+[preview card]
+   ├─[Reject] ── discard locally, prompt "upload again / contact accountant" (no server call needed)
+   └─[Accept] ──base64 + fields + JWT──▶ POST /webhook/receipt-web  (action=save)
+                                  1. re-validate JWT + re-derive identity
+                                  2. upload file ─────────────────────▶  Storage: receipts/
+                                  3. INSERT wap_expenses (status='processed') ▶ wap_expenses
+                              ◀── { ok, expense_id } ──
+[card resolves to ✓ Saved]
 ```
+
+The browser keeps the picked file in memory, so **Accept** re-sends the base64; **Reject**
+never contacts the server. Identity is re-derived from the JWT on save, so `sender_phone`
+is trusted regardless of what the client sends.
 
 ### Components
 
-- **New n8n workflow — "HiTech Receipt Processor (Web)".** Two webhook entry points
-  (or one webhook with an `action` field): `submit` and `confirm`. The **extraction
-  sub-chain (Gemini vision → parse fields) is reused from the existing WhatsApp
-  workflow**; only the trigger (webhook vs WhatsApp) and the identity source (JWT vs
-  sender phone) differ. Both webhooks return CORS headers (the existing chat webhook
-  already proves browser calls work).
+- **New n8n workflow — "HiTech Receipt Processor (Web)".** One webhook with an `action`
+  field: `extract` (read image, return fields, write nothing) and `save` (upload image +
+  insert row). The **extraction sub-chain (Gemini vision → parse fields) is reused from
+  the existing WhatsApp workflow**; only the trigger (webhook vs WhatsApp) and the
+  identity source (JWT vs sender phone) differ. The webhook returns CORS headers (the
+  existing chat webhook already proves browser calls work).
 - **Supabase Storage bucket `receipts/`** — private. Read gated by RLS so an employee
   can fetch only their own receipt images (by `sender_phone`/owner), admin+accountant
   all. n8n uploads with the service-role key.
@@ -83,7 +89,8 @@ Browser (Chat tab)                     n8n (new workflow)                 Supaba
   department, category, total, subtotal, tax, currency, payment_method, vendor_name,
   date, processed_at, drive_link, ai_confidence, items, status`. The image path is
   stored in `drive_link` (or a new `image_url` column — decide at build time based on
-  what the WhatsApp flow already puts in `drive_link`). `status = 'pending'` on insert.
+  what the WhatsApp flow already puts in `drive_link`). Row is inserted only on **Accept**,
+  with the same `status` the WhatsApp flow uses for good rows (e.g. `'processed'`).
 - **Chat UI (`ChatTab` in `src/mawavia-dashboard.jsx`)** — add an image attach button
   to the existing composer. On select: preview thumbnail, upload, then render a
   **receipt preview card** bubble (vendor / total / category / date + Confirm & save /
@@ -97,29 +104,30 @@ Browser (Chat tab)                     n8n (new workflow)                 Supaba
 
 ## Data flow / status lifecycle
 
-`pending` (created, awaiting confirm) → `processed` (confirmed, shows in dashboard)
-or `rejected` (hidden, image deleted). The ExpensesTab query already filters
-`status = neq.rejected`; it will also exclude `pending` so unconfirmed uploads never
-appear in anyone's ledger.
+There is no `pending` state — a row exists only after Accept, created directly as
+`processed` (matching the WhatsApp flow's good-row status, filtered by the existing
+`status = neq.rejected` dashboard query). A rejected upload never becomes a row at all.
 
 ## Error handling
 
 - Invalid/expired JWT → `401`, chat shows "Please sign in again."
 - Phone-less employee → `403` with the "ask admin" message.
-- Gemini extraction fails / low confidence → return the error; chat shows "Couldn't
-  read that receipt clearly — try a sharper photo, or contact the accountant." No row
-  is committed (or the pending row is cleaned up).
+- Gemini extraction fails / low confidence → step 1 returns the error; chat shows
+  "Couldn't read that receipt clearly — try a sharper photo, or contact the accountant."
+  Nothing is written (nothing ever is, before Accept).
 - Reject → chat: "No problem — upload it again, or contact the accountant if the
-  details keep coming out wrong." Pending row set to `rejected`, image deleted.
-- Confirm on a row the caller doesn't own → `403` (ownership check).
+  details keep coming out wrong." Purely client-side; no server call, no row, no file.
 - Webhook unreachable / CORS → same messaging the chat already uses for the assistant.
 
 ## Security notes
 
 - `sender_phone` is derived from the validated JWT, never from the request body →
   no cross-user impersonation.
-- No field editing + server-side pending row → the confirm step carries only an
-  `expense_id`; totals cannot be altered by the client.
+- No field editing in the UI. The extracted fields are held client-side between the two
+  steps, so a technical user could in principle alter their *own* total before Accept —
+  this only affects their own expenses (which the accountant reviews) and never another
+  employee's. Accepted as a v1 trade-off; can be tightened later by having n8n re-extract
+  on save or hold the extraction server-side.
 - Private Storage bucket + RLS → receipt **images** inherit the same per-employee
   isolation as the expense rows (amounts/vendors don't leak across employees).
 - Service-role key stays inside n8n (as it already does for the WhatsApp flow); the
@@ -130,10 +138,9 @@ appear in anyone's ledger.
 - Employee with phone: upload → preview → confirm → row visible only to them + accountant/admin.
 - Employee without phone: upload → rejected with "ask admin" message; no row written.
 - Admin without phone: upload → confirm → row attributed by name, visible to admin.
-- Reject path: pending row ends `rejected`, image removed, dashboard never shows it.
+- Reject path: no row and no stored file are ever created; user is prompted to resend.
 - Spoof attempt (POST another user's phone in body): ignored; row attributed to the
-  JWT's real user.
-- Confirm someone else's `expense_id`: `403`.
+  JWT's real user on save.
 - Image display: employee sees only their own receipt image; cross-account fetch denied.
 
 ## Out of scope (future)
