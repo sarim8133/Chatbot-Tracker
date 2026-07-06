@@ -1,7 +1,7 @@
 # Web Receipt Upload — Design
 
 **Date:** 2026-07-06
-**Status:** Approved for planning
+**Status:** Implemented 2026-07-06 (branch `feat/web-receipt-upload`; n8n workflow `qXERnY10e57PGhfv` — pending manual credential mapping + activation). Save branch persists the client-confirmed fields (no re-OCR).
 
 ## Goal
 
