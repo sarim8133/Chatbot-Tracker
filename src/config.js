@@ -15,6 +15,11 @@ export const MSG_SOURCE = 'chat_all';
 // shows a "not configured" notice instead of erroring.
 export const N8N_CHAT_WEBHOOK = import.meta.env.VITE_N8N_CHAT_WEBHOOK || '';
 
+// n8n web receipt webhook — the Chat tab's image upload POSTs here (action:'extract'
+// then action:'save'). Separate from the chat webhook. Empty → the attach button is
+// hidden. See docs/superpowers/specs/2026-07-06-web-receipt-upload-design.md.
+export const N8N_RECEIPT_WEBHOOK = import.meta.env.VITE_N8N_RECEIPT_WEBHOOK || '';
+
 // Web-chat history table — separate from the WhatsApp n8n_chat_histories so web
 // traffic never distorts the rep analytics. See db/web-chat.sql.
 export const WEB_CHAT_SOURCE = 'web_chat_histories';
