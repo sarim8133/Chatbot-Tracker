@@ -24,9 +24,27 @@ export const loadSession = () => read();
 export const isAuthed    = () => !!read()?.access_token;
 export const signOut     = () => localStorage.removeItem(LS_KEY);
 
+// Turn a phone number (or bare username) into the account's login email via the
+// resolve_login_email RPC, so people can sign in with either their phone or email.
+// Falls back to the legacy "username@hitech.local" mapping if nothing matches.
+async function resolveLoginEmail(identifier) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/resolve_login_email`, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier }),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return (typeof d === 'string' && d) ? d : null;
+  } catch { return null; }
+}
+
 export async function signIn(username, password) {
   const u = String(username).trim();
-  const email = u.includes('@') ? u : `${u}${DOMAIN}`;
+  let email;
+  if (u.includes('@')) email = u;                               // already an email
+  else email = (await resolveLoginEmail(u)) || `${u}${DOMAIN}`; // phone/username → account email
   const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
@@ -53,6 +71,59 @@ async function refresh(sess) {
   const s = toSession(d);
   write(s);
   return s;
+}
+
+// Change the signed-in user's own password (GoTrue PUT /user with their JWT — no
+// service key needed). Throws on failure.
+export async function changePassword(newPassword) {
+  const token = await getAccessToken();
+  const r = await fetch(`${SB_URL}/auth/v1/user`, {
+    method: 'PUT',
+    headers: { apikey: SB_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error_description || d.msg || d.error || `Couldn't change password (HTTP ${r.status})`);
+  return true;
+}
+
+// Send a password-reset email. Accepts an email OR a phone number (resolved to the
+// account email via resolve_login_email). The email link brings the user back to
+// this site with a recovery session in the URL hash (see consumeRecoveryHash).
+export async function requestPasswordReset(identifier) {
+  const u = String(identifier).trim();
+  const email = u.includes('@') ? u : (await resolveLoginEmail(u));
+  if (!email) throw new Error("We couldn't find an account for that phone number or email.");
+  const redirect = `${window.location.origin}/`;
+  const r = await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirect)}`, {
+    method: 'POST',
+    headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error(d.error_description || d.msg || d.error || `Couldn't send reset email (HTTP ${r.status})`);
+  }
+  return email;
+}
+
+// If the page was opened from a password-reset email, Supabase leaves a short-lived
+// recovery session in the URL hash. Consume it: persist the session so changePassword
+// works, scrub the URL, and return true so the app can show a "set new password" screen.
+export function consumeRecoveryHash() {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hash || '';
+  if (!h.includes('type=recovery')) return false;
+  const p = new URLSearchParams(h.replace(/^#/, ''));
+  const access_token = p.get('access_token');
+  if (!access_token) return false;
+  write({
+    access_token,
+    refresh_token: p.get('refresh_token'),
+    expires_at: Date.now() + (Number(p.get('expires_in')) || 3600) * 1000,
+  });
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  return true;
 }
 
 // Returns a valid access token, silently refreshing within 60s of expiry.
