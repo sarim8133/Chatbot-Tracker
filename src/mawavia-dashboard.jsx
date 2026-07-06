@@ -2796,12 +2796,20 @@ export default function Dashboard({ onLogout }) {
               {tab==='conversations' && <ConversationsTab s={stats} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill}/>}
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
               {tab==='cache'         && <CacheTab         s={stats}/>}
-              {tab==='chat'          && <ChatTab/>}
               {tab==='expenses'      && <ExpensesTab      role={role} onAuthError={handleLogout}/>}
               {tab==='team'          && <TeamTab          role={role} onAuthError={handleLogout}/>}
             </motion.div>
           ) : null}
         </AnimatePresence>
+
+        {/* Chat stays MOUNTED across tab switches (just hidden) so an in-progress
+            receipt upload — its image preview and pending Confirm — isn't destroyed
+            when the user pops over to another tab. Only mounted for roles that have it. */}
+        {nav.some(n => n.id === 'chat') && (
+          <div className={tab === 'chat' ? '' : 'hidden'} aria-hidden={tab !== 'chat'}>
+            <ChatTab/>
+          </div>
+        )}
       </main>
       {/* Mobile nav dropdown — AnimatePresence must live INSIDE the portal, not around it */}
       {createPortal(
