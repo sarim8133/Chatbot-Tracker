@@ -65,7 +65,7 @@ Browser (Chat tab)                     n8n (new workflow)                 Supaba
    └─[Accept] ──base64 + fields + JWT──▶ POST /webhook/receipt-web  (action=save)
                                   1. re-validate JWT + re-derive identity
                                   2. upload file ─────────────────────▶  Storage: receipts/
-                                  3. INSERT wap_expenses (status='processed') ▶ wap_expenses
+                                  3. INSERT wap_expenses (status='logged') ▶ wap_expenses
                               ◀── { ok, expense_id } ──
 [card resolves to ✓ Saved]
 ```
@@ -87,10 +87,11 @@ is trusted regardless of what the client sends.
   all. n8n uploads with the service-role key.
 - **`wap_expenses` reuse** — existing columns: `expense_id, sender_phone, employee_name,
   department, category, total, subtotal, tax, currency, payment_method, vendor_name,
-  date, processed_at, drive_link, ai_confidence, items, status`. The image path is
-  stored in `drive_link` (or a new `image_url` column — decide at build time based on
-  what the WhatsApp flow already puts in `drive_link`). Row is inserted only on **Accept**,
-  with the same `status` the WhatsApp flow uses for good rows (e.g. `'processed'`).
+  date, processed_at, ai_confidence, items, status`. **No Google Drive in the web flow** —
+  the Drive columns (`drive_file_id`/`drive_file_name`/`drive_link`) are left null; the
+  Supabase Storage object path is stored in a new **`image_path`** column instead. Row is
+  inserted only on **Accept**, with `status = 'logged'` (the WhatsApp flow's good-row
+  status; `expense_id` format `EXP-<year>-<last6 of timestamp>`).
 - **Chat UI (`ChatTab` in `src/mawavia-dashboard.jsx`)** — add an image attach button
   to the existing composer. On select: preview thumbnail, upload, then render a
   **receipt preview card** bubble (vendor / total / category / date + Confirm & save /
@@ -105,7 +106,7 @@ is trusted regardless of what the client sends.
 ## Data flow / status lifecycle
 
 There is no `pending` state — a row exists only after Accept, created directly as
-`processed` (matching the WhatsApp flow's good-row status, filtered by the existing
+`logged` (the WhatsApp flow's good-row status, shown by the existing
 `status = neq.rejected` dashboard query). A rejected upload never becomes a row at all.
 
 ## Error handling
