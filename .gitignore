@@ -22,6 +22,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Raw n8n workflow exports — they embed live API keys/credentials. Keep local only.
+# The sanitized clone under n8n/ (no secrets) is safe to commit.
+/Mawavia Whatsapp Chatbot.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

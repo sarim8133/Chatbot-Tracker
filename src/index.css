@@ -30,6 +30,11 @@ body {
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
+/* Hide scrollbar but keep scrollability — used by the tab strip when there are
+   more tabs than fit (e.g. admin sees Expenses + Team on top of the sales tabs). */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Reduced-motion: neutralize CSS animations (pulse) and transitions.
    Framer transforms are handled separately via <MotionConfig reducedMotion="user">. */
 @media (prefers-reduced-motion: reduce) {

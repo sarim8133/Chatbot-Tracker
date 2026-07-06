@@ -10,7 +10,9 @@ import { Maximize2, X } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, Cell, CartesianGrid,
+  PieChart, Pie,
 } from 'recharts';
+import { catColor, fmtPKR, fmtPKRk } from './categories';
 
 const INK       = '#1E293B';
 const ACCENT    = '#F5471D';
@@ -326,6 +328,206 @@ export function HitRateTrend({ data = [] }) {
       >
         {mkChart('m')}
       </ChartModal>
+    </>
+  );
+}
+
+// ── Expenses tab charts (lazily loaded) ───────────────────────────────────────
+// Presentational only — all filtering/selection state lives in ExpensesTab.
+
+const MoneyTip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  const name = p.payload?.name || p.payload?.category || p.payload?.label || '';
+  return (
+    <div className="bg-white border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+      {name && <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{name}</p>}
+      <p className="mono text-[14px] font-bold text-zinc-900">{fmtPKR(p.value)}</p>
+    </div>
+  );
+};
+
+const EmptyChart = ({ label = 'No spend in this period' }) => (
+  <div className="h-full flex items-center justify-center">
+    <p className="mono text-[11px] uppercase tracking-widest text-zinc-400">{label}</p>
+  </div>
+);
+
+// Horizontal employee bars — leader in accent; click to drill. When one employee
+// is selected, it goes accent and the rest dim (so the selection reads clearly).
+function EmployeeSpendBars({ data, selected, onSelect }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
+        <XAxis type="number" tick={tickStyle} axisLine={false} tickLine={false} tickFormatter={fmtPKRk} />
+        <YAxis type="category" dataKey="name" tick={{ ...tickStyle, fill: '#52525B' }} axisLine={false} tickLine={false} width={64} />
+        <Tooltip content={<MoneyTip />} cursor={{ fill: 'rgba(30,41,59,0.04)' }} />
+        <Bar dataKey="total" radius={[0, 3, 3, 0]} maxBarSize={22} cursor="pointer"
+          onClick={(d) => onSelect?.(selected === d?.name ? null : d?.name)}>
+          {data.map((d, i) => {
+            const isSel = selected === d.name;
+            const dim = selected && !isSel;
+            const fill = isSel ? ACCENT : (!selected && i === 0 ? ACCENT : INK);
+            return <Cell key={d.name} fill={fill} fillOpacity={dim ? 0.32 : 1} />;
+          })}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Category donut — fixed per-category hues, PKR total in the hole, and a legend
+// carrying name + % so identity never rests on color alone (the relief rule).
+function CategoryDonut({ data }) {
+  const total = data.reduce((a, b) => a + b.total, 0);
+  return (
+    <div className="flex flex-col h-full">
+      <div className="relative flex-1 min-h-[176px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="total" nameKey="category"
+              innerRadius="62%" outerRadius="92%" paddingAngle={2}
+              stroke="#fff" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false}>
+              {data.map((d) => <Cell key={d.category} fill={catColor(d.category)} />)}
+            </Pie>
+            <Tooltip content={<MoneyTip />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="mono text-[9px] uppercase tracking-widest text-zinc-400">Total</span>
+          <span className="mono text-[17px] font-bold text-zinc-900 tabular-nums">{fmtPKR(total)}</span>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5">
+        {data.map((d) => {
+          const pct = total ? Math.round((d.total / total) * 100) : 0;
+          return (
+            <div key={d.category} className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: catColor(d.category) }} />
+              <span className="text-[12px] text-zinc-700 truncate flex-1">{d.category}</span>
+              <span className="mono text-[11px] text-zinc-500 tabular-nums shrink-0">{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SpendTrend({ data }) {
+  const uid = useId();
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -6 }}>
+        <defs>
+          <linearGradient id={`${uid}sp`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={ACCENT} stopOpacity={0.14} />
+            <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke={LINE} strokeDasharray="2 4" />
+        <XAxis dataKey="label" tick={tickStyle} axisLine={false} tickLine={false} minTickGap={20} />
+        <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
+        <Tooltip content={<MoneyTip />} cursor={{ stroke: INK, strokeWidth: 1, strokeDasharray: '3 3' }} />
+        <Area type="monotone" dataKey="total" stroke={ACCENT} strokeWidth={2}
+          fill={`url(#${uid}sp)`} dot={false} activeDot={{ r: 4, fill: ACCENT, stroke: '#fff', strokeWidth: 2 }} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Panel header with an enlarge button (same affordance as the Overview charts).
+// A plain function, not a component, so it isn't re-created on every render.
+const panelHead = (title, sub, onExpand) => (
+  <div className="flex items-start justify-between gap-3 mb-5">
+    <div>
+      <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">{title}</h2>
+      <p className="text-[13px] text-zinc-500 mt-1">{sub}</p>
+    </div>
+    <ExpandBtn onClick={onExpand} />
+  </div>
+);
+
+export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [], trend = [], selectedEmployee = null, onSelectEmployee, topN = 14 }) {
+  const [expanded, setExpanded] = useState(null); // 'emp' | 'cat' | 'trend'
+
+  const empTop = byEmployee.slice(0, topN);
+  const empHidden = byEmployee.length - empTop.length;
+
+  const donut = byCategory.length ? <CategoryDonut data={byCategory} /> : <EmptyChart />;
+  const spendTrend = trend.length ? <SpendTrend data={trend} /> : <EmptyChart label="Not enough history yet" />;
+  const empBars = (data) => (data.length
+    ? <EmployeeSpendBars data={data} selected={selectedEmployee} onSelect={onSelectEmployee} />
+    : <EmptyChart />);
+
+  const donutTitle = mode === 'personal' ? 'Your categories'
+    : selectedEmployee ? `Categories · ${selectedEmployee}` : 'Categories · whole team';
+  const trendSub = `${mode === 'personal' ? 'You' : (selectedEmployee || 'All employees')} · PKR per month`;
+
+  const donutPanel = (
+    <div className={panelCls}>
+      {panelHead(donutTitle, 'Share of spend by category', () => setExpanded('cat'))}
+      <div className="h-72">{donut}</div>
+    </div>
+  );
+
+  const trendPanel = (
+    <div className={panelCls}>
+      {panelHead('Monthly spend trend', trendSub, () => setExpanded('trend'))}
+      <div className="h-56" role="img" aria-label="Monthly spend trend">{spendTrend}</div>
+    </div>
+  );
+
+  // Enlarge modals — the employee list can be long, so its modal scrolls and
+  // shows every employee (the panel below only shows the top few).
+  const modals = (
+    <>
+      <ChartModal title="Spend by employee" sub={`${byEmployee.length} employee${byEmployee.length === 1 ? '' : 's'}`}
+        open={expanded === 'emp'} onClose={() => setExpanded(null)}>
+        <div className="h-full overflow-y-auto pr-1">
+          <div style={{ height: Math.max(340, byEmployee.length * 26) }}>{empBars(byEmployee)}</div>
+        </div>
+      </ChartModal>
+      <ChartModal title={donutTitle} sub="Share of spend by category"
+        open={expanded === 'cat'} onClose={() => setExpanded(null)}>
+        <div className="h-full">{donut}</div>
+      </ChartModal>
+      <ChartModal title="Monthly spend trend" sub={trendSub}
+        open={expanded === 'trend'} onClose={() => setExpanded(null)}>
+        {spendTrend}
+      </ChartModal>
+    </>
+  );
+
+  if (mode === 'personal') {
+    return (
+      <>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+          {donutPanel}
+          {trendPanel}
+        </div>
+        {modals}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 items-stretch">
+          <div className={panelCls}>
+            {panelHead('Spend by employee',
+              selectedEmployee ? 'Showing one employee — click their bar to clear'
+                : empHidden > 0 ? `Top ${topN} of ${byEmployee.length} — enlarge or search for the rest`
+                : 'Click a bar to drill into one employee',
+              () => setExpanded('emp'))}
+            <div className="h-72" role="img" aria-label="Spend by employee">{empBars(empTop)}</div>
+          </div>
+          {donutPanel}
+        </div>
+        {trendPanel}
+      </div>
+      {modals}
     </>
   );
 }

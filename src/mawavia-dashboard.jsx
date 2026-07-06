@@ -8,10 +8,11 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2,
 } from 'lucide-react';
-import { getAccessToken } from './auth';
+import { getAccessToken, changePassword } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE } from './config';
+import { CATS, catColor, fmtPKR } from './categories';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -44,6 +45,7 @@ const PER_PAGE = 25;
 // Charts live in a lazily-loaded chunk so Recharts doesn't block first paint.
 const ChartsRow = lazy(() => import('./charts'));
 const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTrend})));
+const ExpenseCharts = lazy(() => import('./charts').then(m=>({default:m.ExpenseCharts})));
 const ChartsFallback = () => (
   <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
     <div className="h-[300px] rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
@@ -212,6 +214,32 @@ async function sbFetch(token, table, params='') {
   return {data:Array.isArray(d)?d:[],total:rng?parseInt(rng.split('/')[1])||0:(Array.isArray(d)?d.length:0)};
 }
 
+// Calls a Postgres RPC (the admin-only SECURITY DEFINER role functions). Throws
+// on a non-2xx so the caller can surface the DB's "not authorized" message.
+async function sbRpc(token, fn, body) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`,{
+    method:'POST',
+    headers:{"apikey":SB_KEY,"Authorization":`Bearer ${token}`,"Content-Type":"application/json"},
+    body:JSON.stringify(body||{}),
+  });
+  const d = await r.json().catch(()=>null);
+  if (!r.ok) throw new Error(d?.message || `RPC ${fn} failed (HTTP ${r.status})`);
+  return d;
+}
+
+// Calls a Supabase Edge Function (e.g. admin-create-user, which needs the
+// server-side service key to create Auth logins). Throws on non-2xx.
+async function sbFunction(token, name, body) {
+  const r = await fetch(`${SB_URL}/functions/v1/${name}`,{
+    method:'POST',
+    headers:{ apikey:SB_KEY, "Authorization":`Bearer ${token}`, "Content-Type":"application/json" },
+    body:JSON.stringify(body||{}),
+  });
+  const d = await r.json().catch(()=>null);
+  if (!r.ok) throw new Error(d?.error || `Request failed (HTTP ${r.status})`);
+  return d;
+}
+
 function useData(onAuthError) {
   const [stats,      setStats]      = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -295,6 +323,34 @@ function useData(onAuthError) {
   },[load]);
 
   return {stats,loading,demo,lastUp,refreshing,refresh:()=>load(true)};
+}
+
+// ── Profile (role + employee mapping) ─────────────────────────────────────────
+// Reads the signed-in user's own app_users row (RLS scopes it to self). Cached in
+// localStorage so a reload doesn't flash the wrong tab set. An account with no
+// profile row falls back to 'employee' (the most restrictive role → sees only its
+// own expenses), never to an elevated one.
+const ROLE_LS = 'ht_role';
+function useProfile(onAuthError) {
+  const [profile, setProfile] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(ROLE_LS) || 'null'); } catch { return null; }
+  });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let token;
+      try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
+      try {
+        const { data } = await sbFetch(token, 'app_users', 'select=role,full_name,phone,email');
+        if (cancelled) return;
+        const p = data[0] || { role: 'employee', full_name: null };
+        setProfile(p);
+        localStorage.setItem(ROLE_LS, JSON.stringify(p));
+      } catch { /* keep last-known profile */ }
+    })();
+    return () => { cancelled = true; };
+  }, [onAuthError]);
+  return profile;
 }
 
 // ── Count-up (instrument boot) — animates once on first mount, then snaps ──────
@@ -1221,14 +1277,20 @@ const threadKey  = sid => `ht_web_chat_thread_${sid}`;
 const loadThread = sid => { try { return JSON.parse(localStorage.getItem(threadKey(sid)) || '[]'); } catch { return []; } };
 
 // The signed-in username, pulled from the JWT, to tag rows (Name column).
-function currentUserName() {
+function jwtPayload() {
   try {
     const s = JSON.parse(localStorage.getItem('ht_session') || 'null');
     // JWT uses base64url (- and _ instead of + and /); atob() needs standard base64.
     const b64 = s.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(b64));
-    return (payload.email || '').split('@')[0] || null;
+    return JSON.parse(atob(b64));
   } catch { return null; }
+}
+function currentUserName() {
+  const p = jwtPayload();
+  return p ? ((p.email || '').split('@')[0] || null) : null;
+}
+function currentUserId() {
+  return jwtPayload()?.sub || null;
 }
 
 // Normalize n8n's webhook response → { text, images, from_cache }. The cloned
@@ -1531,20 +1593,793 @@ function ChatTab() {
   );
 }
 
+// ── Expenses Tab ──────────────────────────────────────────────────────────────
+// Reads wap_expenses + wap_allowed_senders (both RLS-scoped: an employee only
+// ever gets their own rows; the accountant gets everyone's). Everything below is
+// derived client-side from those rows, so the same component serves both the
+// team view (accountant) and the personal view (employee) off one fetch.
+
+const monthLabel = (ym) => {
+  if (!ym) return '';
+  const [y, m] = ym.split('-');
+  return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+};
+const parseItems = (v) => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+  return [];
+};
+
+// One receipt row → expands into the "digital receipt" card built from OCR data.
+function ReceiptRow({ r, open, onToggle, showEmployee }) {
+  const items = parseItems(r.items);
+  const conf  = Math.round((Number(r.ai_confidence) || 0) * 100);
+  const confColor = conf >= 85 ? POS : conf >= 70 ? '#B45309' : NEG;
+  return (
+    <div className="border-t border-zinc-100 first:border-t-0">
+      <button type="button" onClick={onToggle}
+        aria-expanded={open}
+        className="group flex items-center gap-3 w-full text-left py-3 px-1 -mx-1 rounded-lg transition-colors hover:bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: catColor(r.category) }} aria-hidden="true" />
+        <div className="flex-1 min-w-0">
+          <span className="text-[14px] text-zinc-800 truncate font-medium block">{r.vendor_name || 'Unknown vendor'}</span>
+          <p className="text-[12px] text-zinc-500 mt-0.5 truncate">
+            {r.category}
+            {showEmployee && <> · {r.employee_name}</>}
+            {' · '}{(r.processed_at || '').slice(0, 10)}
+          </p>
+        </div>
+        <span className="mono text-[13px] font-bold text-zinc-900 tabular-nums shrink-0">{fmtPKR(r.total)}</span>
+        <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div key="body"
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden">
+            <div className="mb-3 mx-1 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
+              {/* header line */}
+              <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-dashed border-zinc-300">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-zinc-900 truncate">{r.vendor_name || 'Unknown vendor'}</p>
+                  <p className="mono text-[10px] uppercase tracking-widest text-zinc-400 mt-0.5">{r.expense_id}</p>
+                </div>
+                <span className="text-[11px] px-2 py-1 rounded-md text-white shrink-0" style={{ background: catColor(r.category) }}>{r.category}</span>
+              </div>
+              {/* line items */}
+              {items.length > 0 ? (
+                <div className="space-y-1.5">
+                  {items.slice(0, 12).map((it, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-3 text-[13px]">
+                      <span className="text-zinc-600 truncate">
+                        {it.qty > 1 && <span className="mono text-zinc-400 mr-1">{it.qty}×</span>}
+                        {it.description || 'Item'}
+                      </span>
+                      <span className="mono text-zinc-700 tabular-nums shrink-0">{fmtPKR(it.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-[12px] text-zinc-400 italic">No line items detected</p>}
+              {/* totals */}
+              <div className="mt-3 pt-3 border-t border-dashed border-zinc-300 space-y-1">
+                {Number(r.subtotal) > 0 && (
+                  <div className="flex justify-between text-[12px] text-zinc-500"><span>Subtotal</span><span className="mono tabular-nums">{fmtPKR(r.subtotal)}</span></div>
+                )}
+                {Number(r.tax) > 0 && (
+                  <div className="flex justify-between text-[12px] text-zinc-500"><span>Tax</span><span className="mono tabular-nums">{fmtPKR(r.tax)}</span></div>
+                )}
+                <div className="flex justify-between items-baseline pt-1">
+                  <span className="text-[13px] font-semibold text-zinc-800">Total</span>
+                  <span className="mono text-[16px] font-bold text-zinc-900 tabular-nums">{fmtPKR(r.total)}</span>
+                </div>
+              </div>
+              {/* meta footer */}
+              <div className="mt-3 pt-3 border-t border-zinc-200 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-zinc-500">
+                <span>Paid: <span className="text-zinc-700">{r.payment_method || 'Unknown'}</span></span>
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: confColor }} />
+                  AI confidence {conf}%
+                </span>
+                {r.drive_link
+                  ? <a href={r.drive_link} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-accent hover:underline ml-auto"
+                      onClick={(e) => e.stopPropagation()}>
+                      <ExternalLink size={11} /> View original
+                    </a>
+                  : <span className="inline-flex items-center gap-1 text-zinc-400 ml-auto"><ImageOff size={11} /> No image</span>}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ExpensesTab({ role, onAuthError }) {
+  const isEmployee = role === 'employee';
+  const [rows,   setRows]   = useState(null);
+  const [err,    setErr]    = useState(false);
+  const [monthSel, setMonthSel] = useState(null);
+  const [dept,   setDept]   = useState('all');
+  const [selEmp, setSelEmp] = useState(null);
+  const [empSearch, setEmpSearch] = useState('');
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const comboRef = useRef(null);
+  const [openId, setOpenId] = useState(null);
+
+  // Close the employee suggestion dropdown when clicking outside the combobox.
+  useEffect(() => {
+    if (!suggestOpen) return;
+    const onDoc = (e) => { if (comboRef.current && !comboRef.current.contains(e.target)) setSuggestOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [suggestOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let token;
+      try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
+      try {
+        const ex = await sbFetch(token, 'wap_expenses',
+          'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,ai_confidence,items,status&status=neq.rejected&order=processed_at.desc&limit=2000');
+        if (cancelled) return;
+        setRows(ex.data);
+        setErr(false);
+      } catch { if (!cancelled) { setErr(true); setRows([]); } }
+    })();
+    return () => { cancelled = true; };
+  }, [onAuthError]);
+
+  const months = useMemo(() => {
+    if (!rows) return [];
+    return [...new Set(rows.map(r => (r.processed_at || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+  }, [rows]);
+  // Effective month = the user's pick if still valid, else the latest available.
+  // Derived (not stored) so it self-corrects when the data changes, no effect needed.
+  const month = (monthSel && months.includes(monthSel)) ? monthSel : (months[0] || null);
+
+  const depts = useMemo(() => {
+    if (!rows) return [];
+    return [...new Set(rows.map(r => r.department).filter(Boolean))].sort();
+  }, [rows]);
+
+  // Scope = current month + department filter (team). selEmp narrows further.
+  const inScope = useMemo(() => {
+    if (!rows) return [];
+    return rows.filter(r =>
+      (r.processed_at || '').slice(0, 7) === month &&
+      (dept === 'all' || r.department === dept));
+  }, [rows, month, dept]);
+
+  const byEmployee = useMemo(() => {
+    const m = {};
+    inScope.forEach(r => { m[r.employee_name] = (m[r.employee_name] || 0) + (Number(r.total) || 0); });
+    return Object.entries(m).map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
+  }, [inScope]);
+
+  // Search narrows the bars + list to matching employees (accountant, many staff).
+  const empQuery = empSearch.trim().toLowerCase();
+  const byEmployeeShown = useMemo(
+    () => (empQuery ? byEmployee.filter(e => (e.name || '').toLowerCase().includes(empQuery)) : byEmployee),
+    [byEmployee, empQuery]);
+
+  const focusRows = useMemo(() => {
+    if (selEmp) return inScope.filter(r => r.employee_name === selEmp);
+    if (!isEmployee && empQuery) return inScope.filter(r => (r.employee_name || '').toLowerCase().includes(empQuery));
+    return inScope;
+  }, [inScope, selEmp, empQuery, isEmployee]);
+
+  // Accountant searched a name that matches no one this month → show a clear
+  // "not found" state instead of empty charts/KPIs.
+  const empNoMatch = !isEmployee && !!empQuery && !selEmp && byEmployeeShown.length === 0;
+
+  const byCategory = useMemo(() => {
+    const m = {};
+    focusRows.forEach(r => { const c = CATS.includes(r.category) ? r.category : 'Other'; m[c] = (m[c] || 0) + (Number(r.total) || 0); });
+    return CATS.filter(c => m[c] > 0).map(c => ({ category: c, total: m[c] }));
+  }, [focusRows]);
+
+  const trend = useMemo(() => {
+    if (!rows) return [];
+    const scope = rows.filter(r =>
+      (dept === 'all' || r.department === dept) &&
+      (!selEmp || r.employee_name === selEmp));
+    const m = {};
+    scope.forEach(r => { const k = (r.processed_at || '').slice(0, 7); if (k) m[k] = (m[k] || 0) + (Number(r.total) || 0); });
+    return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), total: m[k] }));
+  }, [rows, dept, selEmp]);
+
+  // KPIs for the focused scope (month + dept + selEmp)
+  const totalSpend = focusRows.reduce((a, r) => a + (Number(r.total) || 0), 0);
+  const count = focusRows.length;
+  const avg = count ? totalSpend / count : 0;
+  const heroCount = useCountUp(Math.round(totalSpend));
+  const topCat = byCategory.length ? [...byCategory].sort((a, b) => b.total - a.total)[0] : null;
+
+  const listRows = focusRows;  // receipt ledger honours the same focus
+
+  if (rows === null) return <Skeleton />;
+
+  const noData = rows.length === 0;
+
+  return (
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+      <HelpNote>
+        {isEmployee
+          ? 'Your submitted receipts and spending. Only you and the accountant can see these.'
+          : 'Every employee’s receipts and spending, from the WhatsApp receipt bot. Click an employee’s bar to drill into just their spend.'}
+      </HelpNote>
+
+      {err && (
+        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${NEG}55`, background: `${NEG}0d`, color: '#7f1d1d' }}>
+          Couldn’t load expenses. If this persists, your account may not be mapped to an employee yet — ask the accountant.
+        </div>
+      )}
+
+      {noData ? (
+        <Panel className="p-10 text-center">
+          <Receipt size={28} className="mx-auto text-zinc-300" />
+          <p className="text-[15px] font-semibold text-zinc-800 mt-3">No receipts yet</p>
+          <p className="text-[13px] text-zinc-500 mt-1 max-w-sm mx-auto">
+            {isEmployee
+              ? 'Send a photo of a receipt to the HiTech WhatsApp bot and it’ll show up here.'
+              : 'Once employees submit receipts through the WhatsApp bot, their spending appears here.'}
+          </p>
+        </Panel>
+      ) : (
+        <>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5">
+              <Label>Month</Label>
+              <select value={month || ''} onChange={e => { setMonthSel(e.target.value); setOpenId(null); }}
+                className="mono text-[12px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+              </select>
+            </div>
+            {!isEmployee && depts.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Label>Dept</Label>
+                <select value={dept} onChange={e => { setDept(e.target.value); setSelEmp(null); }}
+                  className="text-[12px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                  <option value="all">All departments</option>
+                  {depts.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            )}
+            {!isEmployee && (
+              <div ref={comboRef} className="relative flex items-center">
+                <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none z-10" />
+                <input
+                  type="text" value={empSearch}
+                  onChange={e => { setEmpSearch(e.target.value); setSelEmp(null); setSuggestOpen(true); }}
+                  onFocus={() => setSuggestOpen(true)}
+                  placeholder="Search employee…"
+                  aria-label="Search employee"
+                  role="combobox" aria-expanded={suggestOpen && !!empQuery} aria-autocomplete="list"
+                  className="text-[12px] text-zinc-800 bg-white border border-zinc-300 rounded-md pl-8 pr-7 py-1.5 w-48 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
+                />
+                {empSearch && (
+                  <button onClick={() => { setEmpSearch(''); setSuggestOpen(false); }} aria-label="Clear search"
+                    className="absolute right-1.5 flex items-center justify-center w-5 h-5 rounded text-zinc-400 hover:text-zinc-900 z-10">
+                    <X size={12} />
+                  </button>
+                )}
+                {suggestOpen && empQuery && (
+                  <ul role="listbox" className="absolute top-full left-0 mt-1.5 w-64 max-h-64 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg z-30 py-1">
+                    {byEmployeeShown.length === 0 ? (
+                      <li className="px-3 py-2.5 text-[12px] text-zinc-400">No employee matches “{empSearch}”.</li>
+                    ) : byEmployeeShown.slice(0, 8).map(e => (
+                      <li key={e.name} role="option" aria-selected={false}>
+                        <button
+                          onMouseDown={ev => { ev.preventDefault(); setSelEmp(e.name); setEmpSearch(''); setSuggestOpen(false); }}
+                          className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 transition-colors">
+                          <span className="text-[12.5px] text-zinc-800 truncate">{e.name}</span>
+                          <span className="mono text-[11px] text-zinc-400 shrink-0">{fmtPKR(e.total)}</span>
+                        </button>
+                      </li>
+                    ))}
+                    {byEmployeeShown.length > 8 && (
+                      <li className="px-3 py-1.5 text-[11px] text-zinc-400 border-t border-zinc-100 mt-1">
+                        +{byEmployeeShown.length - 8} more — keep typing to narrow.
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+            {!isEmployee && selEmp && (
+              <button onClick={() => setSelEmp(null)}
+                className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900 transition-colors">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
+                {selEmp} <X size={12} className="text-zinc-400" />
+              </button>
+            )}
+          </div>
+
+          {empNoMatch ? (
+            <Panel className="p-10 text-center">
+              <Search size={26} className="mx-auto text-zinc-300" />
+              <p className="text-[15px] font-semibold text-zinc-800 mt-3">No employee found</p>
+              <p className="text-[13px] text-zinc-500 mt-1">
+                Nothing matches “{empSearch}” in {monthLabel(month)}. Check the spelling, or pick a different month.
+              </p>
+              <button onClick={() => setEmpSearch('')}
+                className="mt-4 inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900 transition-colors">
+                <X size={12} /> Clear search
+              </button>
+            </Panel>
+          ) : (
+          <>
+          {/* KPI cluster */}
+          <Panel className="grid grid-cols-1 md:grid-cols-[1.6fr_repeat(3,1fr)] divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden">
+            <div className="p-6">
+              <span className="flex items-center gap-1">
+                <Label>{isEmployee ? 'Your spend' : (selEmp ? `${selEmp}’s spend` : 'Total spend')}</Label>
+                <HintIcon text={`Total logged spend for ${monthLabel(month)}${selEmp ? ` · ${selEmp}` : ''}`} />
+              </span>
+              <div className="mt-4 flex items-end gap-2">
+                <span className="mono text-[13px] font-semibold text-zinc-400 mb-1.5">PKR</span>
+                <span className="text-[40px] leading-[0.85] font-extrabold tracking-[-0.03em] text-zinc-900 tabular-nums">{heroCount}</span>
+              </div>
+              <p className="text-[12px] text-zinc-400 mt-3">{monthLabel(month)}</p>
+            </div>
+            {[
+              { label: 'Receipts', value: count, hint: isEmployee ? 'Receipts you submitted this month' : 'Receipts logged in this view' },
+              { label: 'Avg receipt', value: fmtPKR(avg), hint: 'Average value per receipt' },
+              { label: 'Top category', value: topCat ? topCat.category : '—', sub: topCat ? fmtPKR(topCat.total) : null, hint: 'Biggest spending category in this view' },
+            ].map(c => (
+              <div key={c.label} className="p-6 flex flex-col justify-between gap-6">
+                <span className="flex items-center gap-1">
+                  <Label>{c.label}</Label>{c.hint && <HintIcon text={c.hint} />}
+                </span>
+                <div>
+                  <span className="mono text-[26px] leading-none font-bold tracking-tight text-zinc-900">
+                    {typeof c.value === 'number' ? c.value.toLocaleString() : c.value}
+                  </span>
+                  {c.sub && <p className="mono text-[11px] text-zinc-400 mt-1.5">{c.sub}</p>}
+                </div>
+              </div>
+            ))}
+          </Panel>
+
+          {/* Charts */}
+          <Suspense fallback={<ChartsFallback />}>
+            <ExpenseCharts
+              mode={isEmployee ? 'personal' : 'team'}
+              byEmployee={byEmployeeShown}
+              byCategory={byCategory}
+              trend={trend}
+              selectedEmployee={selEmp}
+              onSelectEmployee={setSelEmp}
+            />
+          </Suspense>
+
+          {/* Receipt ledger */}
+          <Panel className="p-6">
+            <div className="flex items-baseline justify-between gap-3 mb-1">
+              <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Receipts</h2>
+              <span className="mono text-[11px] text-zinc-400 tabular-nums">{listRows.length} in view</span>
+            </div>
+            <p className="text-[13px] text-zinc-500 mb-4">{monthLabel(month)}{selEmp ? ` · ${selEmp}` : (empQuery ? ` · “${empSearch}”` : '')} — click a row for the full receipt</p>
+            {listRows.length === 0
+              ? <p className="text-[13px] text-zinc-400 py-6 text-center">No receipts in this view.</p>
+              : (
+                <div>
+                  {listRows.slice(0, 80).map(r => (
+                    <ReceiptRow key={r.expense_id}
+                      r={r}
+                      open={openId === r.expense_id}
+                      onToggle={() => setOpenId(id => id === r.expense_id ? null : r.expense_id)}
+                      showEmployee={!isEmployee && !selEmp}
+                    />
+                  ))}
+                  {listRows.length > 80 && (
+                    <p className="text-[12px] text-zinc-400 pt-3 mt-1 border-t border-zinc-100 text-center">
+                      Showing 80 of {listRows.length} — filter by employee or department to narrow.
+                    </p>
+                  )}
+                </div>
+              )}
+          </Panel>
+          </>
+          )}
+        </>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Team / Roles Tab (admin only) ─────────────────────────────────────────────
+// Add a team member directly (creates the Supabase login + writes app_users and,
+// for employees, the WhatsApp roster) via the admin-create-user Edge Function, and
+// edit existing people's role/identity via the admin_set_role RPC. Both re-check
+// admin server-side, so nothing here can be abused from the client.
+
+const ROLE_CHOICES = [
+  { value: 'admin',      label: 'Admin',      desc: 'Full access — all tabs + everyone’s expenses' },
+  { value: 'accountant', label: 'Accountant', desc: 'Everyone’s expenses + sales tabs' },
+  { value: 'employee',   label: 'Employee',   desc: 'Only their own expenses (linked by phone)' },
+];
+
+const genPassword = () => {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let s = ''; for (let i = 0; i < 12; i++) s += c[Math.floor(Math.random() * c.length)];
+  return s;
+};
+
+const teamInput = 'text-[13px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400';
+
+const emptyForm = { full_name: '', role: 'employee', department: '', email: '', phone: '', password: '' };
+
+function TeamTab({ role, onAuthError }) {
+  const [users,  setUsers]  = useState(null);
+  const [drafts, setDrafts] = useState({});   // user_id -> { role, phone, full_name, department }
+  const [saving, setSaving] = useState(null);
+  const [savedId, setSavedId] = useState(null);
+  const [err,    setErr]    = useState('');
+  // Add-member form
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm]       = useState(emptyForm);
+  const [adding, setAdding]   = useState(false);
+  const [addErr, setAddErr]   = useState('');
+  const [addOk,  setAddOk]    = useState(null); // { login, password }
+  const [acting, setActing]   = useState(null); // user_id being deactivated/deleted
+  const [confirmDel, setConfirmDel] = useState(null);
+  const myId = currentUserId();
+
+  const load = useCallback(async () => {
+    let token; try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
+    try {
+      const data = await sbRpc(token, 'admin_list_users');
+      const list = Array.isArray(data) ? data : [];
+      setUsers(list);
+      const d = {};
+      list.forEach(u => { d[u.user_id] = {
+        role: u.role === 'unassigned' ? 'employee' : u.role,
+        phone: u.phone || '', full_name: u.full_name || '', department: u.department || '',
+      }; });
+      setDrafts(d);
+      setErr('');
+    } catch (e) { setErr(e.message || 'Failed to load users'); setUsers([]); }
+  }, [onAuthError]);
+  useEffect(() => { load(); }, [load]);
+
+  const setDraft = (id, patch) => setDrafts(d => ({ ...d, [id]: { ...d[id], ...patch } }));
+  const setF = (patch) => setForm(f => ({ ...f, ...patch }));
+
+  const save = async (u) => {
+    const dr = drafts[u.user_id];
+    setSaving(u.user_id); setErr('');
+    let token; try { token = await getAccessToken(); } catch { onAuthError?.(); setSaving(null); return; }
+    try {
+      await sbRpc(token, 'admin_set_role', {
+        p_target: u.user_id, p_role: dr.role,
+        p_phone: dr.role === 'employee' ? dr.phone : null,
+        p_full_name: dr.full_name || null,
+        p_department: dr.department || null,
+      });
+      setSavedId(u.user_id);
+      setTimeout(() => setSavedId(s => (s === u.user_id ? null : s)), 1800);
+      await load();
+    } catch (e) { setErr(e.message || 'Save failed'); }
+    setSaving(null);
+  };
+
+  const addMember = async () => {
+    setAdding(true); setAddErr(''); setAddOk(null);
+    let token; try { token = await getAccessToken(); } catch { onAuthError?.(); setAdding(false); return; }
+    try {
+      const res = await sbFunction(token, 'admin-create-user', form);
+      setAddOk({ login: res.login_email, password: form.password, warning: res.warning });
+      setForm(emptyForm);
+      await load();
+    } catch (e) { setAddErr(e.message || 'Could not add member'); }
+    setAdding(false);
+  };
+
+  const manage = async (userId, action) => {
+    setActing(userId); setErr(''); setConfirmDel(null);
+    let token; try { token = await getAccessToken(); } catch { onAuthError?.(); setActing(null); return; }
+    try { await sbFunction(token, 'admin-manage-user', { target: userId, action }); await load(); }
+    catch (e) { setErr(e.message || 'Action failed'); }
+    setActing(null);
+  };
+
+  if (role !== 'admin') {
+    return <Panel className="p-8 text-center text-[14px] text-zinc-500">Only admins can manage the team.</Panel>;
+  }
+  if (users === null) return <Skeleton />;
+
+  const stored = Object.fromEntries((users || []).map(u => [u.user_id, {
+    role: u.role === 'unassigned' ? 'employee' : u.role,
+    phone: u.phone || '', full_name: u.full_name || '', department: u.department || '',
+  }]));
+
+  const canAdd = form.full_name.trim() && form.password.length >= 8
+    && (form.email.trim() || form.phone.trim())
+    && (form.role !== 'employee' || form.phone.trim());
+
+  return (
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+      <HelpNote>
+        Add a team member and they can log in right away — with their <b>email or their phone number</b>.
+        Employees are identified by <b>phone</b> (unique), so two people can share a name safely; their
+        receipts link automatically. Admins/accountants just need an email.
+      </HelpNote>
+
+      {/* Add member */}
+      <Panel className="p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <UserCog size={16} className="text-zinc-400" />
+            <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Add team member</h2>
+          </div>
+          <button onClick={() => { setShowAdd(v => !v); setAddErr(''); setAddOk(null); }}
+            className="text-[12px] font-semibold px-3 py-1.5 rounded-md border border-zinc-300 text-zinc-700 hover:border-zinc-900 hover:text-zinc-900 transition-colors">
+            {showAdd ? 'Close' : 'New member'}
+          </button>
+        </div>
+
+        {addOk && (
+          <div className="mt-4 rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${POS}55`, background: `${POS}0d`, color: '#14532d' }}>
+            ✓ Created. They can sign in with <b>{addOk.login}</b> and the temporary password{' '}
+            <span className="mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-800">{addOk.password}</span> — share it with them.
+            {addOk.warning && <div className="mt-1 text-[12px]" style={{ color: '#92400e' }}>{addOk.warning}</div>}
+          </div>
+        )}
+
+        <AnimatePresence initial={false}>
+          {showAdd && (
+            <motion.div key="addform" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
+              <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <Label>Full name</Label>
+                  <input className={teamInput} value={form.full_name} onChange={e => setF({ full_name: e.target.value })} placeholder="e.g. Ali Raza" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <Label>Role</Label>
+                  <select className={teamInput} value={form.role} onChange={e => setF({ role: e.target.value })}>
+                    {ROLE_CHOICES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <Label>WhatsApp phone {form.role === 'employee' ? '(required)' : '(optional)'}</Label>
+                  <input className={teamInput} value={form.phone} onChange={e => setF({ phone: e.target.value })} placeholder="923001234567" inputMode="numeric" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <Label>Email {form.role === 'employee' ? '(optional)' : '(for login)'}</Label>
+                  <input className={teamInput} value={form.email} onChange={e => setF({ email: e.target.value })} placeholder="name@company.com" type="email" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <Label>Department</Label>
+                  <input className={teamInput} value={form.department} onChange={e => setF({ department: e.target.value })} placeholder="e.g. sales" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <Label>Temporary password</Label>
+                  <div className="flex gap-1.5">
+                    <input className={`${teamInput} flex-1`} value={form.password} onChange={e => setF({ password: e.target.value })} placeholder="min 8 characters" />
+                    <button type="button" onClick={() => setF({ password: genPassword() })}
+                      className="text-[11px] font-semibold px-2.5 rounded-md border border-zinc-300 text-zinc-600 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0">Generate</button>
+                  </div>
+                </label>
+              </div>
+
+              <p className="text-[12px] text-zinc-400 mt-3">
+                {form.role === 'employee'
+                  ? 'Employee: identified by phone. They log in with phone or email + this password, and can submit receipts from that WhatsApp number.'
+                  : 'Admin/accountant: logs in with email + this password. No phone needed.'}
+              </p>
+
+              {addErr && <div role="alert" className="mt-3 text-[13px]" style={{ color: NEG }}>{addErr}</div>}
+
+              <div className="mt-4 flex justify-end">
+                <button onClick={addMember} disabled={!canAdd || adding}
+                  className="text-[13px] font-semibold px-4 py-2 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  {adding ? 'Creating…' : 'Create login'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Panel>
+
+      {err && (
+        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${NEG}55`, background: `${NEG}0d`, color: '#7f1d1d' }}>
+          {err}
+        </div>
+      )}
+
+      {/* Existing members */}
+      <Panel className="p-2 sm:p-4">
+        <div className="divide-y divide-zinc-100">
+          {users.map(u => {
+            const dr = drafts[u.user_id] || { role: 'employee', phone: '', full_name: '', department: '' };
+            const st = stored[u.user_id];
+            const dirty = dr.role !== st.role || (dr.full_name || '') !== (st.full_name || '')
+              || (dr.department || '') !== (st.department || '')
+              || (dr.role === 'employee' && (dr.phone || '') !== (st.phone || ''));
+            const meta = ROLE_META[dr.role] || ROLE_META.employee;
+            return (
+              <div key={u.user_id} className={`flex flex-col lg:flex-row lg:items-center gap-3 p-3 ${u.banned ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-3 min-w-0 lg:w-64">
+                  <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: `${meta.color}14`, color: meta.color }}>
+                    <UserCog size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-medium text-zinc-800 truncate">
+                      {u.full_name || u.email}
+                      {u.banned && <span className="ml-2 mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded align-middle" style={{ color: NEG, background: `${NEG}12` }}>Inactive</span>}
+                    </p>
+                    <p className="mono text-[10px] text-zinc-400 mt-0.5 truncate">{u.phone || u.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 flex-1">
+                  <select value={dr.role} onChange={e => setDraft(u.user_id, { role: e.target.value })}
+                    aria-label={`Role for ${u.email}`} className={teamInput}>
+                    {ROLE_CHOICES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <input type="text" value={dr.full_name} onChange={e => setDraft(u.user_id, { full_name: e.target.value })}
+                    placeholder="name" aria-label="Name" className={`${teamInput} w-32`} />
+                  <input type="text" value={dr.department} onChange={e => setDraft(u.user_id, { department: e.target.value })}
+                    placeholder="dept" aria-label="Department" className={`${teamInput} w-24`} />
+                  {dr.role === 'employee' && (
+                    <input type="text" value={dr.phone} onChange={e => setDraft(u.user_id, { phone: e.target.value })}
+                      placeholder="phone" aria-label="Phone" inputMode="numeric" className={`${teamInput} w-36`} />
+                  )}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    {savedId === u.user_id && <span className="mono text-[11px]" style={{ color: POS }}>Saved ✓</span>}
+                    <button onClick={() => save(u)} disabled={!dirty || saving === u.user_id}
+                      className="text-[12px] font-semibold px-3.5 py-1.5 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                      {saving === u.user_id ? 'Saving…' : 'Save'}
+                    </button>
+                    {u.user_id !== myId && (confirmDel === u.user_id ? (
+                      <span className="flex items-center gap-1">
+                        <button onClick={() => manage(u.user_id, 'delete')} disabled={acting === u.user_id}
+                          className="text-[11px] font-semibold px-2 py-1.5 rounded-md text-white disabled:opacity-50" style={{ background: NEG }}>
+                          {acting === u.user_id ? '…' : 'Delete'}
+                        </button>
+                        <button onClick={() => setConfirmDel(null)}
+                          className="text-[11px] px-2 py-1.5 rounded-md border border-zinc-300 text-zinc-600">Cancel</button>
+                      </span>
+                    ) : (
+                      <>
+                        <button onClick={() => manage(u.user_id, u.banned ? 'activate' : 'deactivate')} disabled={acting === u.user_id}
+                          title={u.banned ? 'Reactivate login' : 'Deactivate (block login)'}
+                          className="w-8 h-8 flex items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:border-zinc-900 hover:text-zinc-900 transition-colors disabled:opacity-40">
+                          <Power size={14} style={u.banned ? { color: POS } : undefined} />
+                        </button>
+                        <button onClick={() => setConfirmDel(u.user_id)} title="Delete login"
+                          className="w-8 h-8 flex items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:border-red-500 hover:text-red-600 transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+
+      <p className="text-[12px] text-zinc-400">
+        Tip: a login with no role assigned defaults to <b>Employee</b> with no data — the safe default.
+      </p>
+    </motion.div>
+  );
+}
+
+// ── Change-password modal (available to everyone after login) ─────────────────
+function ChangePasswordModal({ open, onClose }) {
+  const [pw, setPw]   = useState('');
+  const [pw2, setPw2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr]   = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setPw(''); setPw2(''); setErr(''); setDone(false); setBusy(false);
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  const submit = async () => {
+    if (pw.length < 8) { setErr('Use at least 8 characters.'); return; }
+    if (pw !== pw2)    { setErr('Passwords don’t match.'); return; }
+    setBusy(true); setErr('');
+    try { await changePassword(pw); setDone(true); setTimeout(onClose, 1400); }
+    catch (e) { setErr(e.message || 'Failed to update'); }
+    setBusy(false);
+  };
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
+          <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} onClick={e => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+              <div className="flex items-center gap-2">
+                <KeyRound size={16} className="text-zinc-400" />
+                <h2 className="text-[15px] font-semibold text-zinc-900">Change password</h2>
+              </div>
+              <button onClick={onClose} aria-label="Close" className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100"><X size={15} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {done ? (
+                <p className="text-[14px]" style={{ color: POS }}>✓ Password updated.</p>
+              ) : (
+                <>
+                  <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" autoFocus className={`${teamInput} w-full`} />
+                  <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm new password"
+                    onKeyDown={e => { if (e.key === 'Enter') submit(); }} className={`${teamInput} w-full`} />
+                  {err && <p className="text-[12px]" style={{ color: NEG }}>{err}</p>}
+                  <button onClick={submit} disabled={busy}
+                    className="w-full text-[13px] font-semibold px-4 py-2 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-50">
+                    {busy ? 'Updating…' : 'Update password'}
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
 // ── Nav Config ────────────────────────────────────────────────────────────────
-const NAV = [
+// Sales-analytics tabs (the original dashboard). Shown to admin + accountant.
+const SALES_NAV = [
   {id:'overview',      label:'Overview',      icon:LayoutDashboard},
   {id:'conversations', label:'Conversations', icon:MessageSquare},
   {id:'users',         label:'Reps',          icon:Users},
   {id:'cache',         label:'Cache',         icon:Database},
   {id:'chat',          label:'Chat',          icon:Bot, sub:'Test your assistant live'},
 ];
+const EXPENSES_NAV = {id:'expenses', label:'Expenses', icon:Receipt, sub:'Employee receipts & spend'};
+const TEAM_NAV = {id:'team', label:'Team', icon:Shield, sub:'Manage logins & roles'};
+const ALL_NAV = [...SALES_NAV, EXPENSES_NAV, TEAM_NAV];   // superset, for hash/history validation
+
+// Which tabs a role may see:
+//   employee            → Chat + their own expenses ("My Expenses")
+//   accountant          → only the all-employee Expenses tab
+//   admin               → every sales tab + all-employee Expenses + Team panel
+//   unknown (loading)   → sales tabs only, until the profile resolves
+function navForRole(role) {
+  const myExpenses = {...EXPENSES_NAV, label:'My Expenses', sub:'Your receipts & spend'};
+  const chat = SALES_NAV.find(n => n.id === 'chat');
+  if (role === 'employee')   return [myExpenses, chat];
+  if (role === 'accountant') return [EXPENSES_NAV];
+  if (role === 'admin')      return [...SALES_NAV, EXPENSES_NAV, TEAM_NAV];
+  return SALES_NAV;
+}
+
+// Role display (shown in the header for everyone).
+const ROLE_META = {
+  admin:      { label:'Admin',      color:'#2258B8' },
+  accountant: { label:'Accountant', color:'#16794C' },
+  employee:   { label:'Employee',   color:'#71717A' },
+};
 
 // ── Root Component ────────────────────────────────────────────────────────────
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState(() => {
     const hash = window.location.hash.slice(1);
-    return NAV.some(n => n.id === hash) ? hash : 'overview';
+    return ALL_NAV.some(n => n.id === hash) ? hash : 'overview';
   });
   const goTab = useCallback(id => {
     history.pushState(null, '', `#${id}`);
@@ -1553,6 +2388,7 @@ export default function Dashboard({ onLogout }) {
   const [searchFocus, setSearchFocus] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [navOpen,  setNavOpen]  = useState(false);
+  const [pwOpen,   setPwOpen]   = useState(false);
   const [drill, setDrill] = useState(null);
 
   // Clear this user's chat thread from localStorage before signing out so
@@ -1567,6 +2403,20 @@ export default function Dashboard({ onLogout }) {
   }, [onLogout]);
 
   const {stats,loading,demo,lastUp,refreshing,refresh} = useData(handleLogout);
+
+  // Role → which tabs are visible. Employees only ever see "My Expenses".
+  const profile = useProfile(handleLogout);
+  const role    = profile?.role;
+  const nav     = useMemo(() => navForRole(role), [role]);
+  // Identity shown in the top-left: employee's roster name if we have it, else the
+  // login name (email local-part).
+  const displayName = profile?.full_name || currentUserName() || 'User';
+  const initials = (displayName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase()) || 'U';
+  // If the current tab isn't allowed for this role (e.g. role resolved to
+  // 'employee' but the URL hash was #overview), fall back to the first allowed.
+  useEffect(() => {
+    if (!nav.some(n => n.id === tab)) setTab(nav[0].id);
+  }, [nav, tab]);
 
   // Toast notifications
   const [toast, setToast]    = useState(null);
@@ -1592,24 +2442,24 @@ export default function Dashboard({ onLogout }) {
   const goDrill    = useCallback(d => { goTab('conversations'); setDrill(d); }, [goTab]);
   const clearDrill = useCallback(() => setDrill(null), []);
 
-  // Keyboard accelerators: 1–4 switch tabs, "/" jumps to Conversations search.
+  // Keyboard accelerators: number keys switch tabs, "/" jumps to Conversations search.
   useEffect(()=>{
     const onKey = e => {
       const t = e.target;
       if (t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
       if (e.key==='Escape') { setNavOpen(false); return; }
-      if (e.key>='1' && e.key<=String(NAV.length)) { goTab(NAV[+e.key-1].id); setNavOpen(false); }
-      else if (e.key==='/') { e.preventDefault(); goTab('conversations'); setSearchFocus(n=>n+1); setNavOpen(false); }
+      if (e.key>='1' && e.key<=String(nav.length)) { goTab(nav[+e.key-1].id); setNavOpen(false); }
+      else if (e.key==='/') { e.preventDefault(); if (nav.some(n=>n.id==='conversations')) { goTab('conversations'); setSearchFocus(n=>n+1); } setNavOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
-  },[goTab]);
+  },[goTab, nav]);
 
   // Sync tab from browser back/forward.
   useEffect(()=>{
     const onPop = () => {
       const hash = window.location.hash.slice(1);
-      setTab(NAV.some(n => n.id === hash) ? hash : 'overview');
+      setTab(ALL_NAV.some(n => n.id === hash) ? hash : 'overview');
     };
     window.addEventListener('popstate', onPop);
     return ()=>window.removeEventListener('popstate', onPop);
@@ -1641,7 +2491,7 @@ export default function Dashboard({ onLogout }) {
       <header className="sticky top-0 z-20 bg-[#F1F5F9] border-b border-slate-200">
         {/* signal strip */}
         <div className="h-[3px] w-full" style={{background:BLUE}}/>
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center gap-6">
+        <div className="w-full px-6 lg:px-8 h-20 flex items-center gap-5">
 
           {/* Wordmark */}
           <div className="flex items-center gap-2.5 shrink-0">
@@ -1652,8 +2502,21 @@ export default function Dashboard({ onLogout }) {
             </div>
           </div>
 
+          {/* Identity — who's signed in + their role (left corner, out of the tabs' way) */}
+          {role && ROLE_META[role] && (
+            <div className="hidden lg:flex items-center gap-2.5 shrink-0 pl-5 border-l border-zinc-200">
+              <span className="flex items-center justify-center w-9 h-9 rounded-full text-[12px] font-bold shrink-0" style={{background:`${ROLE_META[role].color}1a`, color:ROLE_META[role].color}}>
+                {initials}
+              </span>
+              <div className="leading-tight">
+                <p className="text-[13px] font-semibold text-zinc-800 truncate max-w-[130px]">{displayName}</p>
+                <p className="mono text-[9px] uppercase tracking-[0.14em] mt-0.5" style={{color:ROLE_META[role].color}}>{ROLE_META[role].label}</p>
+              </div>
+            </div>
+          )}
+
           {/* Mobile nav picker — visible below lg, replaced by full strip above */}
-          {(()=>{ const cur = NAV.find(n=>n.id===tab)||NAV[0]; return (
+          {(()=>{ const cur = nav.find(n=>n.id===tab)||nav[0]; return (
             <div className="flex-1 min-w-0 lg:hidden flex items-center overflow-hidden">
               <button onClick={()=>setNavOpen(o=>!o)}
                 aria-haspopup="listbox" aria-expanded={navOpen}
@@ -1665,20 +2528,21 @@ export default function Dashboard({ onLogout }) {
             </div>
           ); })()}
 
-          {/* Tab strip (lg+) */}
-          <nav className="hidden lg:flex items-stretch h-20 flex-1 min-w-0 overflow-hidden">
-            {NAV.map((n,idx)=>{
+          {/* Tab strip (lg+) — scrolls (scrollbar hidden) if more tabs than fit,
+              so admin's extra Expenses/Team tabs are never clipped. */}
+          <nav className="hidden lg:flex items-stretch h-20 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+            {nav.map((n,idx)=>{
               const active = tab===n.id;
               return (
                 <button key={n.id}
                   onClick={()=>{ if(!active) goTab(n.id); }}
                   aria-current={active ? 'page' : undefined}
                   title={`${n.label} · press ${idx+1}`}
-                  className={`relative flex items-center gap-2 px-4 text-[14px] transition-colors outline-none focus-visible:bg-zinc-900/5
+                  className={`relative flex items-center gap-1.5 px-3 shrink-0 whitespace-nowrap text-[14px] transition-colors outline-none focus-visible:bg-zinc-900/5
                     ${active ? 'text-zinc-900 font-semibold' : 'text-zinc-500 hover:text-zinc-900 font-medium'}`}
                 >
-                  <n.icon size={15} style={active ? {color:ACCENT} : undefined}/>
-                  <span className="hidden lg:inline">{n.label}</span>
+                  <n.icon size={15} className="shrink-0" style={active ? {color:ACCENT} : undefined}/>
+                  <span>{n.label}</span>
                   {active && (
                     <motion.span layoutId="tabUnderline"
                       className="absolute bottom-0 left-2 right-2 h-[2px]"
@@ -1703,7 +2567,7 @@ export default function Dashboard({ onLogout }) {
             </button>
             <div aria-live="polite" className="flex items-center gap-3 empty:hidden">
               {lastUp && (
-                <span className="hidden xl:inline text-[12px] text-zinc-500 tabular-nums">
+                <span className="hidden 2xl:inline text-[12px] text-zinc-500 tabular-nums">
                   Updated {ago(lastUp)}
                 </span>
               )}
@@ -1730,6 +2594,14 @@ export default function Dashboard({ onLogout }) {
               </motion.div>
               <span className="hidden lg:inline">Refresh</span>
             </motion.button>
+            <button
+              onClick={()=>setPwOpen(true)}
+              aria-label="Change password"
+              title="Change password"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-white text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              <KeyRound size={15}/>
+            </button>
             <button
               onClick={handleLogout}
               aria-label="Sign out"
@@ -1772,10 +2644,10 @@ export default function Dashboard({ onLogout }) {
         >
           <div>
             <h1 className="text-[30px] font-extrabold tracking-[-0.02em] text-zinc-900 leading-none">
-              {NAV.find(n=>n.id===tab)?.label}
+              {nav.find(n=>n.id===tab)?.label}
             </h1>
             <p className="text-[14px] text-zinc-500 mt-2">
-              {NAV.find(n=>n.id===tab)?.sub || 'WhatsApp Sales Analytics'}
+              {nav.find(n=>n.id===tab)?.sub || 'WhatsApp Sales Analytics'}
             </p>
           </div>
         </motion.div>
@@ -1796,6 +2668,8 @@ export default function Dashboard({ onLogout }) {
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
               {tab==='cache'         && <CacheTab         s={stats}/>}
               {tab==='chat'          && <ChatTab/>}
+              {tab==='expenses'      && <ExpensesTab      role={role} onAuthError={handleLogout}/>}
+              {tab==='team'          && <TeamTab          role={role} onAuthError={handleLogout}/>}
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -1812,7 +2686,7 @@ export default function Dashboard({ onLogout }) {
                 className="fixed left-0 right-0 z-[99] bg-white border-b border-zinc-200 shadow-[0_8px_24px_-4px_rgba(30,41,59,0.12)]"
                 style={{top:'83px'}}
               >
-                {NAV.map(n=>{
+                {nav.map(n=>{
                   const active = tab===n.id;
                   return (
                     <button key={n.id} role="option" aria-selected={active}
@@ -1832,6 +2706,7 @@ export default function Dashboard({ onLogout }) {
         document.body
       )}
     </div>
+    <ChangePasswordModal open={pwOpen} onClose={()=>setPwOpen(false)}/>
     <ToastPortal/>
     </HelpContext.Provider>
     </ToastContext.Provider>
