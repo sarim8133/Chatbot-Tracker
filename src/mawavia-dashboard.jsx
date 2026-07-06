@@ -31,7 +31,13 @@ const AVATAR_PALETTE = [
   { bg:'#FFE4E6', fg:'#9F1239' }, // rose
   { bg:'#E0E7FF', fg:'#3730A3' }, // indigo
 ];
-const avatarColor = n => AVATAR_PALETTE[parseInt(clean(n).slice(-2), 10) % AVATAR_PALETTE.length];
+const avatarColor = n => {
+  // Phone reps: index by the last 2 digits. Web reps (name, no digits): hash the string,
+  // so parseInt(NaN) can't index the palette out of bounds (which crashed the rep tabs).
+  let idx = parseInt(clean(n).slice(-2), 10);
+  if (Number.isNaN(idx)) { idx = 0; for (const ch of String(n)) idx = (idx * 31 + ch.charCodeAt(0)) >>> 0; }
+  return AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
+};
 
 // ── Palette — disciplined: ink structure + one committed signal accent ─────────
 const INK       = '#1E293B';   // dark slate — text, structure, the color that "owns" the page
@@ -58,6 +64,7 @@ const ChartsFallback = () => (
 const clean    = n => String(n).replace(/\D/g, '');
 const fmtPhone = n => {
   const s = clean(n);
+  if (!s) return '—';                       // web reps have no phone (name-keyed)
   if (s.startsWith('92') && s.length === 12)
     return `+92 ${s.slice(2,5)} ${s.slice(5,8)} ${s.slice(8)}`;
   return `+${s}`;
@@ -262,6 +269,10 @@ function useData(onAuthError) {
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
       ]);
       const msgs=m.data, cache=c.data, now=new Date();
+      // Web chats have no phone. Use the display name as the rep identity so the whole
+      // phone-keyed pipeline (grouping, the Conversations filter, rep drill-down, CSV)
+      // treats them uniformly instead of collapsing every web row into a null rep.
+      msgs.forEach(x=>{ if(x.channel==='web' || x.User_Number==null) x.User_Number = x.Name || 'Website user'; });
       const tStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
       const yStart=new Date(+tStart-86400000);
       const today=msgs.filter(x=>new Date(x.Timestamp)>=tStart).length;
@@ -271,17 +282,16 @@ function useData(onAuthError) {
       msgs.forEach(x=>{const k=fmtDay(x.Timestamp);if(k in bk)bk[k]++;});
       const um={};
       msgs.forEach(x=>{
-        // Web chats have no phone; identify those reps by name instead of User_Number.
-        const isWeb = x.channel === 'web' || x.User_Number == null;
-        const u = isWeb ? (x.Name || 'Website user') : String(x.User_Number);
-        if(!um[u])um[u]={number:u,name:x.Name||(isWeb?'Website user':null),channel:x.channel||(isWeb?'web':'whatsapp'),count:0,lastActive:x.Timestamp,msgs:[]};
+        const u=String(x.User_Number);
+        if(!um[u])um[u]={number:u,name:x.Name||null,channel:x.channel||'whatsapp',count:0,lastActive:x.Timestamp,msgs:[]};
         if(!um[u].name && x.Name) um[u].name = x.Name;
         um[u].count++;
         if(um[u].msgs.length<50)um[u].msgs.push(x);
         if(new Date(x.Timestamp)>new Date(um[u].lastActive))um[u].lastActive=x.Timestamp;
       });
       const users=Object.values(um).sort((a,b)=>b.count-a.count);
-      // Only register phone-keyed reps (web names have no digits → would collide on "").
+      // Web reps are name-keyed (no digits) → clean() is empty; exclude them here so
+      // repName falls back to the name instead of a bogus phone. WhatsApp reps register.
       _repNames = Object.fromEntries(users.filter(u=>u.name && clean(u.number)).map(u=>[u.number,u.name]));
       // "Most asked" groups by the cached ANSWER, not the question text: paraphrases
       // that hit the same cache entry share an identical answer, so they merge into
