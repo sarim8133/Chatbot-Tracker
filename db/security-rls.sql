@@ -18,11 +18,18 @@ ALTER TABLE n8n_chat_histories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_archive       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE semantic_cache     ENABLE ROW LEVEL SECURITY;
 
--- 2. Allow SELECT only for signed-in (authenticated) requests. There is NO anon
---    policy, so the anon/publishable key sees zero rows.
+-- 2. Allow SELECT only for ADMINS. These are the sales-conversation / cache tables,
+--    which live behind admin-only tabs. A plain "authenticated USING (true)" was safe
+--    when every login was a trusted admin — but self-service employee/accountant logins
+--    now exist (Team panel + roles, see db/expense-access-rls.sql), and a non-admin
+--    could otherwise read all of this via REST, bypassing the UI's nav gating.
+--    HARDENED 2026-07-06 → private.is_admin() (defined in db/expense-access-rls.sql).
 DROP POLICY IF EXISTS authenticated_read ON n8n_chat_histories;
 DROP POLICY IF EXISTS authenticated_read ON chat_archive;
 DROP POLICY IF EXISTS authenticated_read ON semantic_cache;
+DROP POLICY IF EXISTS admin_read        ON n8n_chat_histories;
+DROP POLICY IF EXISTS admin_read        ON chat_archive;
+DROP POLICY IF EXISTS admin_read        ON semantic_cache;
 
 -- CRITICAL: drop the leftover anon-readable policies from the original (pre-login)
 -- dashboard. These are what still let the public/anon key read data, even with RLS
@@ -30,9 +37,9 @@ DROP POLICY IF EXISTS authenticated_read ON semantic_cache;
 DROP POLICY IF EXISTS dashboard_read_history ON n8n_chat_histories;
 DROP POLICY IF EXISTS dashboard_read_cache   ON semantic_cache;
 
-CREATE POLICY authenticated_read ON n8n_chat_histories FOR SELECT TO authenticated USING (true);
-CREATE POLICY authenticated_read ON chat_archive       FOR SELECT TO authenticated USING (true);
-CREATE POLICY authenticated_read ON semantic_cache     FOR SELECT TO authenticated USING (true);
+CREATE POLICY admin_read ON n8n_chat_histories FOR SELECT TO authenticated USING (private.is_admin());
+CREATE POLICY admin_read ON chat_archive       FOR SELECT TO authenticated USING (private.is_admin());
+CREATE POLICY admin_read ON semantic_cache     FOR SELECT TO authenticated USING (private.is_admin());
 
 -- 3. Make the chat_all view honor the CALLER's permissions (Postgres 15+).
 --    Without this a view runs as its owner and BYPASSES the RLS above — letting

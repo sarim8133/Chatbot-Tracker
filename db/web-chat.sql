@@ -29,10 +29,17 @@ CREATE INDEX IF NOT EXISTS idx_web_chat_session ON web_chat_histories (session_i
 
 ALTER TABLE web_chat_histories ENABLE ROW LEVEL SECURITY;
 
--- Dashboard (signed-in) can read; anon is locked out.
+-- Admins can read the web-chat history; anon is locked out. HARDENED 2026-07-06:
+-- was "authenticated USING (true)", but self-service employee/accountant logins now
+-- exist — USING(true) would let any of them read every user's web chats via REST.
+-- Restricted to private.is_admin() (see db/expense-access-rls.sql). Employees still
+-- chat fine; their thread persists in localStorage (only cross-device DB restore,
+-- which was admin-facing analytics anyway, is gated). A proper per-user policy would
+-- need a user_id column stamped from the caller's JWT by the chat webhook.
 DROP POLICY IF EXISTS web_chat_authenticated_read ON web_chat_histories;
-CREATE POLICY web_chat_authenticated_read ON web_chat_histories
-  FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS web_chat_admin_read         ON web_chat_histories;
+CREATE POLICY web_chat_admin_read ON web_chat_histories
+  FOR SELECT TO authenticated USING (private.is_admin());
 
 -- n8n writes/maintains rows via the service_role key.
 DROP POLICY IF EXISTS web_chat_service_all ON web_chat_histories;
