@@ -1390,6 +1390,9 @@ function ReceiptCard({ card, onAccept, onReject }) {
       {card.status === 'saving' && <p className="text-[12.5px] text-zinc-500">Saving…</p>}
       {card.status === 'saved' && <p className="text-[12.5px] font-medium" style={{ color: '#16794C' }}>✓ Saved to your expenses.</p>}
       {card.status === 'rejected' && <p className="text-[12.5px] text-zinc-500">Discarded — upload it again, or contact the accountant if it keeps coming out wrong.</p>}
+      {card.status === 'error' && <p className="text-[12.5px] text-zinc-500">Couldn’t read that receipt — attach a clearer photo, or contact the accountant.</p>}
+      {card.status === 'notreceipt' && <p className="text-[12.5px] text-zinc-500">That doesn’t look like a receipt — attach a photo of the receipt itself.</p>}
+      {card.status === 'expired' && <p className="text-[12.5px] text-zinc-500">This upload expired when you left the chat — please attach the receipt again.</p>}
     </div>
   );
 }
@@ -1450,6 +1453,8 @@ function ChatTab() {
   const scrollRef = useRef(null);
   const taRef     = useRef(null);
   const fileRef   = useRef(null);
+  const receiptFiles = useRef(new Map());   // cid -> File (in-memory only, never persisted)
+  const objectUrls   = useRef([]);          // created blob: URLs, revoked on unmount
 
   const configured     = !!N8N_CHAT_WEBHOOK;
   const receiptEnabled = !!N8N_RECEIPT_WEBHOOK;
@@ -1474,11 +1479,25 @@ function ChatTab() {
     return () => { cancelled = true; };
   }, [sessionId]);
 
-  // Persist the thread (with images) so switching tabs / reloading keeps it intact.
+  // Persist the thread so switching tabs / reloading keeps it intact. Receipt cards
+  // carry a live blob: thumb (and their File lives in the receiptFiles ref, never here);
+  // neither survives serialization, so strip the thumb and downgrade any in-flight
+  // receipt to 'expired' — a reloaded card then asks the user to re-attach instead of
+  // offering a Confirm that would fail.
   useEffect(() => {
-    try { localStorage.setItem(threadKey(sessionId), JSON.stringify(messages)); }
-    catch { /* storage full — ignore */ }
+    try {
+      const safe = messages.map(m => {
+        if (m.role !== 'receipt') return m;
+        const s = m.card?.status;
+        const status = (s === 'extracting' || s === 'pending' || s === 'saving') ? 'expired' : s;
+        return { ...m, card: { ...m.card, thumb: null, status } };
+      });
+      localStorage.setItem(threadKey(sessionId), JSON.stringify(safe));
+    } catch { /* storage full — ignore */ }
   }, [messages, sessionId]);
+
+  // Revoke receipt thumbnail blob URLs on unmount to avoid a memory leak.
+  useEffect(() => () => { objectUrls.current.forEach(u => URL.revokeObjectURL(u)); }, []);
 
   // Keep the thread pinned to the newest message.
   useEffect(() => {
@@ -1546,34 +1565,50 @@ function ChatTab() {
     if (!file) return;
     const bad = validateImage(file);
     if (bad) { setMessages(m => [...m, { role:'assistant', error:true, text:bad, ts:Date.now() }]); return; }
+    // Unique id per card (a spend-write target — don't reuse a millisecond timestamp).
+    // The File stays in a ref map, never in `messages` (unserializable + would bloat storage).
+    const cid = (crypto.randomUUID?.() || `r_${Date.now()}_${Math.random()}`);
     const thumb = URL.createObjectURL(file);
-    const idx = Date.now();
-    setMessages(m => [...m, { role:'receipt', ts:idx, card:{ status:'extracting', thumb, file } }]);
+    objectUrls.current.push(thumb);
+    receiptFiles.current.set(cid, file);
+    setMessages(m => [...m, { role:'receipt', ts:Date.now(), cid, card:{ status:'extracting', thumb } }]);
     try {
-      const { fields } = await extractReceipt(file);
-      setMessages(m => m.map(msg => msg.ts===idx ? { ...msg, card:{ ...msg.card, status:'pending', fields } } : msg));
+      const { fields, is_receipt } = await extractReceipt(file);
+      const notReceipt = is_receipt === false || fields?.is_receipt === false;
+      if (notReceipt) receiptFiles.current.delete(cid);
+      setMessages(m => m.map(msg => msg.cid===cid
+        ? { ...msg, card:{ ...msg.card, status: notReceipt ? 'notreceipt' : 'pending', fields } }
+        : msg));
     } catch (ex) {
-      setMessages(m => m.map(msg => msg.ts===idx ? { ...msg, card:{ ...msg.card, status:'error' } } : msg)
+      receiptFiles.current.delete(cid);
+      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'error' } } : msg)
         .concat({ role:'assistant', error:true, ts:Date.now(),
                   text: ex.message || 'Couldn’t read that receipt — try a sharper photo.' }));
     }
   }, []);
 
-  const acceptReceipt = useCallback(async (ts) => {
-    const card = messages.find(m => m.ts===ts)?.card;
+  const acceptReceipt = useCallback(async (cid) => {
+    const card = messages.find(m => m.cid===cid)?.card;
+    const file = receiptFiles.current.get(cid);
     if (!card) return;
-    setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'saving' } } : msg));
+    if (!file) {   // binary was dropped (tab switch / reload) — can't save, ask to re-attach
+      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'expired' } } : msg));
+      return;
+    }
+    setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'saving' } } : msg));
     try {
-      await saveReceipt(card.file, card.fields);
-      setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'saved', file:null } } : msg));
+      await saveReceipt(file, card.fields);
+      receiptFiles.current.delete(cid);
+      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'saved' } } : msg));
     } catch (ex) {
-      setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'pending' } } : msg)
+      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'pending' } } : msg)
         .concat({ role:'assistant', error:true, ts:Date.now(), text: ex.message || 'Couldn’t save — try again.' }));
     }
   }, [messages]);
 
-  const rejectReceipt = useCallback((ts) => {
-    setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'rejected', file:null } } : msg));
+  const rejectReceipt = useCallback((cid) => {
+    receiptFiles.current.delete(cid);
+    setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'rejected' } } : msg));
   }, []);
 
   return (
@@ -1631,7 +1666,7 @@ function ChatTab() {
             <>
               {messages.map((m,i)=>(
                 m.role === 'receipt'
-                  ? <ReceiptCard key={`${m.ts}_${i}`} card={m.card} onAccept={() => acceptReceipt(m.ts)} onReject={() => rejectReceipt(m.ts)} />
+                  ? <ReceiptCard key={`${m.cid || m.ts}_${i}`} card={m.card} onAccept={() => acceptReceipt(m.cid)} onReject={() => rejectReceipt(m.cid)} />
                   : <ChatBubble key={`${m.ts}_${i}`} m={m}/>
               ))}
               {sending && (
