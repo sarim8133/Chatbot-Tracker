@@ -1656,10 +1656,18 @@ function ChatTab() {
                 <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:`${ACCENT}14`}}>
                   <Bot size={22} style={{color:ACCENT_DK}}/>
                 </span>
-                <p className="text-[15px] font-semibold text-zinc-900">Talk to your assistant</p>
+                <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi-Tech</p>
                 <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
-                  This runs the same n8n workflow as the WhatsApp bot. Ask a product question to test it.
+                  Product specs, pricing, and availability — answered straight from the Hi-Tech catalogue. The same assistant as the WhatsApp bot, right here.
                 </p>
+                {receiptEnabled && (
+                  <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-white px-3 py-2.5">
+                    <Receipt size={15} className="text-zinc-500 shrink-0 mt-0.5"/>
+                    <p className="text-[12.5px] text-zinc-600 leading-relaxed">
+                      <span className="font-semibold text-zinc-800">Log an expense:</span> tap the receipt icon below and pick a photo — I’ll read the vendor, total and category, and you just confirm before it’s saved.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
