@@ -13,7 +13,7 @@ import {
 import { getAccessToken, changePassword } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
-import { validateImage, extractReceipt, saveReceipt } from './receipts';
+import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1752,6 +1752,18 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
   const items = parseItems(r.items);
   const conf  = Math.round((Number(r.ai_confidence) || 0) * 100);
   const confColor = conf >= 85 ? POS : conf >= 70 ? '#B45309' : NEG;
+
+  // Web receipts live in private Storage (image_path) → open via a short-lived signed
+  // URL. Legacy WhatsApp receipts only have a Drive link. Open a blank tab first so the
+  // async signing doesn't trip the popup blocker.
+  const openStored = async (e) => {
+    e.stopPropagation();
+    const w = window.open('', '_blank', 'noopener');
+    try {
+      const url = await signedReceiptUrl(r.image_path);
+      if (w) w.location = url; else window.open(url, '_blank', 'noopener');
+    } catch { if (w) w.close(); }
+  };
   return (
     <div className="border-t border-zinc-100 first:border-t-0">
       <button type="button" onClick={onToggle}
@@ -1819,13 +1831,19 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: confColor }} />
                   AI confidence {conf}%
                 </span>
-                {r.drive_link
-                  ? <a href={r.drive_link} target="_blank" rel="noreferrer"
+                {r.image_path
+                  ? <button type="button" onClick={openStored}
                       className="inline-flex items-center gap-1 text-accent hover:underline ml-auto"
-                      onClick={(e) => e.stopPropagation()}>
+                      title="Opens a private, time-limited link (only you and the accountant can view it)">
                       <ExternalLink size={11} /> View original
-                    </a>
-                  : <span className="inline-flex items-center gap-1 text-zinc-400 ml-auto"><ImageOff size={11} /> No image</span>}
+                    </button>
+                  : r.drive_link
+                    ? <a href={r.drive_link} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-accent hover:underline ml-auto"
+                        onClick={(e) => e.stopPropagation()}>
+                        <ExternalLink size={11} /> View original
+                      </a>
+                    : <span className="inline-flex items-center gap-1 text-zinc-400 ml-auto"><ImageOff size={11} /> No image</span>}
               </div>
             </div>
           </motion.div>
@@ -1862,7 +1880,7 @@ function ExpensesTab({ role, onAuthError }) {
       try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
       try {
         const ex = await sbFetch(token, 'wap_expenses',
-          'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,ai_confidence,items,status&status=neq.rejected&order=processed_at.desc&limit=2000');
+          'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status&status=neq.rejected&order=processed_at.desc&limit=2000');
         if (cancelled) return;
         setRows(ex.data);
         setErr(false);
