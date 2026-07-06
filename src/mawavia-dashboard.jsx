@@ -11,8 +11,9 @@ import {
   RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2,
 } from 'lucide-react';
 import { getAccessToken, changePassword } from './auth';
-import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE } from './config';
+import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
+import { validateImage, extractReceipt, saveReceipt } from './receipts';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1351,6 +1352,48 @@ const AssistantTag = ({error=false, from_cache=false}) => (
   </span>
 );
 
+// A receipt preview bubble: shows extracted fields with Accept / Reject. Until the
+// user accepts, NOTHING is saved server-side. Reject is purely local.
+function ReceiptCard({ card, onAccept, onReject }) {
+  const f = card.fields || {};
+  const rows = [
+    ['Vendor', f.vendor_name || '—'],
+    ['Total', `PKR ${(Number(f.total) || 0).toLocaleString('en-US')}`],
+    ['Category', f.category || 'Other'],
+    ['Date', f.date || '—'],
+  ];
+  return (
+    <div className="max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <Receipt size={15} className="text-zinc-500" />
+        <span className="text-[13px] font-semibold text-zinc-800">Is this right?</span>
+      </div>
+      {card.thumb && <img src={card.thumb} alt="receipt" className="max-h-40 rounded-lg mb-3 border border-zinc-100" />}
+      <dl className="space-y-1.5 mb-3">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-4 text-[13px]">
+            <dt className="text-zinc-400">{k}</dt><dd className="text-zinc-800 font-medium text-right">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {card.status === 'extracting' && <p className="text-[12.5px] text-zinc-500">Reading receipt…</p>}
+      {card.status === 'pending' && (
+        <div className="flex gap-2">
+          <button onClick={onAccept} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-white text-[13px] font-semibold py-2 hover:bg-accent transition-colors">
+            <CheckCircle2 size={14} /> Confirm & save
+          </button>
+          <button onClick={onReject} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 text-zinc-700 text-[13px] font-medium px-3 py-2 hover:border-zinc-900 transition-colors">
+            <X size={14} /> Reject
+          </button>
+        </div>
+      )}
+      {card.status === 'saving' && <p className="text-[12.5px] text-zinc-500">Saving…</p>}
+      {card.status === 'saved' && <p className="text-[12.5px] font-medium" style={{ color: '#16794C' }}>✓ Saved to your expenses.</p>}
+      {card.status === 'rejected' && <p className="text-[12.5px] text-zinc-500">Discarded — upload it again, or contact the accountant if it keeps coming out wrong.</p>}
+    </div>
+  );
+}
+
 function ChatBubble({ m }) {
   const isUser = m.role === 'user';
   return (
@@ -1406,8 +1449,10 @@ function ChatTab() {
   const [sending,  setSending]  = useState(false);
   const scrollRef = useRef(null);
   const taRef     = useRef(null);
+  const fileRef   = useRef(null);
 
-  const configured = !!N8N_CHAT_WEBHOOK;
+  const configured     = !!N8N_CHAT_WEBHOOK;
+  const receiptEnabled = !!N8N_RECEIPT_WEBHOOK;
 
   // Restore on mount / "New chat". localStorage is the source of truth (it keeps
   // image URLs); only fall back to the DB (text-only) when there's no local thread.
@@ -1495,6 +1540,42 @@ function ChatTab() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  const onPickReceipt = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const bad = validateImage(file);
+    if (bad) { setMessages(m => [...m, { role:'assistant', error:true, text:bad, ts:Date.now() }]); return; }
+    const thumb = URL.createObjectURL(file);
+    const idx = Date.now();
+    setMessages(m => [...m, { role:'receipt', ts:idx, card:{ status:'extracting', thumb, file } }]);
+    try {
+      const { fields } = await extractReceipt(file);
+      setMessages(m => m.map(msg => msg.ts===idx ? { ...msg, card:{ ...msg.card, status:'pending', fields } } : msg));
+    } catch (ex) {
+      setMessages(m => m.map(msg => msg.ts===idx ? { ...msg, card:{ ...msg.card, status:'error' } } : msg)
+        .concat({ role:'assistant', error:true, ts:Date.now(),
+                  text: ex.message || 'Couldn’t read that receipt — try a sharper photo.' }));
+    }
+  }, []);
+
+  const acceptReceipt = useCallback(async (ts) => {
+    const card = messages.find(m => m.ts===ts)?.card;
+    if (!card) return;
+    setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'saving' } } : msg));
+    try {
+      await saveReceipt(card.file, card.fields);
+      setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'saved', file:null } } : msg));
+    } catch (ex) {
+      setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'pending' } } : msg)
+        .concat({ role:'assistant', error:true, ts:Date.now(), text: ex.message || 'Couldn’t save — try again.' }));
+    }
+  }, [messages]);
+
+  const rejectReceipt = useCallback((ts) => {
+    setMessages(m => m.map(msg => msg.ts===ts ? { ...msg, card:{ ...msg.card, status:'rejected', file:null } } : msg));
+  }, []);
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="show">
       <Panel className="flex flex-col overflow-hidden" style={{height:'calc(100vh - 260px)', minHeight:'440px'}}>
@@ -1548,7 +1629,11 @@ function ChatTab() {
             </div>
           ) : (
             <>
-              {messages.map((m,i)=><ChatBubble key={`${m.ts}_${i}`} m={m}/>)}
+              {messages.map((m,i)=>(
+                m.role === 'receipt'
+                  ? <ReceiptCard key={`${m.ts}_${i}`} card={m.card} onAccept={() => acceptReceipt(m.ts)} onReject={() => rejectReceipt(m.ts)} />
+                  : <ChatBubble key={`${m.ts}_${i}`} m={m}/>
+              ))}
               {sending && (
                 <div className="flex justify-start">
                   <div className="flex flex-col gap-1 items-start">
@@ -1564,6 +1649,15 @@ function ChatTab() {
         {/* Composer */}
         <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
           <div className="flex items-end gap-2">
+            {receiptEnabled && (
+              <>
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPickReceipt} />
+                <button type="button" onClick={() => fileRef.current?.click()} aria-label="Upload a receipt"
+                  className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+                  <Receipt size={18} />
+                </button>
+              </>
+            )}
             <textarea
               ref={taRef}
               rows={1}
