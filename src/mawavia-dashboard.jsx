@@ -2738,7 +2738,7 @@ export default function Dashboard({ onLogout }) {
               aria-pressed={helpOpen}
               aria-label="Toggle help captions"
               title="Toggle help"
-              className={`flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
+              className={`hidden lg:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
             >
               <HelpCircle size={15}/>
             </button>
