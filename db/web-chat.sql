@@ -48,3 +48,23 @@ CREATE POLICY web_chat_service_all ON web_chat_histories
 
 GRANT SELECT ON web_chat_histories TO authenticated;
 REVOKE ALL  ON web_chat_histories FROM anon;
+
+-- ============================================================================
+-- 2026-07-06 — merge web chat into the sales analytics (usage moved to the site).
+-- chat_all now UNIONs this table in with a channel tag, so dashboard metrics reflect
+-- BOTH channels. security_invoker keeps per-table RLS (all admin-only), so the
+-- analytics stay admin-only. Web rows have no phone → User_Number is null (the UI
+-- attributes those reps by Name). Applied via migration chat_all_include_web_with_channel.
+-- ============================================================================
+CREATE OR REPLACE VIEW chat_all AS
+  SELECT "Timestamp","User_Message","AI_Response","User_Number",unq_id,"Name",from_cache,
+         'whatsapp'::text AS channel FROM n8n_chat_histories
+  UNION ALL
+  SELECT "Timestamp","User_Message","AI_Response","User_Number",unq_id,"Name",from_cache,
+         'whatsapp'::text AS channel FROM chat_archive
+  UNION ALL
+  SELECT "Timestamp","User_Message","AI_Response",
+         NULL::bigint AS "User_Number", unq_id,"Name",from_cache,
+         'web'::text AS channel FROM web_chat_histories;
+ALTER VIEW chat_all SET (security_invoker = on);
+GRANT SELECT ON chat_all TO authenticated;

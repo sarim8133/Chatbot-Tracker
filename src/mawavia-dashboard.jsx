@@ -62,9 +62,11 @@ const fmtPhone = n => {
     return `+92 ${s.slice(2,5)} ${s.slice(5,8)} ${s.slice(8)}`;
   return `+${s}`;
 };
-const repName  = n => _repNames[clean(n)] || fmtPhone(n);
+// Web-chat users have no phone (their rep "id" is their name), so when there are no
+// digits fall back to the name itself instead of formatting it as a phone number.
+const repName  = n => _repNames[clean(n)] || (clean(n) ? fmtPhone(n) : String(n));
 const initials = n => {
-  const nm = _repNames[clean(n)];
+  const nm = _repNames[clean(n)] || (clean(n) ? null : String(n));
   if (nm) { const p = nm.trim().split(/\s+/); return (p[0][0] + (p[1]?.[0] ?? '')).toUpperCase(); }
   return String(n).slice(-2);
 };
@@ -247,6 +249,7 @@ function useData(onAuthError) {
   const [demo,       setDemo]       = useState(false);
   const [lastUp,     setLastUp]     = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [channelFilter, setChannelFilter] = useState('all');   // 'all' | 'whatsapp' | 'web'
 
   const load = useCallback(async (isRefresh=false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -255,7 +258,7 @@ function useData(onAuthError) {
     catch { onAuthError?.(); setLoading(false); setRefreshing(false); return; }   // session gone → back to login
     try {
       const [m,c] = await Promise.all([
-        sbFetch(token, MSG_SOURCE,'select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache&order=Timestamp.desc&limit=500'),
+        sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
       ]);
       const msgs=m.data, cache=c.data, now=new Date();
@@ -268,15 +271,18 @@ function useData(onAuthError) {
       msgs.forEach(x=>{const k=fmtDay(x.Timestamp);if(k in bk)bk[k]++;});
       const um={};
       msgs.forEach(x=>{
-        const u=String(x.User_Number);
-        if(!um[u])um[u]={number:u,name:x.Name||null,count:0,lastActive:x.Timestamp,msgs:[]};
+        // Web chats have no phone; identify those reps by name instead of User_Number.
+        const isWeb = x.channel === 'web' || x.User_Number == null;
+        const u = isWeb ? (x.Name || 'Website user') : String(x.User_Number);
+        if(!um[u])um[u]={number:u,name:x.Name||(isWeb?'Website user':null),channel:x.channel||(isWeb?'web':'whatsapp'),count:0,lastActive:x.Timestamp,msgs:[]};
         if(!um[u].name && x.Name) um[u].name = x.Name;
         um[u].count++;
         if(um[u].msgs.length<50)um[u].msgs.push(x);
         if(new Date(x.Timestamp)>new Date(um[u].lastActive))um[u].lastActive=x.Timestamp;
       });
       const users=Object.values(um).sort((a,b)=>b.count-a.count);
-      _repNames = Object.fromEntries(users.filter(u=>u.name).map(u=>[u.number,u.name]));
+      // Only register phone-keyed reps (web names have no digits → would collide on "").
+      _repNames = Object.fromEntries(users.filter(u=>u.name && clean(u.number)).map(u=>[u.number,u.name]));
       // "Most asked" groups by the cached ANSWER, not the question text: paraphrases
       // that hit the same cache entry share an identical answer, so they merge into
       // one topic. Skip empty/short answers so generic fallbacks can't cluster
@@ -315,7 +321,7 @@ function useData(onAuthError) {
     setLastUp(new Date());
     setLoading(false);
     setRefreshing(false);
-  }, [onAuthError]);
+  }, [onAuthError, channelFilter]);
 
   useEffect(()=>{
     load();
@@ -323,7 +329,7 @@ function useData(onAuthError) {
     return()=>clearInterval(iv);
   },[load]);
 
-  return {stats,loading,demo,lastUp,refreshing,refresh:()=>load(true)};
+  return {stats,loading,demo,lastUp,refreshing,refresh:()=>load(true),channelFilter,setChannelFilter};
 }
 
 // ── Profile (role + employee mapping) ─────────────────────────────────────────
@@ -2559,7 +2565,7 @@ export default function Dashboard({ onLogout }) {
     onLogout?.();
   }, [onLogout]);
 
-  const {stats,loading,demo,lastUp,refreshing,refresh} = useData(handleLogout);
+  const {stats,loading,demo,lastUp,refreshing,refresh,channelFilter,setChannelFilter} = useData(handleLogout);
 
   // Role → which tabs are visible. Employees only ever see "My Expenses".
   const profile = useProfile(handleLogout);
@@ -2807,6 +2813,18 @@ export default function Dashboard({ onLogout }) {
               {nav.find(n=>n.id===tab)?.sub || 'WhatsApp Sales Analytics'}
             </p>
           </div>
+          {/* Channel filter — the analytics source combines WhatsApp + website chat. */}
+          {role==='admin' && ['overview','conversations','users'].includes(tab) && (
+            <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-zinc-100 border border-zinc-200 shrink-0" role="group" aria-label="Filter by channel">
+              {[['all','All'],['whatsapp','WhatsApp'],['web','Website']].map(([v,label])=>(
+                <button key={v} type="button" onClick={()=>setChannelFilter(v)}
+                  aria-pressed={channelFilter===v}
+                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${channelFilter===v?'bg-white text-zinc-900 shadow-sm':'text-zinc-500 hover:text-zinc-800'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </motion.div>
 
         <AnimatePresence mode="wait">

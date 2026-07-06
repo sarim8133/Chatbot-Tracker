@@ -5,8 +5,9 @@
 export const SB_URL = import.meta.env.VITE_SB_URL;
 export const SB_KEY = import.meta.env.VITE_SB_KEY;
 
-// Dashboard reads the chat_all view (live n8n_chat_histories ∪ chat_archive).
-// See db/chat-archive.sql.
+// Dashboard reads the chat_all view (n8n_chat_histories ∪ chat_archive ∪
+// web_chat_histories), each row tagged with a `channel` ('whatsapp' | 'web').
+// See db/chat-archive.sql and db/web-chat.sql.
 export const MSG_SOURCE = 'chat_all';
 
 // n8n web-chat webhook — the Chat tab POSTs messages here; n8n runs the assistant
@@ -20,6 +21,8 @@ export const N8N_CHAT_WEBHOOK = import.meta.env.VITE_N8N_CHAT_WEBHOOK || '';
 // hidden. See docs/superpowers/specs/2026-07-06-web-receipt-upload-design.md.
 export const N8N_RECEIPT_WEBHOOK = import.meta.env.VITE_N8N_RECEIPT_WEBHOOK || '';
 
-// Web-chat history table — separate from the WhatsApp n8n_chat_histories so web
-// traffic never distorts the rep analytics. See db/web-chat.sql.
+// Web-chat history table — n8n writes web conversations here. As of 2026-07-06 the
+// analytics source (chat_all / MSG_SOURCE) UNIONs this in with a channel='web' tag, so
+// dashboard metrics reflect BOTH WhatsApp and website usage (filterable by channel).
+// See db/web-chat.sql and the chat_all view.
 export const WEB_CHAT_SOURCE = 'web_chat_histories';
