@@ -1758,10 +1758,12 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
   // async signing doesn't trip the popup blocker.
   const openStored = async (e) => {
     e.stopPropagation();
-    const w = window.open('', '_blank', 'noopener');
+    const w = window.open('', '_blank');   // no 'noopener' → we get a real handle to reuse
+    if (w) w.opener = null;                // sever opener for safety (tabnabbing)
     try {
       const url = await signedReceiptUrl(r.image_path);
-      if (w) w.location = url; else window.open(url, '_blank', 'noopener');
+      if (w) w.location = url;
+      else window.open(url, '_blank', 'noopener');   // only if the blank tab was blocked
     } catch { if (w) w.close(); }
   };
   return (
