@@ -2193,6 +2193,60 @@ const teamInput = 'text-[13px] text-zinc-800 bg-white border border-zinc-300 rou
 
 const emptyForm = { full_name: '', role: 'employee', department: '', email: '', phone: '', password: '', invite: true };
 
+// Department picker: a styled combobox (not the native datalist). Lets you pick an
+// existing department from a nice dropdown — matching the app's look — or type a new
+// one. `options` are the departments already in use, so admins reuse the exact spelling
+// instead of creating "AI" vs "ai" duplicates.
+function DeptCombo({ value, onChange, options, placeholder, className = 'w-full', menuClassName = 'w-full min-w-[11rem]' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const q = (value || '').trim().toLowerCase();
+  const list = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
+  const isNew = !!q && !options.some(o => o.toLowerCase() === q);
+  const showPanel = open && (list.length > 0 || isNew);
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <input
+        type="text" value={value} placeholder={placeholder}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        role="combobox" aria-expanded={showPanel} aria-autocomplete="list"
+        className={`${teamInput} w-full pr-7`}
+      />
+      <button type="button" tabIndex={-1} aria-label="Toggle departments" onClick={() => setOpen(o => !o)}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 text-zinc-400 hover:text-zinc-700">
+        <ChevronDown size={13} className={`transition-transform ${showPanel ? 'rotate-180' : ''}`} />
+      </button>
+      {showPanel && (
+        <ul role="listbox" className={`absolute top-full left-0 mt-1.5 ${menuClassName} max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg z-30 py-1`}>
+          {list.map(o => (
+            <li key={o} role="option" aria-selected={o.toLowerCase() === q}>
+              <button type="button"
+                onMouseDown={ev => { ev.preventDefault(); onChange(o); setOpen(false); }}
+                className="w-full text-left px-3 py-2 text-[12.5px] text-zinc-800 hover:bg-zinc-50 transition-colors">
+                {o}
+              </button>
+            </li>
+          ))}
+          {isNew && (
+            <li className="px-3 py-1.5 text-[11px] text-zinc-400 border-t border-zinc-100">
+              New department: <span className="text-zinc-600 font-medium">{value.trim()}</span>
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function TeamTab({ role, onAuthError }) {
   const [users,  setUsers]  = useState(null);
   const [drafts, setDrafts] = useState({});   // user_id -> { role, phone, full_name, department }
@@ -2296,9 +2350,6 @@ function TeamTab({ role, onAuthError }) {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      <datalist id="dept-list">
-        {departments.map(d => <option key={d} value={d} />)}
-      </datalist>
       <HelpNote>
         Add a team member and they can log in right away — with their <b>email or their phone number</b>.
         Employees are identified by <b>phone</b> (unique), so two people can share a name safely; their
@@ -2355,7 +2406,7 @@ function TeamTab({ role, onAuthError }) {
                 </label>
                 <label className="flex flex-col gap-1">
                   <Label>Department</Label>
-                  <input className={teamInput} list="dept-list" value={form.department} onChange={e => setF({ department: e.target.value })} placeholder="e.g. sales" />
+                  <DeptCombo value={form.department} onChange={v => setF({ department: v })} options={departments} placeholder="e.g. sales" />
                 </label>
                 {useInvite ? (
                   <div className="flex flex-col gap-1">
@@ -2438,8 +2489,8 @@ function TeamTab({ role, onAuthError }) {
                   </select>
                   <input type="text" value={dr.full_name} onChange={e => setDraft(u.user_id, { full_name: e.target.value })}
                     placeholder="name" aria-label="Name" className={`${teamInput} w-32`} />
-                  <input type="text" list="dept-list" value={dr.department} onChange={e => setDraft(u.user_id, { department: e.target.value })}
-                    placeholder="dept" aria-label="Department" className={`${teamInput} w-24`} />
+                  <DeptCombo value={dr.department} onChange={v => setDraft(u.user_id, { department: v })}
+                    options={departments} placeholder="dept" className="w-28" />
                   {dr.role === 'employee' && (
                     <input type="text" value={dr.phone} onChange={e => setDraft(u.user_id, { phone: e.target.value })}
                       placeholder="phone" aria-label="Phone" inputMode="numeric" className={`${teamInput} w-36`} />
