@@ -10,7 +10,7 @@ import {
   LayoutDashboard, MessageSquare, Users, Database,
   RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2,
 } from 'lucide-react';
-import { getAccessToken, changePassword } from './auth';
+import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
@@ -2191,7 +2191,7 @@ const genPassword = () => {
 
 const teamInput = 'text-[13px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400';
 
-const emptyForm = { full_name: '', role: 'employee', department: '', email: '', phone: '', password: '' };
+const emptyForm = { full_name: '', role: 'employee', department: '', email: '', phone: '', password: '', invite: true };
 
 function TeamTab({ role, onAuthError }) {
   const [users,  setUsers]  = useState(null);
@@ -2251,8 +2251,10 @@ function TeamTab({ role, onAuthError }) {
     setAdding(true); setAddErr(''); setAddOk(null);
     let token; try { token = await getAccessToken(); } catch { onAuthError?.(); setAdding(false); return; }
     try {
-      const res = await sbFunction(token, 'admin-create-user', form);
-      setAddOk({ login: res.login_email, password: form.password, warning: res.warning });
+      const useInvite = !!form.email.trim() && form.invite;
+      const payload = { ...form, invite: useInvite, redirect_to: window.location.origin + '/' };
+      const res = await sbFunction(token, 'admin-create-user', payload);
+      setAddOk({ login: res.login_email, password: form.password, invited: res.invited, warning: res.warning });
       setForm(emptyForm);
       await load();
     } catch (e) { setAddErr(e.message || 'Could not add member'); }
@@ -2277,9 +2279,13 @@ function TeamTab({ role, onAuthError }) {
     phone: u.phone || '', full_name: u.full_name || '', department: u.department || '',
   }]));
 
-  const canAdd = form.full_name.trim() && form.password.length >= 8
+  // Invite when a real email is present and the invite toggle is on; otherwise the admin
+  // sets a password (the only option for phone-only staff, who have no inbox).
+  const useInvite = !!form.email.trim() && form.invite;
+  const canAdd = form.full_name.trim()
     && (form.email.trim() || form.phone.trim())
-    && (form.role !== 'employee' || form.phone.trim());
+    && (form.role !== 'employee' || form.phone.trim())
+    && (useInvite || form.password.length >= 8);
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -2304,8 +2310,12 @@ function TeamTab({ role, onAuthError }) {
 
         {addOk && (
           <div className="mt-4 rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${POS}55`, background: `${POS}0d`, color: '#14532d' }}>
-            ✓ Created. They can sign in with <b>{addOk.login}</b> and the temporary password{' '}
-            <span className="mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-800">{addOk.password}</span> — share it with them.
+            {addOk.invited ? (
+              <>✓ Invite sent to <b>{addOk.login}</b>. They'll get an email to set their own password and finish signing in.</>
+            ) : (
+              <>✓ Created. They can sign in with <b>{addOk.login}</b> and the temporary password{' '}
+              <span className="mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-800">{addOk.password}</span> — share it with them.</>
+            )}
             {addOk.warning && <div className="mt-1 text-[12px]" style={{ color: '#92400e' }}>{addOk.warning}</div>}
           </div>
         )}
@@ -2337,20 +2347,34 @@ function TeamTab({ role, onAuthError }) {
                   <Label>Department</Label>
                   <input className={teamInput} value={form.department} onChange={e => setF({ department: e.target.value })} placeholder="e.g. sales" />
                 </label>
-                <label className="flex flex-col gap-1">
-                  <Label>Temporary password</Label>
-                  <div className="flex gap-1.5">
-                    <input className={`${teamInput} flex-1`} value={form.password} onChange={e => setF({ password: e.target.value })} placeholder="min 8 characters" />
-                    <button type="button" onClick={() => setF({ password: genPassword() })}
-                      className="text-[11px] font-semibold px-2.5 rounded-md border border-zinc-300 text-zinc-600 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0">Generate</button>
+                {useInvite ? (
+                  <div className="flex flex-col gap-1">
+                    <Label>Password</Label>
+                    <div className={`${teamInput} flex items-center text-zinc-400`}>They set their own via the invite</div>
                   </div>
-                </label>
+                ) : (
+                  <label className="flex flex-col gap-1">
+                    <Label>Temporary password</Label>
+                    <div className="flex gap-1.5">
+                      <input className={`${teamInput} flex-1`} value={form.password} onChange={e => setF({ password: e.target.value })} placeholder="min 8 characters" />
+                      <button type="button" onClick={() => setF({ password: genPassword() })}
+                        className="text-[11px] font-semibold px-2.5 rounded-md border border-zinc-300 text-zinc-600 hover:border-zinc-900 hover:text-zinc-900 transition-colors shrink-0">Generate</button>
+                    </div>
+                  </label>
+                )}
               </div>
+
+              {form.email.trim() && (
+                <label className="flex items-center gap-2 mt-3 text-[12px] text-zinc-600 cursor-pointer select-none">
+                  <input type="checkbox" checked={form.invite} onChange={e => setF({ invite: e.target.checked })} className="accent-zinc-900" />
+                  Email them an invite to set their own password
+                </label>
+              )}
 
               <p className="text-[12px] text-zinc-400 mt-3">
                 {form.role === 'employee'
-                  ? 'Employee: identified by phone. They log in with phone or email + this password, and can submit receipts from that WhatsApp number.'
-                  : 'Admin/accountant: logs in with email + this password. No phone needed.'}
+                  ? `Employee: identified by phone (receipts link to that WhatsApp number). ${useInvite ? 'They’ll set their own password from the invite email.' : 'They log in with phone or email + this password.'}`
+                  : `Admin/accountant: logs in with email. ${useInvite ? 'They’ll set their own password from the invite email.' : 'Uses the password you set here.'}`}
               </p>
 
               {addErr && <div role="alert" className="mt-3 text-[13px]" style={{ color: NEG }}>{addErr}</div>}
@@ -2358,7 +2382,7 @@ function TeamTab({ role, onAuthError }) {
               <div className="mt-4 flex justify-end">
                 <button onClick={addMember} disabled={!canAdd || adding}
                   className="text-[13px] font-semibold px-4 py-2 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                  {adding ? 'Creating…' : 'Create login'}
+                  {adding ? (useInvite ? 'Sending…' : 'Creating…') : (useInvite ? 'Send invite' : 'Create login')}
                 </button>
               </div>
             </motion.div>
@@ -2455,6 +2479,7 @@ function TeamTab({ role, onAuthError }) {
 
 // ── Change-password modal (available to everyone after login) ─────────────────
 function ChangePasswordModal({ open, onClose }) {
+  const [cur, setCur] = useState('');
   const [pw, setPw]   = useState('');
   const [pw2, setPw2] = useState('');
   const [busy, setBusy] = useState(false);
@@ -2463,17 +2488,19 @@ function ChangePasswordModal({ open, onClose }) {
 
   useEffect(() => {
     if (!open) return;
-    setPw(''); setPw2(''); setErr(''); setDone(false); setBusy(false);
+    setCur(''); setPw(''); setPw2(''); setErr(''); setDone(false); setBusy(false);
     const onKey = e => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
   const submit = async () => {
+    if (!cur)          { setErr('Enter your current password.'); return; }
     if (pw.length < 8) { setErr('Use at least 8 characters.'); return; }
     if (pw !== pw2)    { setErr('Passwords don’t match.'); return; }
+    if (pw === cur)    { setErr('New password must be different from the current one.'); return; }
     setBusy(true); setErr('');
-    try { await changePassword(pw); setDone(true); setTimeout(onClose, 1400); }
+    try { await changePasswordSecure(cur, pw); setDone(true); setTimeout(onClose, 1400); }
     catch (e) { setErr(e.message || 'Failed to update'); }
     setBusy(false);
   };
@@ -2499,8 +2526,9 @@ function ChangePasswordModal({ open, onClose }) {
                 <p className="text-[14px]" style={{ color: POS }}>✓ Password updated.</p>
               ) : (
                 <>
-                  <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" autoFocus className={`${teamInput} w-full`} />
-                  <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm new password"
+                  <input type="password" value={cur} onChange={e => setCur(e.target.value)} placeholder="Current password" autoFocus autoComplete="current-password" className={`${teamInput} w-full`} />
+                  <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" autoComplete="new-password" className={`${teamInput} w-full`} />
+                  <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm new password" autoComplete="new-password"
                     onKeyDown={e => { if (e.key === 'Enter') submit(); }} className={`${teamInput} w-full`} />
                   {err && <p className="text-[12px]" style={{ color: NEG }}>{err}</p>}
                   <button onClick={submit} disabled={busy}

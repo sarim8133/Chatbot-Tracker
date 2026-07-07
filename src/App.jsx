@@ -27,7 +27,7 @@ export default function App() {
     return () => { alive = false }
   }, [authed])
 
-  if (recovery) return <ResetPassword onDone={() => { setRecovery(false); afterAuth() }} />
+  if (recovery) return <ResetPassword kind={recovery} onDone={() => { setRecovery(false); afterAuth() }} />
   if (!authed) return <Login onSuccess={afterAuth} />
   if (aupOk === null) return <div className="min-h-screen" style={{ background: '#F1F5F9' }} />
   if (!aupOk) return <AupGate onAccept={() => setAupOk(true)} onDecline={handleLogout} />

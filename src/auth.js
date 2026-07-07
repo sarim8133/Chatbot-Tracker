@@ -73,8 +73,35 @@ async function refresh(sess) {
   return s;
 }
 
+// Verify the signed-in user's CURRENT password by re-authenticating (a password grant
+// with their own email). Succeeds → writes the fresh session it returns and resolves;
+// wrong password → throws. This is what "require current password" enforces before a
+// change, and it works regardless of the GoTrue "secure password change" toggle.
+export async function reauthenticate(currentPassword) {
+  const email = currentUserEmail();
+  if (!email) throw new Error('Could not verify your account — please sign out and in again.');
+  const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: currentPassword }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.access_token) throw new Error('Current password is incorrect.');
+  write(toSession(d));   // rotate to the fresh session so the update below uses a live token
+  return true;
+}
+
+// Change password the secure way: confirm the current password first, then set the new
+// one. Used by the in-app (logged-in) Change-password modal.
+export async function changePasswordSecure(currentPassword, newPassword) {
+  await reauthenticate(currentPassword);
+  return changePassword(newPassword);
+}
+
 // Change the signed-in user's own password (GoTrue PUT /user with their JWT — no
-// service key needed). Throws on failure.
+// service key needed). Throws on failure. Used directly only by the email-recovery
+// flow (no current password to confirm — the reset link is the proof of identity);
+// the logged-in modal goes through changePasswordSecure instead.
 export async function changePassword(newPassword) {
   const token = await getAccessToken();
   const r = await fetch(`${SB_URL}/auth/v1/user`, {
@@ -107,13 +134,16 @@ export async function requestPasswordReset(identifier) {
   return email;
 }
 
-// If the page was opened from a password-reset email, Supabase leaves a short-lived
-// recovery session in the URL hash. Consume it: persist the session so changePassword
-// works, scrub the URL, and return true so the app can show a "set new password" screen.
+// If the page was opened from a password-reset OR an invite email, Supabase leaves a
+// short-lived session in the URL hash. Consume it: persist the session so changePassword
+// works, scrub the URL, and return the kind ('recovery' | 'invite') so the app can show
+// the set-password screen with the right wording. Returns false when there's no such hash.
 export function consumeRecoveryHash() {
   if (typeof window === 'undefined') return false;
   const h = window.location.hash || '';
-  if (!h.includes('type=recovery')) return false;
+  const isRecovery = h.includes('type=recovery');
+  const isInvite   = h.includes('type=invite');
+  if (!isRecovery && !isInvite) return false;
   const p = new URLSearchParams(h.replace(/^#/, ''));
   const access_token = p.get('access_token');
   if (!access_token) return false;
@@ -123,7 +153,7 @@ export function consumeRecoveryHash() {
     expires_at: Date.now() + (Number(p.get('expires_in')) || 3600) * 1000,
   });
   history.replaceState(null, '', window.location.pathname + window.location.search);
-  return true;
+  return isInvite ? 'invite' : 'recovery';
 }
 
 // Returns a valid access token, silently refreshing within 60s of expiry.
@@ -148,6 +178,13 @@ export function currentUserId() {
   if (!s?.access_token) return null;
   try {
     return JSON.parse(b64urlDecode(s.access_token.split('.')[1])).sub || null;
+  } catch { return null; }
+}
+export function currentUserEmail() {
+  const s = read();
+  if (!s?.access_token) return null;
+  try {
+    return JSON.parse(b64urlDecode(s.access_token.split('.')[1])).email || null;
   } catch { return null; }
 }
 

@@ -237,7 +237,8 @@ export function AupGate({ onAccept, onDecline }) {
 // Shown when the app is opened from a password-reset email (recovery session in the
 // URL hash, already persisted by consumeRecoveryHash). Sets a new password, then
 // hands control back so the (now signed-in) user lands on the dashboard.
-export function ResetPassword({ onDone }) {
+export function ResetPassword({ onDone, kind = 'recovery' }) {
+  const invite = kind === 'invite';
   const [pw, setPw]   = useState('');
   const [pw2, setPw2] = useState('');
   const [show, setShow] = useState(false);
@@ -263,9 +264,11 @@ export function ResetPassword({ onDone }) {
     <Shell>
       <div className="flex items-center gap-2">
         <KeyRound size={15} className="text-zinc-400" />
-        <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">Set new password</h1>
+        <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">{invite ? 'Welcome to Hi-Tech' : 'Set new password'}</h1>
       </div>
-      <p className="text-[13px] text-zinc-500 mt-1 mb-6">Choose a new password for your account.</p>
+      <p className="text-[13px] text-zinc-500 mt-1 mb-6">
+        {invite ? 'Set a password to finish setting up your account.' : 'Choose a new password for your account.'}
+      </p>
 
       <form onSubmit={submit} className="space-y-3.5">
         <div>

@@ -45,26 +45,41 @@ Deno.serve(async (req) => {
   const department = String(b.department || '').trim();
   const realEmail = String(b.email || '').trim().toLowerCase();
   const phone = String(b.phone || '').replace(/[^0-9]/g, '');
+  const invite = b.invite === true || b.invite === 'true';   // email an invite instead of setting a password
+  const redirectTo = String(b.redirect_to || '').trim() || undefined;
 
   if (!['admin', 'accountant', 'employee'].includes(role)) return json({ error: 'Pick a valid role' }, 400);
-  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
   if (!fullName) return json({ error: 'Name is required' }, 400);
   if (role === 'employee' && !phone) return json({ error: 'Employees need a WhatsApp phone number (their identity)' }, 400);
   if (!realEmail && !phone) return json({ error: 'Provide an email or a phone number' }, 400);
   if (realEmail && !realEmail.includes('@')) return json({ error: 'Email looks invalid' }, 400);
+  // Invite needs a real inbox; the password path is the fallback (and the only option
+  // for phone-only staff on the synthetic @hitech.local address).
+  if (invite && !realEmail) return json({ error: 'An email is required to send an invite' }, 400);
+  if (!invite && password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
 
   // login email = their real email if given, else a synthetic phone address
   const loginEmail = realEmail || `${phone}${DOMAIN}`;
 
-  // --- create the auth login ---
-  const { data: created, error: cErr } = await admin.auth.admin.createUser({
-    email: loginEmail,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: fullName },
-  });
-  if (cErr || !created?.user) return json({ error: cErr?.message || 'Could not create login' }, 400);
-  const newId = created.user.id;
+  // --- create the auth login: invite (they set their own password) or direct create ---
+  let newId: string;
+  if (invite) {
+    const { data: inv, error: iErr } = await admin.auth.admin.inviteUserByEmail(realEmail, {
+      data: { full_name: fullName },
+      redirectTo,
+    });
+    if (iErr || !inv?.user) return json({ error: iErr?.message || 'Could not send invite' }, 400);
+    newId = inv.user.id;
+  } else {
+    const { data: created, error: cErr } = await admin.auth.admin.createUser({
+      email: loginEmail,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    });
+    if (cErr || !created?.user) return json({ error: cErr?.message || 'Could not create login' }, 400);
+    newId = created.user.id;
+  }
 
   // --- app_users identity row ---
   const { error: mErr } = await admin.from('app_users').insert({
@@ -91,5 +106,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, user_id: newId, login_email: loginEmail, warning });
+  return json({ ok: true, user_id: newId, login_email: loginEmail, invited: invite, warning });
 });
