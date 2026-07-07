@@ -2238,7 +2238,7 @@ function TeamTab({ role, onAuthError }) {
         p_target: u.user_id, p_role: dr.role,
         p_phone: dr.role === 'employee' ? dr.phone : null,
         p_full_name: dr.full_name || null,
-        p_department: dr.department || null,
+        p_department: (dr.department || '').trim() || null,
       });
       setSavedId(u.user_id);
       setTimeout(() => setSavedId(s => (s === u.user_id ? null : s)), 1800);
@@ -2279,6 +2279,13 @@ function TeamTab({ role, onAuthError }) {
     phone: u.phone || '', full_name: u.full_name || '', department: u.department || '',
   }]));
 
+  // Departments already in use — offered as suggestions so admins reuse the exact
+  // spelling instead of creating "AI" vs "ai" duplicates. Case-insensitive de-dupe.
+  const departments = [...new Map(
+    (users || []).map(u => (u.department || '').trim()).filter(Boolean)
+      .map(d => [d.toLowerCase(), d])
+  ).values()].sort((a, b) => a.localeCompare(b));
+
   // Invite when a real email is present and the invite toggle is on; otherwise the admin
   // sets a password (the only option for phone-only staff, who have no inbox).
   const useInvite = !!form.email.trim() && form.invite;
@@ -2289,6 +2296,9 @@ function TeamTab({ role, onAuthError }) {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+      <datalist id="dept-list">
+        {departments.map(d => <option key={d} value={d} />)}
+      </datalist>
       <HelpNote>
         Add a team member and they can log in right away — with their <b>email or their phone number</b>.
         Employees are identified by <b>phone</b> (unique), so two people can share a name safely; their
@@ -2345,7 +2355,7 @@ function TeamTab({ role, onAuthError }) {
                 </label>
                 <label className="flex flex-col gap-1">
                   <Label>Department</Label>
-                  <input className={teamInput} value={form.department} onChange={e => setF({ department: e.target.value })} placeholder="e.g. sales" />
+                  <input className={teamInput} list="dept-list" value={form.department} onChange={e => setF({ department: e.target.value })} placeholder="e.g. sales" />
                 </label>
                 {useInvite ? (
                   <div className="flex flex-col gap-1">
@@ -2428,7 +2438,7 @@ function TeamTab({ role, onAuthError }) {
                   </select>
                   <input type="text" value={dr.full_name} onChange={e => setDraft(u.user_id, { full_name: e.target.value })}
                     placeholder="name" aria-label="Name" className={`${teamInput} w-32`} />
-                  <input type="text" value={dr.department} onChange={e => setDraft(u.user_id, { department: e.target.value })}
+                  <input type="text" list="dept-list" value={dr.department} onChange={e => setDraft(u.user_id, { department: e.target.value })}
                     placeholder="dept" aria-label="Department" className={`${teamInput} w-24`} />
                   {dr.role === 'employee' && (
                     <input type="text" value={dr.phone} onChange={e => setDraft(u.user_id, { phone: e.target.value })}
