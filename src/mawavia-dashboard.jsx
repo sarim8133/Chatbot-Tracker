@@ -2197,23 +2197,42 @@ const emptyForm = { full_name: '', role: 'employee', department: '', email: '', 
 // existing department from a nice dropdown — matching the app's look — or type a new
 // one. `options` are the departments already in use, so admins reuse the exact spelling
 // instead of creating "AI" vs "ai" duplicates.
-function DeptCombo({ value, onChange, options, placeholder, className = 'w-full', menuClassName = 'w-full min-w-[11rem]' }) {
+function DeptCombo({ value, onChange, options, placeholder, className = 'w-full' }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [rect, setRect] = useState(null);   // input position, for the portalled menu
+  const rootRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const place = useCallback(() => {
+    if (rootRef.current) setRect(rootRef.current.getBoundingClientRect());
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    place();
+    // Close on outside click (the menu lives in a portal, so check it too), and on
+    // scroll/resize (the fixed-position menu would otherwise drift from the input).
+    const onDoc = (e) => {
+      if (!rootRef.current?.contains(e.target) && !menuRef.current?.contains(e.target)) setOpen(false);
+    };
+    const onScroll = () => setOpen(false);
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open, place]);
 
   const q = (value || '').trim().toLowerCase();
   const list = q ? options.filter(o => o.toLowerCase().includes(q)) : options;
   const isNew = !!q && !options.some(o => o.toLowerCase() === q);
-  const showPanel = open && (list.length > 0 || isNew);
+  const showPanel = open && !!rect && (list.length > 0 || isNew);
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={rootRef} className={`relative ${className}`}>
       <input
         type="text" value={value} placeholder={placeholder}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
@@ -2221,12 +2240,14 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
         role="combobox" aria-expanded={showPanel} aria-autocomplete="list"
         className={`${teamInput} w-full pr-7`}
       />
-      <button type="button" tabIndex={-1} aria-label="Toggle departments" onClick={() => setOpen(o => !o)}
+      <button type="button" tabIndex={-1} aria-label="Toggle departments" onClick={() => { setOpen(o => !o); place(); }}
         className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 text-zinc-400 hover:text-zinc-700">
-        <ChevronDown size={13} className={`transition-transform ${showPanel ? 'rotate-180' : ''}`} />
+        <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {showPanel && (
-        <ul role="listbox" className={`absolute top-full left-0 mt-1.5 ${menuClassName} max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg z-30 py-1`}>
+      {showPanel && createPortal(
+        <ul ref={menuRef} role="listbox"
+          style={{ position: 'fixed', top: rect.bottom + 6, left: rect.left, width: Math.max(rect.width, 176), zIndex: 60 }}
+          className="max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg py-1">
           {list.map(o => (
             <li key={o} role="option" aria-selected={o.toLowerCase() === q}>
               <button type="button"
@@ -2241,7 +2262,8 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
               New department: <span className="text-zinc-600 font-medium">{value.trim()}</span>
             </li>
           )}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );
