@@ -3,8 +3,8 @@
 // the dashboard. No credential lives here — it's verified server-side by Supabase.
 
 import { useState } from 'react';
-import { Lock, LogIn, AlertTriangle, RefreshCw, Eye, EyeOff, Mail, ArrowLeft, CheckCircle2, KeyRound } from 'lucide-react';
-import { signIn, requestPasswordReset, changePassword } from './auth';
+import { Lock, LogIn, AlertTriangle, RefreshCw, Eye, EyeOff, Mail, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck, LogOut } from 'lucide-react';
+import { signIn, requestPasswordReset, changePassword, recordAupAcceptance } from './auth';
 
 const ACCENT    = '#F5471D';
 const ACCENT_DK = '#D63A12';
@@ -143,7 +143,7 @@ export default function Login({ onSuccess }) {
         <Lock size={15} className="text-zinc-400" />
         <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">Sign in</h1>
       </div>
-      <p className="text-[13px] text-zinc-500 mt-1 mb-6">Restricted — authorized staff only.</p>
+      <p className="text-[13px] text-zinc-500 mt-1 mb-6">For authorized Hi-Tech personnel only.</p>
 
       <form onSubmit={submit} className="space-y-3.5">
         <div>
@@ -181,6 +181,55 @@ export default function Login({ onSuccess }) {
             : <><LogIn size={14} /> Sign in</>}
         </button>
       </form>
+
+      <p className="flex items-start gap-1.5 text-[11.5px] leading-snug text-zinc-400 mt-6 pt-4 border-t border-zinc-100">
+        <ShieldCheck size={13} className="mt-0.5 shrink-0 text-zinc-400" />
+        <span>This is a private Hi-Tech system. Access is restricted to authorized staff; logins, views, exports and uploads are logged and may be audited.</span>
+      </p>
+    </Shell>
+  );
+}
+
+// First-login gate: a short Acceptable-Use acknowledgment the user must accept before
+// reaching the dashboard. Shown once per user per device (see aupAccepted in auth.js).
+// This isn't the access control — Supabase Auth + RLS are — it's the policy boundary
+// that makes "authorized use only" enforceable and on the record.
+export function AupGate({ onAccept, onDecline }) {
+  const rules = [
+    'Use the dashboard only for legitimate Hi-Tech business.',
+    'Keep your account private — never share your login or password.',
+    "Don't try to bypass access controls or reach data outside your role.",
+    'Your activity (logins, views, exports, uploads) is logged and may be audited.',
+    'Report any bug, security flaw or suspected data leak to the administrator.',
+  ];
+  const accept = () => { recordAupAcceptance(); onAccept(); };
+  return (
+    <Shell>
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={16} style={{ color: '#2258B8' }} />
+        <h1 className="text-[22px] font-extrabold tracking-[-0.02em] text-zinc-900">Acceptable use</h1>
+      </div>
+      <p className="text-[13px] text-zinc-500 mt-1 mb-5">
+        Before you continue, please review how this internal system may be used.
+      </p>
+
+      <ul className="space-y-2.5 mb-6">
+        {rules.map((r, i) => (
+          <li key={i} className="flex items-start gap-2 text-[13px] leading-snug text-zinc-700">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: '#16794C' }} />
+            <span>{r}</span>
+          </li>
+        ))}
+      </ul>
+
+      <button onClick={accept}
+        className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900">
+        <CheckCircle2 size={14} /> I agree — continue
+      </button>
+      <button type="button" onClick={onDecline}
+        className="w-full flex items-center justify-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors py-1 mt-2">
+        <LogOut size={13} /> Decline &amp; sign out
+      </button>
     </Shell>
   );
 }

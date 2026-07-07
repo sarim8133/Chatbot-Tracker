@@ -134,3 +134,76 @@ export async function getAccessToken() {
   if (Date.now() > s.expires_at - 60000) s = await refresh(s);
   return s.access_token;
 }
+
+// Decode the current session's user id (JWT `sub`). This is NOT a security check —
+// it's only used to key per-user UI state (like AUP acceptance) in localStorage.
+// The token is still verified server-side by Supabase on every data request.
+function b64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return atob(str);
+}
+export function currentUserId() {
+  const s = read();
+  if (!s?.access_token) return null;
+  try {
+    return JSON.parse(b64urlDecode(s.access_token.split('.')[1])).sub || null;
+  } catch { return null; }
+}
+
+// First-login Acceptable-Use acknowledgment, kept per-user in localStorage. Not a
+// security boundary — just records that this person clicked "I Agree" on this device
+// (and when), so we don't re-prompt every sign-in. Access itself is enforced by
+// Supabase Auth + RLS regardless.
+const aupKey = uid => `ht_aup_${uid}`;
+
+// Fast, synchronous check of the local cache — used to avoid a loading flash when the
+// user has already accepted on THIS device. A false result isn't final: checkAupAccepted
+// then asks the server (they may have accepted on another device).
+export function aupAccepted() {
+  const uid = currentUserId();
+  return uid ? !!localStorage.getItem(aupKey(uid)) : false;
+}
+
+// Authoritative, cross-device check. Local cache first (instant); on a miss, read the
+// user's own app_users.aup_accepted_at (allowed by the self-read RLS policy) so accepting
+// on any one device counts everywhere. Caches a hit locally. On network failure we return
+// false → the gate shows, which is the safe/harmless default (accepting again just re-stamps).
+export async function checkAupAccepted() {
+  const uid = currentUserId();
+  if (!uid) return false;
+  if (localStorage.getItem(aupKey(uid))) return true;
+  try {
+    const token = await getAccessToken();
+    const r = await fetch(
+      `${SB_URL}/rest/v1/app_users?select=aup_accepted_at&user_id=eq.${uid}`,
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } },
+    );
+    const d = await r.json().catch(() => null);
+    if (Array.isArray(d) && d[0]?.aup_accepted_at) {
+      localStorage.setItem(aupKey(uid), d[0].aup_accepted_at);   // cache for next load
+      return true;
+    }
+  } catch { /* offline → show the gate; harmless */ }
+  return false;
+}
+export function recordAupAcceptance() {
+  const uid = currentUserId();
+  if (!uid) return;
+  localStorage.setItem(aupKey(uid), new Date().toISOString());
+  stampAupAcceptance();   // best-effort server-side audit stamp (non-blocking)
+}
+
+// Populate app_users.aup_accepted_at via the record_aup_acceptance RPC so there's a
+// server-side record of who accepted, when. Audit-only — the gate decision itself is
+// the localStorage flag above, so a network failure here never blocks the user.
+async function stampAupAcceptance() {
+  try {
+    const token = await getAccessToken();
+    await fetch(`${SB_URL}/rest/v1/rpc/record_aup_acceptance`, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: '{}',
+    });
+  } catch { /* audit-only; ignore */ }
+}

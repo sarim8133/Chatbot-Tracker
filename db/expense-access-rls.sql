@@ -174,3 +174,33 @@ create policy receipts_read_own_or_admin on storage.objects
       or private.can_view_all_expenses()
     )
   );
+
+-- ============================================================================
+-- 7) Acceptable-Use acknowledgment audit trail   (added 2026-07-07)
+-- Records WHEN each user accepted the first-login Acceptable-Use policy. The
+-- dashboard's gate decision is a per-device localStorage flag (fast, no network),
+-- so this column is the durable server-side audit record of who agreed and when.
+--
+-- We do NOT open a self-UPDATE policy on app_users: the table holds `role`, so a
+-- blanket "update your own row" policy would let a user promote themselves to admin.
+-- Instead a SECURITY DEFINER function writes ONLY aup_accepted_at, ONLY for the
+-- caller's own row (user_id = auth.uid()). anon can't execute it. Applied via
+-- migration `add_aup_accepted_at`.
+-- ============================================================================
+alter table public.app_users
+  add column if not exists aup_accepted_at timestamptz;
+
+create or replace function public.record_aup_acceptance()
+returns timestamptz
+language sql
+security definer
+set search_path = public
+as $$
+  update public.app_users
+     set aup_accepted_at = now()
+   where user_id = auth.uid()
+  returning aup_accepted_at;
+$$;
+
+revoke all on function public.record_aup_acceptance() from public, anon;
+grant execute on function public.record_aup_acceptance() to authenticated;
