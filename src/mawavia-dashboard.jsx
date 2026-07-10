@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -2568,10 +2568,14 @@ function ChangePasswordModal({ open, onClose }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState('');
   const [done, setDone] = useState(false);
+  const [showCur, setShowCur] = useState(false);
+  const [showPw, setShowPw]   = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setCur(''); setPw(''); setPw2(''); setErr(''); setDone(false); setBusy(false);
+    setShowCur(false); setShowPw(false); setShowPw2(false);
     const onKey = e => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -2609,10 +2613,31 @@ function ChangePasswordModal({ open, onClose }) {
                 <p className="text-[14px]" style={{ color: POS }}>✓ Password updated.</p>
               ) : (
                 <>
-                  <input type="password" value={cur} onChange={e => setCur(e.target.value)} placeholder="Current password" autoFocus autoComplete="current-password" className={`${teamInput} w-full`} />
-                  <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" autoComplete="new-password" className={`${teamInput} w-full`} />
-                  <input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm new password" autoComplete="new-password"
-                    onKeyDown={e => { if (e.key === 'Enter') submit(); }} className={`${teamInput} w-full`} />
+                  <div className="relative">
+                    <input type={showCur ? 'text' : 'password'} value={cur} onChange={e => setCur(e.target.value)} placeholder="Current password" autoFocus autoComplete="current-password" className={`${teamInput} w-full pr-11`} />
+                    <button type="button" onClick={() => setShowCur(s => !s)} tabIndex={-1}
+                      aria-label={showCur ? 'Hide password' : 'Show password'} aria-pressed={showCur}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-lg text-zinc-400 hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                      {showCur ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input type={showPw ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" autoComplete="new-password" className={`${teamInput} w-full pr-11`} />
+                    <button type="button" onClick={() => setShowPw(s => !s)} tabIndex={-1}
+                      aria-label={showPw ? 'Hide password' : 'Show password'} aria-pressed={showPw}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-lg text-zinc-400 hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                      {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input type={showPw2 ? 'text' : 'password'} value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm new password" autoComplete="new-password"
+                      onKeyDown={e => { if (e.key === 'Enter') submit(); }} className={`${teamInput} w-full pr-11`} />
+                    <button type="button" onClick={() => setShowPw2(s => !s)} tabIndex={-1}
+                      aria-label={showPw2 ? 'Hide password' : 'Show password'} aria-pressed={showPw2}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-lg text-zinc-400 hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                      {showPw2 ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                   {err && <p className="text-[12px]" style={{ color: NEG }}>{err}</p>}
                   <button onClick={submit} disabled={busy}
                     className="w-full text-[13px] font-semibold px-4 py-2 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-50">
