@@ -204,3 +204,40 @@ $$;
 
 revoke all on function public.record_aup_acceptance() from public, anon;
 grant execute on function public.record_aup_acceptance() to authenticated;
+
+-- ============================================================================
+-- 8) RLS penetration test — hardening   (added 2026-07-11)
+-- Verified by impersonating the employee role (set role authenticated + injected
+-- request.jwt.claims — the same enforcement path a REST call with that JWT hits).
+-- Results, all correctly REFUSED:
+--   • employee read of another employee's wap_expenses row  → blocked (sees own only)
+--   • employee read of app_users                            → own row only (not others' roles)
+--   • employee read of n8n_chat_histories / semantic_cache  → 0 rows
+--   • employee UPDATE / forged INSERT on wap_expenses        → permission denied (SELECT-only grant)
+--   • employee self-promote to admin (UPDATE app_users.role) → 0 rows (no UPDATE policy, fail-closed)
+--   • Storage /object/sign for a stranger's receipt path     → refused (receipts_read_own_or_admin gates the SIGN, not just download)
+--
+-- Finding A (defense-in-depth): the `authenticated` role still HELD full write
+-- grants (INSERT/UPDATE/DELETE/TRUNCATE) on the tables below — so writes were
+-- blocked ONLY by the absence of a write RLS policy (a single layer). These
+-- tables are written exclusively by service_role (n8n) or SECURITY DEFINER RPCs,
+-- so signed-in users need SELECT only. Revoking removes the escalation risk if
+-- RLS on app_users were ever disabled/misconfigured. Applied via migration
+-- `harden_revoke_write_grants_from_authenticated`.
+revoke insert, update, delete, truncate, references
+  on public.app_users, public.n8n_chat_histories, public.semantic_cache
+  from authenticated;
+
+-- Finding C (bug, not security): the wap_expenses.status column default was
+-- 'pending_review', which VIOLATES wap_expenses_status_check (status must be
+-- 'logged' or 'rejected') — so any insert relying on the default failed. Reset to
+-- the normal recorded state. Applied via migration `fix_wap_expenses_status_default`.
+alter table public.wap_expenses alter column status set default 'logged';
+
+-- Finding B (known tradeoff, NOT fixed): public.resolve_login_email(text) is
+-- SECURITY DEFINER and granted to `anon` (needed so phone-or-email login can
+-- resolve a phone → account email BEFORE sign-in, see §4). Side effect: an
+-- unauthenticated caller can probe whether a phone is registered and get back its
+-- login email — an account/PII enumeration oracle. Accepted as the cost of phone
+-- login. If this becomes a concern, gate it behind an Edge Function with rate
+-- limiting, or drop anon EXECUTE and resolve the email server-side at login.
