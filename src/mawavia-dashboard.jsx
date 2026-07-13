@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -1468,10 +1468,90 @@ function ChatBubble({ m }) {
   );
 }
 
-// The user's voice-note bubble: an inline player on the session-only recording
-// blob, plus the transcript once n8n answers. The transcript is the user's safety
-// net — if the model mishears a model number they can see what it heard and
-// retype instead of guessing.
+// Voice-note player. Deliberately NOT <audio controls>: the native widget is browser
+// chrome — its own typeface, its own greys, its own overflow menu — and it can't be
+// themed, so it reads as a foreign object dropped into the thread. Same reasoning as
+// the styled combobox that replaced the native datalist.
+// `dark` = sitting on the ink user-bubble; otherwise the white composer.
+function VoicePlayer({ src, durationMs, dark = false }) {
+  const ref = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [pos, setPos]         = useState(0);
+  // Chrome reports duration:Infinity for a MediaRecorder blob until it's been seeked,
+  // so trust the length we measured while recording and only take the element's own
+  // reading once it turns out to be finite.
+  const [dur, setDur]         = useState((durationMs || 0) / 1000);
+
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const onTime = () => setPos(el.currentTime);
+    const onMeta = () => { if (Number.isFinite(el.duration) && el.duration > 0) setDur(el.duration); };
+    const onEnd  = () => { setPlaying(false); setPos(0); el.currentTime = 0; };
+    el.addEventListener('timeupdate', onTime);
+    el.addEventListener('loadedmetadata', onMeta);
+    el.addEventListener('durationchange', onMeta);
+    el.addEventListener('ended', onEnd);
+    return () => {
+      el.removeEventListener('timeupdate', onTime);
+      el.removeEventListener('loadedmetadata', onMeta);
+      el.removeEventListener('durationchange', onMeta);
+      el.removeEventListener('ended', onEnd);
+    };
+  }, []);
+
+  const toggle = () => {
+    const el = ref.current; if (!el) return;
+    if (el.paused) { el.play().catch(() => {}); setPlaying(true); }
+    else           { el.pause(); setPlaying(false); }
+  };
+
+  const seek = e => {
+    const el = ref.current; if (!el || !dur) return;
+    const v = Number(e.target.value);
+    el.currentTime = v;
+    setPos(v);
+  };
+
+  const pct = dur ? Math.min(100, (pos / dur) * 100) : 0;
+
+  return (
+    <div className="flex items-center gap-2.5 py-0.5">
+      <audio ref={ref} src={src} preload="metadata" className="hidden"/>
+
+      <button type="button" onClick={toggle}
+        aria-label={playing ? 'Pause voice note' : 'Play voice note'}
+        className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-full text-white transition-transform active:scale-95 outline-none focus-visible:ring-2 ${dark ? 'focus-visible:ring-white/70' : 'focus-visible:ring-accent/40'}`}
+        style={{background:ACCENT}}>
+        {playing
+          ? <Pause size={13} fill="currentColor"/>
+          : <Play  size={13} fill="currentColor" className="translate-x-[1px]"/>}
+      </button>
+
+      {/* The look is the div; the semantics and keyboard seeking are a transparent
+          range input laid over it. Styling ::-webkit-slider-thumb consistently across
+          browsers is a losing game — this way arrow keys work for free. */}
+      <div className="relative flex-1 min-w-[110px] h-8 flex items-center">
+        <div className={`w-full h-1 rounded-full ${dark ? 'bg-white/25' : 'bg-zinc-200'}`}>
+          <div className="h-1 rounded-full" style={{width:`${pct}%`, background:ACCENT}}/>
+        </div>
+        <span className={`absolute w-2.5 h-2.5 rounded-full pointer-events-none ${dark ? 'bg-white' : 'bg-zinc-900'}`}
+              style={{left:`${pct}%`, marginLeft:'-5px'}}/>
+        <input type="range" min={0} max={dur || 0} step={0.01} value={pos} onChange={seek}
+          aria-label="Seek voice note" aria-valuetext={fmtClock(pos * 1000)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+      </div>
+
+      <span className={`mono text-[11px] tabular-nums shrink-0 w-[30px] text-right ${dark ? 'text-white/70' : 'text-zinc-500'}`}>
+        {fmtClock((pos > 0 ? pos : dur) * 1000)}
+      </span>
+    </div>
+  );
+}
+
+// The user's voice-note bubble: the player over the session-only recording blob, plus
+// the transcript once n8n answers. The transcript is the user's safety net — if the
+// model mishears a model number they can see what it heard and retype instead of
+// guessing. Ink background, like every other message the user sent.
 function AudioBubble({ m }) {
   return (
     <motion.div
@@ -1480,18 +1560,18 @@ function AudioBubble({ m }) {
       className="flex justify-end"
     >
       <div className="flex flex-col gap-1.5 max-w-[80%] sm:max-w-[68%] items-end">
-        <div className="px-3 py-2 rounded-2xl rounded-br-sm" style={{background:INK}}>
+        <div className="px-3 py-1.5 rounded-2xl rounded-br-sm min-w-[220px]" style={{background:INK}}>
           {m.audioUrl
-            ? <audio controls src={m.audioUrl} className="h-9 max-w-[240px]" />
-            : <span className="flex items-center gap-1.5 text-[12.5px] text-white/70 px-1 py-1">
+            ? <VoicePlayer src={m.audioUrl} durationMs={m.durationMs} dark/>
+            : <span className="flex items-center gap-1.5 text-[12.5px] text-white/70 px-1 py-2">
                 <Mic size={13}/> Voice note (expired — reload started a fresh session)
               </span>}
         </div>
-        <p className="text-[12px] text-zinc-500 px-1 max-w-[320px] italic">
-          {m.transcript == null ? 'Transcribing…'
-            : m.transcript === '' ? 'No transcript available.'
-            : m.transcript}
-        </p>
+        {m.transcript == null
+          ? <p className="text-[12px] text-zinc-500 px-1 italic">Transcribing…</p>
+          : <p className="text-[12px] text-zinc-500 px-1 max-w-[320px] text-right">
+              {m.transcript === '' ? 'No transcript available.' : m.transcript}
+            </p>}
       </div>
     </motion.div>
   );
@@ -1684,7 +1764,7 @@ function ChatTab() {
 
   const sendVoice = useCallback(async () => {
     if (!preview || sending || !configured) return;
-    const { blob: rawBlob, url: rawUrl } = preview;
+    const { blob: rawBlob, url: rawUrl, durationMs } = preview;
     // Flip `sending` synchronously (before the first await), same as send() does —
     // otherwise a rapid double-click on Send could slip a second request through
     // while the first is still transcoding.
@@ -1706,7 +1786,7 @@ function ChatTab() {
     setPreview(null);
     setVoicePhase('idle');
     const cid = crypto.randomUUID?.() || `v_${Date.now()}_${Math.random()}`;
-    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl: rawUrl, transcript: null }]);
+    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl: rawUrl, durationMs, transcript: null }]);
     try {
       const audio_base64 = await blobToBase64(wav);
       const res = await fetch(N8N_CHAT_WEBHOOK, {
@@ -1909,9 +1989,8 @@ function ChatTab() {
             </div>
           ) : voicePhase === 'preview' ? (
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-3 px-3 py-1.5 border border-zinc-300 rounded-xl">
-                <audio controls src={preview?.url} className="flex-1 h-9 min-w-0"/>
-                <span className="mono text-[11px] text-zinc-400 tabular-nums shrink-0">{fmtClock(preview?.durationMs || 0)}</span>
+              <div className="flex-1 flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
+                <VoicePlayer src={preview?.url} durationMs={preview?.durationMs}/>
               </div>
               <button type="button" onClick={discardPreview} aria-label="Discard recording"
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
