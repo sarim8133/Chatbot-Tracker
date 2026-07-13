@@ -12,14 +12,17 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-1280, 0],
-      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "position": [
+        1584,
+        1936
+      ],
+      "id": "c012086b-f4e4-4f67-b657-716d1de3e3a5",
       "name": "Webhook",
       "webhookId": "hitech-web-chat-001"
     },
     {
       "parameters": {
-        "text": "={{ $json.body.message }}",
+        "text": "={{ $json.text }}",
         "guardrails": {
           "nsfw": {
             "value": {
@@ -37,8 +40,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.guardrails",
       "typeVersion": 2,
-      "position": [-1040, 0],
-      "id": "54d2f9dc-d904-45f0-82b2-857de642c696",
+      "position": [
+        1808,
+        1936
+      ],
+      "id": "41146bb0-ada6-4c61-964b-b76ff50fc7df",
       "name": "Guardrails",
       "alwaysOutputData": false,
       "retryOnFail": true
@@ -50,8 +56,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [-1040, 240],
-      "id": "80895acd-0716-4e62-9cb2-79e139291859",
+      "position": [
+        1888,
+        2160
+      ],
+      "id": "71e1532a-a4b6-4e7d-8fbd-96efb6ece886",
       "name": "Google Gemini Chat Model1",
       "retryOnFail": true,
       "credentials": {
@@ -64,19 +73,24 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"reply\": \"Your message couldn't be processed as it contains restricted content (links or inappropriate language). Please rephrase and try again.\", \"images\": [] } }}",
+        "responseBody": "={{ { \"reply\": \"Your message couldn't be processed as it contains restricted content (links or inappropriate language). Please rephrase and try again.\", \"images\": [], \"transcript\": $('Guardrails').first().json.guardrailsInput } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-800, 200],
-      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "position": [
+        2160,
+        2032
+      ],
+      "id": "7aa05522-c66e-4bb9-a8fe-c0d3e184bd0c",
       "name": "Respond Guardrail Fail"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={{ $env.GEMINI_API_KEY }}",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"model\": \"models/gemini-embedding-001\",\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": \"{{ $('Guardrails').first().json.guardrailsInput }}\"\n      }\n    ]\n  }\n}",
@@ -84,22 +98,34 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [-800, -40],
-      "id": "50eb35fb-0da8-4867-bd55-591f22e586be",
-      "name": "Embed Query"
+      "position": [
+        2160,
+        1840
+      ],
+      "id": "e8b119ee-9007-4cf9-8543-f40a6e85c3cf",
+      "name": "Embed Query",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "KNzOeURXJScWzKuu",
+          "name": "Mawavia Query Auth"
+        }
+      }
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT reply_text, image_urls\nFROM semantic_cache\nWHERE 1 - (query_embedding <=> $1::vector) > 0.89\nORDER BY 1 - (query_embedding <=> $1::vector) DESC\nLIMIT 1",
+        "query": "SELECT reply_text, image_urls\nFROM semantic_cache\nWHERE 1 - (query_embedding <=> $1::vector) > 0.90\nORDER BY 1 - (query_embedding <=> $1::vector) DESC\nLIMIT 1",
         "options": {
           "queryReplacement": "={{ JSON.stringify($json.embedding.values) }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-560, -40],
-      "id": "2e0055c3-15bb-4006-96f8-6f827cf08e75",
+      "position": [
+        2384,
+        1840
+      ],
+      "id": "37039112-1877-418e-af74-d59cd9832113",
       "name": "Check Semantic Cache",
       "alwaysOutputData": true,
       "credentials": {
@@ -115,8 +141,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-340, -40],
-      "id": "39aacc6c-558b-4a0b-a5d3-49c74a512464",
+      "position": [
+        2608,
+        1840
+      ],
+      "id": "eb541ecb-10de-4738-b929-1795aae4af59",
       "name": "Parse Cache Result"
     },
     {
@@ -147,8 +176,11 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-120, -40],
-      "id": "a4d48aff-f178-4174-8d1d-1c84fdbc3bf0",
+      "position": [
+        2832,
+        1840
+      ],
+      "id": "fd326483-cdc6-4f89-8a04-3ff7a8d3fad4",
       "name": "Cache Hit?"
     },
     {
@@ -157,8 +189,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [140, -200],
-      "id": "f8aa06e8-fe6b-4949-a9a7-cd507194bd53",
+      "position": [
+        4288,
+        1600
+      ],
+      "id": "448555c2-c6f8-486d-ad78-d39918df21e4",
       "name": "Return Cached Reply"
     },
     {
@@ -169,8 +204,11 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [140, 160],
-      "id": "bcd1fba7-f85a-4d6d-b022-831a312663a7",
+      "position": [
+        3056,
+        2016
+      ],
+      "id": "281b671a-de3d-4ad2-a8f2-e43722714649",
       "name": "Execute a SQL query",
       "alwaysOutputData": true,
       "credentials": {
@@ -186,8 +224,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 160],
-      "id": "fc273655-0dfe-4a4d-9c0e-2d1748befc24",
+      "position": [
+        3280,
+        2016
+      ],
+      "id": "21e3f208-9666-494a-bc61-0cf0fb52d890",
       "name": "Code in JavaScript",
       "alwaysOutputData": true
     },
@@ -197,13 +238,16 @@
         "text": "=User Message: {{ $('Guardrails').first().json.guardrailsInput }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "=PREVIOUS CONVERSATION HISTORY \n{{ $json.formatted_history }}\nHISTORY END\n\nSYSTEM INSTRUCTIONS ROLE \nYou are the Strict Machinery Lookup Assistant. Your sole purpose is to act as a bridge between the user and the search_pinecone tool.\n\nKNOWLEDGE BOUNDARIES\n🔹 COMPANY DATA (specific machines, models, specs, prices, availability, recommendations): You have ZERO internal knowledge. Never invent or recall a company machine, model name, specification, or number from training data. For ANY request about a specific machine, a recommendation, or a spec, you MUST call search_pinecone and answer ONLY from its results.\n🔹 GENERAL CONCEPTS (industry terminology and how things work, e.g. \"what does clamping force mean?\", \"what is tonnage?\", \"hydraulic vs electric injection molding\"): You MAY answer briefly from general engineering knowledge to help new sales staff learn. Keep it to 1-3 sentences, define the term plainly, and do NOT mention any specific company model or number. If they then want a machine with that property, call search_pinecone. After explaining a concept, proactively end with: \"Would you like me to search for machines with [that property]?\"\nRULE OF THUMB: Explaining a concept = allowed. Stating a specific machine, spec, or number = tool only.\n\nEXACT MATCH FILTERING RULE \nVector searches often return the exact requested machine alongside similarly named models (e.g., querying \"YH 278\" might return \"YH 278\", \"YH5 278\", and \"YH 200\"). If the user asks for a specific model, you MUST silently filter the tool results. Output ONLY the details and image for the exact model they asked for. IGNORE all other similar models in the search results unless the user explicitly asked for \"alternatives\" or a \"comparison\". If the exact model does NOT appear in the results at all, do NOT invent it — respond: \"I couldn't find [model] in our current catalog. Here are the closest matches I found:\" and list those instead.\n\nBRAND PERSISTENCE RULE Brand Lock-In:\nIf a user specifies a brand (e.g., Tederic, UWA), stay locked into that brand for the remainder of the conversation unless the user explicitly asks to \"switch brands\" or \"compare with others.\" Self-Correction: Before answering, check the retrieved context from the tool. If the context contains multiple brands, ONLY describe and include images for the brand the user previously showed interest in. Discard results for other brands unless explicitly requested.\n\nQUERY REFINEMENT RULE\nBefore calling the search_pinecone tool, you must synthesize the user's current request with the established context (Brand and Machine Type).\n\n🔹 Context Synthesis: If the user says \"smaller,\" \"faster,\" or \"another one,\" do not search for those words in isolation.\n🔹 Mandatory Query Construction: Re-write the search query to include the Brand and Machine Type from the conversation history.\n🔹 Example: If the history shows \"Tederic PET Preform\" and the user says \"give me a smaller one,\" your tool call must be search_pinecone(query=\"smaller Tederic PET preform machine\").\n\nCOMPARISON QUERY RULE (ANTI-SWAMPING)\nIf the user asks to compare two or more distinct machine models (e.g., \"Compare D100 and D200\" or \"What is the difference between DT 400 and a similar UWA model?\"), DO NOT search for them together in a single tool call string.\n🔹 Separate Tool Calls Required: You must execute separate, sequential tool calls for each individual model mentioned. \n🔹 Example execution: Call 1 must be search_pinecone(query=\"Tederic D100\"). Call 2 must be search_pinecone(query=\"Tederic D200\").\n🔹 Synthesis: Collect data from all successful tool executions, extract the correct unique image URLs for each model, and merge them into your final comparative response. This prevents the variant configurations of one machine from crowding out the other model.\n\nNO RESULTS RULE\nIf search_pinecone returns no results or returns results clearly irrelevant to the query, do NOT guess or hallucinate. Respond: \"I couldn't find [query] in our catalog. Could you double-check the model name, or describe what you need (e.g. tonnage range, application type)?\"\n\nINTERACTION LOGIC Greetings:\nIf the user says \"Hi\", \"Hello\", or similar, respond politely and immediately ask: \"Which machinery are you looking for today?\" Search: Call search_pinecone. Extract the summary and image_url for all relevant matches. Multi-Item Logic: If 3 machines are discussed, there MUST be 3 URLs in the images array.\n\nFORMATTING RULES \n(For the \"reply\" field) The reply is shown in a web chat. Format it as follows: Bolding: Use single asterisks ONLY (e.g., *Model X100:*). Lists: Use emojis (🔹 or ⚙️) instead of dashes or dots. Spacing: Use double line breaks (\\n\\n) between different machines or sections to ensure readability. Style: Keep it punchy, scannable, and concise. No long paragraphs.\n\nOUTPUT SPECIFICATION FORMAT\nReturn ONLY a raw JSON object. NO MARKDOWN: Do not use json blocks. Do not include any text before or after the JSON. SCHEMA: { \"reply\": \"string\", \"images\": [\"url1\", \"url2\"] }\n\nEXAMPLE OF DESIRED OUTPUT User: \n\"I need a heavy duty drill.\" Assistant Tool Call: search_pinecone(query=\"heavy duty drill\") Tool Response: [{summary: \"Drill Max 500: High torque, 500W\", image_url: \"img1.jpg\"}, {summary: \"Drill Pro 200: Precision, 200W\", image_url: \"img2.jpg\"}] Final Assistant Response: { \"reply\": \"Drill Max 500:\\n🔹 High torque\\n🔹 500W power\\n\\nDrill Pro 200:\\n🔹 High precision\\n🔹 200W power\", \"images\": [\"img1.jpg\", \"img2.jpg\"] }"
+          "systemMessage": "=PREVIOUS CONVERSATION HISTORY \n{{ $json.formatted_history }}\nHISTORY END\n\nSYSTEM INSTRUCTIONS ROLE \nYou are the Strict Machinery Lookup Assistant. Your sole purpose is to act as a bridge between the user and the search_pinecone tool.\n\nKNOWLEDGE BOUNDARIES\n🔹 COMPANY DATA (specific machines, models, specs, prices, availability, recommendations): You have ZERO internal knowledge. Never invent or recall a company machine, model name, specification, or number from training data. For ANY request about a specific machine, a recommendation, or a spec, you MUST call search_pinecone and answer ONLY from its results.\n🔹 TECHNICAL / PROCESS GUIDANCE (how to choose or apply equipment, e.g. \"which screw diameter for thin wall parts?\", \"what happens to injection pressure if screw diameter increases?\", \"what shot volume should I run?\", \"which screw for HDPE crates?\"): The index ALSO contains company reference guides — their catalogue is \"General Information\". These questions are NOT general concepts. You MUST call search_pinecone FIRST. If a General Information guide is returned, answer ONLY from that guide and include its image_url in the images array. Never answer these from training data when a guide exists.\n🔹 GENERAL CONCEPTS (plain terminology only, e.g. \"what does clamping force mean?\", \"what is tonnage?\", \"hydraulic vs electric injection molding\"): You MAY define the term in 1-3 sentences from general engineering knowledge to help new sales staff learn — but ONLY after search_pinecone has returned nothing relevant. You must NEVER state a specific number, ratio, dimension, threshold or spec from training data (for example, never assert \"L/D is typically 25:1\"). Every number you output must come from a tool result. After explaining a concept, proactively end with: \"Would you like me to search for machines with [that property]?\"\nRULE OF THUMB: Defining a word, with no numbers = allowed. Any number, spec, selection rule, or recommendation = tool only.\n\n\n\nEXACT MATCH FILTERING RULE \nVector searches often return the exact requested machine alongside similarly named models (e.g., querying \"YH 278\" might return \"YH 278\", \"YH5 278\", and \"YH 200\"). If the user asks for a specific model, you MUST silently filter the tool results. Output ONLY the details and image for the exact model they asked for.IGNORE all other similar models in the search results unless the user explicitly asked for \\\"alternatives\\\" or a \\\"comparison\\\". If the exact model does NOT appear in the results at all, do NOT invent it — respond: \\\"I couldn't find [model] in our current catalog. Here are the closest matches I found:\\\" and list those instead.\n\nBRAND PERSISTENCE RULE Brand Lock-In:\nIf a user specifies a brand (e.g., Tederic, UWA), stay locked into that brand for the remainder of the conversation unless the user explicitly asks to \"switch brands\" or \"compare with others.\" Self-Correction: Before answering, check the retrieved context from the tool. If the context contains multiple brands, ONLY describe and include images for the brand the user previously showed interest in. Discard results for other brands unless explicitly requested.\n\nQUERY REFINEMENT RULE\nBefore calling the search_pinecone tool, you must synthesize the user's current request with the established context (Brand and Machine Type).\n\n🔹 Context Synthesis: If the user says \"smaller,\" \"faster,\" or \"another one,\" do not search for those words in isolation.\n🔹 Mandatory Query Construction: Re-write the search query to include the Brand and Machine Type from the conversation history.\n🔹 Example: If the history shows \"Tederic PET Preform\" and the user says \"give me a smaller one,\" your tool call must be search_pinecone(query=\"smaller Tederic PET preform machine\").\n\nCOMPARISON QUERY RULE (ANTI-SWAMPING)\nIf the user asks to compare two or more distinct machine models (e.g., \"Compare D100 and D200\" or \"What is the difference between DT 400 and a similar UWA model?\"), DO NOT search for them together in a single tool call string.\n🔹 Separate Tool Calls Required: You must execute separate, sequential tool calls for each individual model mentioned. \n🔹 Example execution: Call 1 must be search_pinecone(query=\"Tederic D100\"). Call 2 must be search_pinecone(query=\"Tederic D200\").\n🔹 Synthesis: Collect data from all successful tool executions, extract the correct unique image URLs for each model, and merge them into your final comparative response. This prevents the variant configurations of one machine from crowding out the other model.\n\nNO RESULTS RULE:\nIf search_pinecone returns no results or returns results clearly irrelevant to the query, do NOT guess or hallucinate. Respond: \\\"I couldn't find [query] in our catalog. Could you double-check the model name, or describe what you need (e.g. tonnage range, application type)?\"\n\nINTERACTION LOGIC Greetings:\nIf the user says \"Hi\", \"Hello\", or similar, respond politely and immediately ask: \"Which machinery are you looking for today?\" Search: Call search_pinecone. Extract the summary and image_url for all relevant matches. Multi-Item Logic: If 3 machines are discussed, there MUST be 3 URLs in the images array.\n\nFORMATTING RULES \n(For the \"reply\" field) The reply is shown in a web chat. Format it as follows: Bolding: Use single asterisks ONLY (e.g., *Model X100:*). Lists: Use emojis (🔹 or ⚙️) instead of dashes or dots. Spacing: Use double line breaks (\\n\\n) between different machines or sections to ensure readability. Style: Keep it punchy, scannable, and concise. No long paragraphs.\n\nOUTPUT SPECIFICATION FORMAT\nReturn ONLY a raw JSON object. NO MARKDOWN: Do not use json blocks. Do not include any text before or after the JSON. SCHEMA: { \"reply\": \"string\", \"images\": [\"url1\", \"url2\"] }\n\nEXAMPLE OF DESIRED OUTPUT User: \n\"I need a heavy duty drill.\" Assistant Tool Call: search_pinecone(query=\"heavy duty drill\") Tool Response: [{summary: \"Drill Max 500: High torque, 500W\", image_url: \"img1.jpg\"}, {summary: \"Drill Pro 200: Precision, 200W\", image_url: \"img2.jpg\"}] Final Assistant Response: { \"reply\": \"Drill Max 500:\\n🔹 High torque\\n🔹 500W power\\n\\nDrill Pro 200:\\n🔹 High precision\\n🔹 200W power\", \"images\": [\"img1.jpg\", \"img2.jpg\"] }\n\nCACHEABILITY RULE\nSet \"cacheable\": true only if BOTH hold:\n1. Self-contained - answering required NOTHING from earlier turns. Set false for \"that one\", \"a smaller one\", \"the price\", \"the Tederic instead\", or a bare yes/no.\n2. Stable & reusable - the answer came from a search_pinecone result (a machine record or a General Information guide). Set false when you returned an \"I couldn't find [model] / double-check the name\" fallback, since the catalog changes and the miss is often a user typo. Set false when you answered a general concept from your own knowledge WITHOUT a tool result - those must never be cached."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [580, 160],
-      "id": "3cedac72-4db7-41dd-bbc2-8b54cacc275c",
+      "position": [
+        3648,
+        2016
+      ],
+      "id": "daf08050-aab0-43f8-b1a4-1f5a135c4c03",
       "name": "AI Agent",
       "retryOnFail": false,
       "alwaysOutputData": false,
@@ -218,8 +262,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [500, 400],
-      "id": "f30f2cd3-31c1-49a3-92f5-9346c2089f4b",
+      "position": [
+        3504,
+        2240
+      ],
+      "id": "5782196c-312d-43c9-929a-270721ec8d47",
       "name": "Gemini",
       "retryOnFail": true,
       "credentials": {
@@ -232,7 +279,7 @@
     {
       "parameters": {
         "mode": "retrieve-as-tool",
-        "toolDescription": "Use this tool to search the company machinery catalogues whenever the user asks for equipment recommendations, specific machine models, or technical specifications. This tool will search the Pinecone vector database and return the best matching machinery models. The tool's output will include the model_name, a highly accurate summary of the machine's specifications, and the image_url linking to the spec sheet table. Use the summary data to write your reply to the user, and use the image_url to populate the images array in your final JSON output.",
+        "toolDescription": "Use this tool to search the company machinery catalogues AND the company's technical reference guides. Call it whenever the user asks for equipment recommendations, specific machine models, technical specifications, OR any process/selection guidance (e.g. which screw diameter to use, L/D ratio, shot weight, clamping force sizing, material suitability, thin-wall molding, cycle time). This tool searches the Pinecone vector database and returns the best matching records. Each result includes the model_name, a highly accurate summary of the specifications or guide content, and the image_url linking to the spec sheet or reference chart. Use the returned data to write your reply, and use the image_url to populate the images array in your final JSON output. NOTE: results whose catalogue is \"General Information\" are company reference guides, not purchasable machines — present them as technical guidance and still show their image_url.",
         "pineconeIndex": {
           "__rl": true,
           "value": "hitech-v2",
@@ -247,8 +294,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
       "typeVersion": 1.3,
-      "position": [680, 400],
-      "id": "b8bc901b-7a49-47bb-9281-84a1ba3ddeb3",
+      "position": [
+        3632,
+        2240
+      ],
+      "id": "4b9e5130-7f42-491f-9a1f-240993ab8058",
       "name": "Search Pinecone",
       "credentials": {
         "pineconeApi": {
@@ -263,8 +313,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
-      "position": [640, 600],
-      "id": "94a9f440-0be5-4e93-be61-5dcb48aa755e",
+      "position": [
+        3648,
+        2448
+      ],
+      "id": "e6f65091-1b69-4f93-ab42-ab8f16e46eb9",
       "name": "Embeddings Google Gemini",
       "retryOnFail": true,
       "credentials": {
@@ -280,8 +333,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
       "typeVersion": 1,
-      "position": [800, 600],
-      "id": "394c1190-7e9d-4f32-9c05-7f8a219b8087",
+      "position": [
+        3792,
+        2448
+      ],
+      "id": "7fcd11e3-f00c-45ac-bca0-a45097eaa5d1",
       "name": "Reranker Cohere",
       "credentials": {
         "cohereApi": {
@@ -293,13 +349,16 @@
     {
       "parameters": {
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"The formatted message shown in the web chat using single asterisks for bolding and emojis for bullet points.\"\n    },\n    \"images\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"An array containing the extracted image URLs matching the machines mentioned in the reply.\"\n    }\n  },\n  \"required\": [\"reply\", \"images\"]\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"The formatted message shown in the web chat using single asterisks for bolding and emojis for bullet points.\"\n    },\n    \"images\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"An array containing the extracted image URLs matching the machines mentioned in the reply.\"\n    },\n    \"cacheable\": {\n      \"type\": \"boolean\",\n      \"description\": \"true ONLY if (1) the message is self-contained AND (2) the answer is stable and reusable. false for follow-ups ('that one','a smaller one','the price'), bare confirmations, OR a 'couldn't find / double-check the model' fallback. When unsure, false.\"\n    }\n  },\n  \"required\": [\"reply\", \"images\", \"cacheable\"]\n}",
         "autoFix": true
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
-      "position": [860, 400],
-      "id": "36251807-f2a3-430a-8beb-c2583d8d25b4",
+      "position": [
+        3920,
+        2240
+      ],
+      "id": "b77a2420-7ae0-4897-97d1-266f83a6cf41",
       "name": "Structured Output Parser"
     },
     {
@@ -308,8 +367,11 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [940, 600],
-      "id": "92c40782-1509-4baf-a8f4-eca39df7f26f",
+      "position": [
+        4000,
+        2448
+      ],
+      "id": "f0e6346a-7f1b-4643-a0c0-b303ff1a289c",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
@@ -320,12 +382,15 @@
     },
     {
       "parameters": {
-        "jsCode": "// Agent now returns a parsed object via the Structured Output Parser\nlet out = $input.first().json.output;\n\n// Normalize: object (parser) or string (rare fallback)\nlet parsedData;\nif (typeof out === 'string') {\n    const m = out.match(/\\{[\\s\\S]*\\}/);\n    parsedData = m ? JSON.parse(m[0]) : { reply: out, images: [] };\n} else if (out && typeof out === 'object') {\n    parsedData = (out.reply !== undefined || out.images !== undefined) ? out : (out.output || out);\n} else {\n    parsedData = { reply: \"Here is the information you requested.\", images: [] };\n}\n\nlet replyText = parsedData.reply || \"Here is the information you requested.\";\nlet uniqueImageUrls = Array.isArray(parsedData.images) ? [...new Set(parsedData.images)] : [];\n\nconst imageUrlsJson = JSON.stringify(uniqueImageUrls);\n\n// --- Build the cache INSERT here, so n8n never comma-splits the values ---\nconst escSql = (s) => String(s ?? '').replace(/'/g, \"''\");\nconst embedding = $('Embed Query').first().json.embedding.values;\nconst vectorLiteral = '[' + embedding.join(',') + ']';\n\nconst insert_sql =\n  \"INSERT INTO semantic_cache (query_embedding, query_text, reply_text, image_urls) VALUES (\" +\n  \"'\" + vectorLiteral + \"'::vector, \" +\n  \"'\" + escSql($('Guardrails').first().json.guardrailsInput) + \"', \" +\n  \"'\" + escSql(replyText) + \"', \" +\n  \"'\" + escSql(imageUrlsJson) + \"')\";\n\nreturn {\n    json: {\n        reply_text: replyText,\n        image_urls: uniqueImageUrls,\n        image_urls_json: imageUrlsJson,\n        session_id: $('Webhook').first().json.body.session_id,\n        from_cache: false,\n        insert_sql: insert_sql\n    }\n};\n"
+        "jsCode": "// ---- Parse agent output ----\nlet out = $input.first().json.output;\nlet parsedData;\nif (typeof out === 'string') {\n    const m = out.match(/\\{[\\s\\S]*\\}/);\n    parsedData = m ? JSON.parse(m[0]) : { reply: out, images: [], cacheable: false };\n} else if (out && typeof out === 'object') {\n    parsedData = (out.reply !== undefined || out.images !== undefined) ? out : (out.output || out);\n} else {\n    parsedData = { reply: \"Here is the information you requested.\", images: [], cacheable: false };\n}\n\nlet replyText = parsedData.reply || \"Here is the information you requested.\";\nlet uniqueImageUrls = Array.isArray(parsedData.images) ? [...new Set(parsedData.images)] : [];\nconst imageUrlsJson = JSON.stringify(uniqueImageUrls);\n\n// ---- GATE 1: deterministic backstop (free, predictable) ----\nconst userMessage = ($('Guardrails').first().json.guardrailsInput || \"\").trim().toLowerCase();\nconst stop = [\"yes\",\"no\",\"ok\",\"okay\",\"sure\",\"yeah\",\"nope\",\"haan\",\"han\",\"ji\",\"jee\",\"nahi\",\"nai\",\"g\",\"acha\",\"achha\",\"theek\",\"thik\",\"done\",\"k\"];\nconst bareConfirmation = stop.includes(userMessage.replace(/[^\\w]/g, \"\"));\n\n// ---- GATE 2: agent judgment (defaults false if the flag is missing) ----\nconst agentCacheable = parsedData.cacheable === true;\n\n// store only if BOTH gates agree\nconst storeable = !bareConfirmation && agentCacheable;\n\n// ---- Build the cache INSERT here, so n8n never comma-splits the values ---\nconst escSql = (s) => String(s ?? '').replace(/'/g, \"''\");\nconst embedding = $('Embed Query').first().json.embedding.values;\nconst vectorLiteral = '[' + embedding.join(',') + ']';\n\nconst insert_sql =\n  \"INSERT INTO semantic_cache (query_embedding, query_text, reply_text, image_urls) VALUES (\" +\n  \"'\" + vectorLiteral + \"'::vector, \" +\n  \"'\" + escSql($('Guardrails').first().json.guardrailsInput) + \"', \" +\n  \"'\" + escSql(replyText) + \"', \" +\n  \"'\" + escSql(imageUrlsJson) + \"')\";\n\nreturn {\n    json: {\n        reply_text: replyText,\n        image_urls: uniqueImageUrls,\n        image_urls_json: imageUrlsJson,\n        session_id: $('Webhook').first().json.body.session_id,\n        from_cache: false,\n        storeable,\n        insert_sql\n    }\n};\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [820, 160],
-      "id": "c731f883-bc75-43a0-b64f-bc3e5a6d6f03",
+      "position": [
+        4288,
+        1920
+      ],
+      "id": "c332f2d9-305a-4c17-af4c-3ea4774e1615",
       "name": "Code in JavaScript1"
     },
     {
@@ -336,8 +401,11 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1060, 360],
-      "id": "a4f17e42-c8f0-4749-865a-3138a729fee0",
+      "position": [
+        4912,
+        2016
+      ],
+      "id": "683495a1-809e-499a-9c05-cf65bfe59723",
       "name": "Save to Semantic Cache",
       "credentials": {
         "postgres": {
@@ -372,9 +440,19 @@
           "matchingColumns": [],
           "schema": [
             {
+              "id": "unq_id",
+              "displayName": "unq_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "session_id",
               "displayName": "session_id",
-              "required": false,
+              "required": true,
               "defaultMatch": false,
               "display": true,
               "type": "string",
@@ -433,8 +511,11 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1060, 140],
-      "id": "9ddcb449-a6b7-472f-832f-b3490a81b3a9",
+      "position": [
+        4512,
+        1840
+      ],
+      "id": "80f3d52b-9e36-4f7f-b24c-5dcc839bb721",
       "name": "Insert rows in a table",
       "alwaysOutputData": true,
       "credentials": {
@@ -447,61 +528,352 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"reply\": $json.reply_text, \"images\": $json.image_urls, \"from_cache\": $json.from_cache } }}",
+        "responseBody": "={{ { \"reply\": $json.reply_text, \"images\": $json.image_urls, \"from_cache\": $json.from_cache, \"transcript\": $('Guardrails').first().json.guardrailsInput } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1060, -120],
-      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "position": [
+        4512,
+        1648
+      ],
+      "id": "4c1fe25a-06cf-40bf-b62e-c32c5e4fc0cf",
       "name": "Respond Success"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"reply\": \"Sorry, we are facing a temporary issue. Our team will assist you shortly.\", \"images\": [] } }}",
+        "responseBody": "={{ { \"reply\": \"Sorry, we are facing a temporary issue. Our team will assist you shortly.\", \"images\": [], \"transcript\": $('Guardrails').first().json.guardrailsInput } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [820, 380],
-      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "position": [
+        4288,
+        2112
+      ],
+      "id": "9ac0dd7a-c28f-40e4-961b-79e4d8c386d1",
       "name": "Respond Error"
     },
     {
       "parameters": {
-        "content": "## WEB CHAT — Webhook in, Respond out\nClone of the WhatsApp bot for the dashboard's Chat tab.\nInput: POST { message, session_id, name }\nOutput: { reply, images }",
-        "height": 220,
-        "width": 360,
-        "color": 4
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e545a563-39a7-4c71-bb9e-00fbf64a166c",
+              "leftValue": "={{ $json.storeable }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [-1300, -260],
-      "id": "a1b2c3d4-0005-4000-8000-000000000005",
-      "name": "Sticky Note"
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4672,
+        2032
+      ],
+      "id": "101331b9-4395-42c8-9b35-d11c68008cdb",
+      "name": "If"
     },
     {
       "parameters": {
-        "content": "## SAME RAG CORE AS WHATSAPP\nGuardrails → embed → semantic cache → (cached reply | Pinecone agent + Cohere rerank + Gemini 2.5 Pro) → save cache + history.",
-        "height": 240,
-        "width": 520,
-        "color": 7
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "03e0a363-0791-4faf-a8f5-cc6fbde08c0a",
+              "leftValue": "={{ $json.body.audio_base64 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
       },
-      "type": "n8n-nodes-base.stickyNote",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1584,
+        1120
+      ],
+      "id": "f1b5df1b-17ff-4f98-a7d1-1b4cb8d2dfef",
+      "name": "Has Audio?"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.audio_base64",
+        "binaryPropertyName": "data",
+        "options": {
+          "mimeType": "audio/wav"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1808,
+        1120
+      ],
+      "id": "031fe056-f1de-4a17-87b1-9b62cc2e5d14",
+      "name": "Audio to Binary"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "text": "Transcribe this audio EXACTLY as spoken, word for word.\n\nRules:\n- The speaker mixes Roman Urdu, Hindi/Sindhi/Punjabi, and English, and code-switches freely.\n- Output ALL text in Latin (Roman) script ONLY. NEVER output Arabic or Urdu script.\n- NEVER translate. Write what you hear phonetically in Roman letters. Keep English words in English.\n- Known brand/model names — always spell exactly:\n  Tederic (not Tederik, Tedrick, Tedrik, Taderik)\n  UWA (not Yuwa, Uva, Ova)\n  Haitian (not Haition, Hatian)\n  SCR (not Skar, Eskar)\n  YH, YE, YU are machine series names — keep as-is.\n- Remove any timestamps like 00:00.\n\nOutput: only the transcription text, nothing else.\n",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2032,
+        1120
+      ],
+      "id": "92f22947-222e-4c92-adb7-c31afcd2e207",
+      "name": "Analyze audio",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f5e2718-d365-4654-9f84-15e891b9ece6",
+              "name": "text",
+              "value": "={{ $json.content?.parts?.[0]?.text ?? $json.output ?? $json.text ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2256,
+        1120
+      ],
+      "id": "59b14e20-3965-41d8-bfbe-82c8f7a92718",
+      "name": "Transcribe Text"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "167a194e-780c-4c4e-9df7-0c77fb2c69b9",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2480,
+        1120
+      ],
+      "id": "530444cd-584b-4b07-8af0-8db5a434d2e9",
+      "name": "Check Text"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=Task: You will receive a transcript. Your goals are:\n1. Convert any Urdu/Hindi/Sindhi/Punjabi script to Romanized Phonetic Script\n2. Correct any mispronounced or misspelled brand names to their exact correct form\n\nBRAND NAME CORRECTIONS (apply to ALL text, including already-Roman input):\nTederik / Tedrick / Tedrik / Taderik / Tederiq → Tederic\nYuwa / Uva / Ova / U.W.A → UWA\nHaition / Hatian / Hation / Haytian → Haitian\nSkar / Eskar / S.C.R → SCR\nYHH / Y.H → YH\nYEE / Y.E → YE\n\nStrict Rules:\nNo Translation: Do NOT translate meaning into English (e.g. \"دو\" → \"do\", not \"two\").\nRomanization: Urdu/Punjabi → Roman Urdu. Sindhi → Roman Sindhi.\nPreserve correctly spelled technical terms and model numbers exactly.\nRemove audio timestamps like \"00:00\" or \"00:01\".\n\nOutput: Just the corrected, Romanized text. Nothing else.\n\nInput: {{ $json.text }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2704,
+        1120
+      ],
+      "id": "5056577a-2c45-4d7b-a4d1-054a892dd8dc",
+      "name": "Romanizer"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [380, 520],
-      "id": "a1b2c3d4-0006-4000-8000-000000000006",
-      "name": "Sticky Note1"
+      "position": [
+        2704,
+        1320
+      ],
+      "id": "447636c6-7092-4966-a4d3-151671206a6f",
+      "name": "Romanizer Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ab434123-46e8-4fe0-8f54-b527e8aa9f1c",
+              "name": "text",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2928,
+        1120
+      ],
+      "id": "08f81efa-62ea-4acf-bc9c-1868330d24c8",
+      "name": "Transcript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "09af6711-bff7-4026-9219-17c0725eef1f",
+              "name": "text",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1584,
+        1400
+      ],
+      "id": "960bdf48-c62f-4c70-bf2e-e61110b58d9e",
+      "name": "Text"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"reply\": \"I couldn't hear anything in that voice note — try again, or type your message.\", \"images\": [], \"transcript\": \"\" } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2480,
+        1320
+      ],
+      "id": "2996db3a-c442-4b22-a5b0-d3ce186aaecd",
+      "name": "Respond No Speech"
     }
   ],
-  "pinData": {},
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "bot.hitech-machinery.com",
+            "x-real-ip": "202.47.39.137",
+            "x-forwarded-for": "202.47.39.137",
+            "x-forwarded-proto": "https",
+            "connection": "upgrade",
+            "content-length": "100",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+            "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+            "content-type": "application/json",
+            "sec-ch-ua-mobile": "?0",
+            "accept": "*/*",
+            "origin": "https://chatbot-tracker-nu.vercel.app",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-GB,en-US;q=0.9,en;q=0.8"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "message": "pvc pipe machine",
+            "session_id": "3300d670-5c3d-4537-84bc-052307a33333",
+            "name": "smsarim6"
+          },
+          "webhookUrl": "https://bot.hitech-machinery.com/webhook/hitech-web-chat",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
   "connections": {
     "Webhook": {
       "main": [
         [
           {
-            "node": "Guardrails",
+            "node": "Has Audio?",
             "type": "main",
             "index": 0
           }
@@ -719,12 +1091,136 @@
             "index": 0
           },
           {
-            "node": "Save to Semantic Cache",
+            "node": "Insert rows in a table",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Insert rows in a table",
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Save to Semantic Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Audio?": {
+      "main": [
+        [
+          {
+            "node": "Audio to Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio to Binary": {
+      "main": [
+        [
+          {
+            "node": "Analyze audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Text": {
+      "main": [
+        [
+          {
+            "node": "Check Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Text": {
+      "main": [
+        [
+          {
+            "node": "Romanizer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Speech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Romanizer Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Romanizer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Romanizer": {
+      "main": [
+        [
+          {
+            "node": "Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text": {
+      "main": [
+        [
+          {
+            "node": "Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcript": {
+      "main": [
+        [
+          {
+            "node": "Guardrails",
             "type": "main",
             "index": 0
           }
@@ -732,9 +1228,17 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
   },
+  "versionId": "0d5d0061-94c4-46ac-a7ac-f734a1e00adb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "10a850d4da272d178bded5fca62981a8cddf507948e5177ac123d4f6ec8344ab"
+  },
+  "id": "JOBpBMBz05ZVmQ79",
   "tags": []
 }

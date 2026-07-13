@@ -1,0 +1,336 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "03e0a363-0791-4faf-a8f5-cc6fbde08c0a",
+              "leftValue": "={{ $json.body.audio_base64 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1584,
+        1120
+      ],
+      "id": "f1b5df1b-17ff-4f98-a7d1-1b4cb8d2dfef",
+      "name": "Has Audio?"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.audio_base64",
+        "binaryPropertyName": "data",
+        "options": {
+          "mimeType": "audio/wav"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1808,
+        1120
+      ],
+      "id": "031fe056-f1de-4a17-87b1-9b62cc2e5d14",
+      "name": "Audio to Binary"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "text": "Transcribe this audio EXACTLY as spoken, word for word.\n\nRules:\n- The speaker mixes Roman Urdu, Hindi/Sindhi/Punjabi, and English, and code-switches freely.\n- Output ALL text in Latin (Roman) script ONLY. NEVER output Arabic or Urdu script.\n- NEVER translate. Write what you hear phonetically in Roman letters. Keep English words in English.\n- Known brand/model names — always spell exactly:\n  Tederic (not Tederik, Tedrick, Tedrik, Taderik)\n  UWA (not Yuwa, Uva, Ova)\n  Haitian (not Haition, Hatian)\n  SCR (not Skar, Eskar)\n  YH, YE, YU are machine series names — keep as-is.\n- Remove any timestamps like 00:00.\n\nOutput: only the transcription text, nothing else.\n",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        2032,
+        1120
+      ],
+      "id": "92f22947-222e-4c92-adb7-c31afcd2e207",
+      "name": "Analyze audio",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f5e2718-d365-4654-9f84-15e891b9ece6",
+              "name": "text",
+              "value": "={{ $json.content?.parts?.[0]?.text ?? $json.output ?? $json.text ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2256,
+        1120
+      ],
+      "id": "59b14e20-3965-41d8-bfbe-82c8f7a92718",
+      "name": "Transcribe Text"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "167a194e-780c-4c4e-9df7-0c77fb2c69b9",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2480,
+        1120
+      ],
+      "id": "530444cd-584b-4b07-8af0-8db5a434d2e9",
+      "name": "Check Text"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=Task: You will receive a transcript. Your goals are:\n1. Convert any Urdu/Hindi/Sindhi/Punjabi script to Romanized Phonetic Script\n2. Correct any mispronounced or misspelled brand names to their exact correct form\n\nBRAND NAME CORRECTIONS (apply to ALL text, including already-Roman input):\nTederik / Tedrick / Tedrik / Taderik / Tederiq → Tederic\nYuwa / Uva / Ova / U.W.A → UWA\nHaition / Hatian / Hation / Haytian → Haitian\nSkar / Eskar / S.C.R → SCR\nYHH / Y.H → YH\nYEE / Y.E → YE\n\nStrict Rules:\nNo Translation: Do NOT translate meaning into English (e.g. \"دو\" → \"do\", not \"two\").\nRomanization: Urdu/Punjabi → Roman Urdu. Sindhi → Roman Sindhi.\nPreserve correctly spelled technical terms and model numbers exactly.\nRemove audio timestamps like \"00:00\" or \"00:01\".\n\nOutput: Just the corrected, Romanized text. Nothing else.\n\nInput: {{ $json.text }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2704,
+        1120
+      ],
+      "id": "5056577a-2c45-4d7b-a4d1-054a892dd8dc",
+      "name": "Romanizer"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2704,
+        1320
+      ],
+      "id": "447636c6-7092-4966-a4d3-151671206a6f",
+      "name": "Romanizer Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ab434123-46e8-4fe0-8f54-b527e8aa9f1c",
+              "name": "text",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2928,
+        1120
+      ],
+      "id": "08f81efa-62ea-4acf-bc9c-1868330d24c8",
+      "name": "Transcript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "09af6711-bff7-4026-9219-17c0725eef1f",
+              "name": "text",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1584,
+        1400
+      ],
+      "id": "960bdf48-c62f-4c70-bf2e-e61110b58d9e",
+      "name": "Text"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"reply\": \"I couldn't hear anything in that voice note — try again, or type your message.\", \"images\": [], \"transcript\": \"\" } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2480,
+        1320
+      ],
+      "id": "2996db3a-c442-4b22-a5b0-d3ce186aaecd",
+      "name": "Respond No Speech"
+    }
+  ],
+  "connections": {
+    "Has Audio?": {
+      "main": [
+        [
+          {
+            "node": "Audio to Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio to Binary": {
+      "main": [
+        [
+          {
+            "node": "Analyze audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Text": {
+      "main": [
+        [
+          {
+            "node": "Check Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Text": {
+      "main": [
+        [
+          {
+            "node": "Romanizer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Speech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Romanizer Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Romanizer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Romanizer": {
+      "main": [
+        [
+          {
+            "node": "Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

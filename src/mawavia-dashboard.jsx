@@ -8,12 +8,13 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
+import { MAX_MS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64 } from './voice';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1330,8 +1331,17 @@ async function parseChatReply(res) {
     text: (typeof t === 'string' && t) ? t : JSON.stringify(obj),
     images: Array.isArray(imgs) ? imgs.filter(u => typeof u === 'string' && u.startsWith('https://')) : [],
     from_cache: !!(obj.from_cache ?? obj.cached),
+    // Post-Romanizer text for voice notes (see n8n's "Respond Success" node); empty
+    // string for a typed message, which the browser just ignores.
+    transcript: obj.transcript ?? '',
   };
 }
+
+// M:SS for the recording timer and the preview player's duration readout.
+const fmtClock = ms => {
+  const total = Math.round(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+};
 
 // The assistant replies in WhatsApp style: *single-asterisk bold* and \n line
 // breaks (the web clone shares the WhatsApp semantic_cache, so cached hits arrive
@@ -1458,6 +1468,35 @@ function ChatBubble({ m }) {
   );
 }
 
+// The user's voice-note bubble: an inline player on the session-only recording
+// blob, plus the transcript once n8n answers. The transcript is the user's safety
+// net — if the model mishears a model number they can see what it heard and
+// retype instead of guessing.
+function AudioBubble({ m }) {
+  return (
+    <motion.div
+      initial={{opacity:0, y:6}} animate={{opacity:1, y:0}}
+      transition={{duration:0.22, ease:[0.22,1,0.36,1]}}
+      className="flex justify-end"
+    >
+      <div className="flex flex-col gap-1.5 max-w-[80%] sm:max-w-[68%] items-end">
+        <div className="px-3 py-2 rounded-2xl rounded-br-sm" style={{background:INK}}>
+          {m.audioUrl
+            ? <audio controls src={m.audioUrl} className="h-9 max-w-[240px]" />
+            : <span className="flex items-center gap-1.5 text-[12.5px] text-white/70 px-1 py-1">
+                <Mic size={13}/> Voice note (expired — reload started a fresh session)
+              </span>}
+        </div>
+        <p className="text-[12px] text-zinc-500 px-1 max-w-[320px] italic">
+          {m.transcript == null ? 'Transcribing…'
+            : m.transcript === '' ? 'No transcript available.'
+            : m.transcript}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 function ChatTab() {
   const reduce = useReducedMotion();
   const [sessionId, setSessionId] = useState(() => {
@@ -1475,9 +1514,18 @@ function ChatTab() {
   const fileRef   = useRef(null);
   const receiptFiles = useRef(new Map());   // cid -> File (in-memory only, never persisted)
   const objectUrls   = useRef([]);          // created blob: URLs, revoked on unmount
+  const recorderRef    = useRef(null);      // active createRecorder() instance while voicePhase==='recording'
+  const recordTimerRef = useRef(null);      // setInterval id driving the M:SS ticker
 
   const configured     = !!N8N_CHAT_WEBHOOK;
   const receiptEnabled = !!N8N_RECEIPT_WEBHOOK;
+  const recordingEnabled = useMemo(() => isRecordingSupported(), []); // computed once, like receiptEnabled
+
+  // Composer state machine: idle -> recording -> preview -> (idle, via a successful
+  // send) | preview (transcode failed, recording preserved for retry).
+  const [voicePhase,    setVoicePhase]    = useState('idle');
+  const [recordElapsed, setRecordElapsed] = useState(0);   // ms, ticks during 'recording'
+  const [preview,       setPreview]       = useState(null); // { blob, url, durationMs } during 'preview'
 
   // Restore on mount / "New chat". localStorage is the source of truth (it keeps
   // image URLs); only fall back to the DB (text-only) when there's no local thread.
@@ -1503,10 +1551,15 @@ function ChatTab() {
   // carry a live blob: thumb (and their File lives in the receiptFiles ref, never here);
   // neither survives serialization, so strip the thumb and downgrade any in-flight
   // receipt to 'expired' — a reloaded card then asks the user to re-attach instead of
-  // offering a Confirm that would fail.
+  // offering a Confirm that would fail. Audio bubbles are the same story: the
+  // recording lives only behind a blob: URL, session-only by design (never uploaded,
+  // never stored server-side) — so the persisted copy drops audioUrl, and a
+  // still-in-flight transcript (null) collapses to '' rather than showing
+  // "Transcribing…" forever, since a reload kills the request it was waiting on.
   useEffect(() => {
     try {
       const safe = messages.map(m => {
+        if (m.role === 'audio') return { ...m, audioUrl: null, transcript: m.transcript ?? '' };
         if (m.role !== 'receipt') return m;
         const s = m.card?.status;
         const status = (s === 'extracting' || s === 'pending' || s === 'saving') ? 'expired' : s;
@@ -1516,8 +1569,12 @@ function ChatTab() {
     } catch { /* storage full — ignore */ }
   }, [messages, sessionId]);
 
-  // Revoke receipt thumbnail blob URLs on unmount to avoid a memory leak.
-  useEffect(() => () => { objectUrls.current.forEach(u => URL.revokeObjectURL(u)); }, []);
+  // Revoke receipt/voice blob URLs on unmount, and make sure a recording in
+  // progress can't leave the browser's mic-in-use indicator lit.
+  useEffect(() => () => {
+    objectUrls.current.forEach(u => URL.revokeObjectURL(u));
+    recorderRef.current?.cancel();
+  }, []);
 
   // Keep the thread pinned to the newest message.
   useEffect(() => {
@@ -1565,11 +1622,128 @@ function ChatTab() {
     }
   }, [input, sending, configured, sessionId]);
 
+  // Stops the M:SS ticker; always called before the recorder itself is torn down
+  // so a slow stop() can't let one more tick sneak in.
+  const clearRecordTimer = () => {
+    if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+  };
+
+  const stopRecording = useCallback(async () => {
+    clearRecordTimer();
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (!recorder) return;
+    const { blob, durationMs } = await recorder.stop();
+    const url = URL.createObjectURL(blob);
+    objectUrls.current.push(url);
+    setPreview({ blob, url, durationMs });
+    setVoicePhase('preview');
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const recorder = await createRecorder(); // throws (e.g. NotAllowedError) before any UI changes
+      recorderRef.current = recorder;
+      const startedAt = Date.now();
+      recorder.start();
+      setRecordElapsed(0);
+      setVoicePhase('recording');
+      recordTimerRef.current = setInterval(() => {
+        const ms = Date.now() - startedAt;
+        setRecordElapsed(ms);
+        if (ms >= MAX_MS) stopRecording(); // auto-stop at the cap
+      }, 200);
+    } catch (ex) {
+      setVoicePhase('idle'); // always reset — this can also fire mid-'preview' via reRecord()
+      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+        text: ex.name === 'NotAllowedError'
+          ? 'Microphone access is blocked. Allow it in your browser’s site settings (the padlock icon next to the address bar), then try again.'
+          : 'Couldn’t access the microphone — check that it’s connected and not already in use by another app.' }]);
+    }
+  }, [stopRecording]);
+
+  // Trash button while 'recording' — discard, no send, mic released.
+  const cancelRecording = useCallback(() => {
+    clearRecordTimer();
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    setVoicePhase('idle');
+  }, []);
+
+  // Trash button while 'preview' — discard the take, release its object URL.
+  const discardPreview = useCallback(() => {
+    setPreview(p => { if (p) URL.revokeObjectURL(p.url); return null; });
+    setVoicePhase('idle');
+  }, []);
+
+  // Re-record button while 'preview' — drop this take and start a fresh one.
+  const reRecord = useCallback(() => {
+    setPreview(p => { if (p) URL.revokeObjectURL(p.url); return null; });
+    startRecording();
+  }, [startRecording]);
+
+  const sendVoice = useCallback(async () => {
+    if (!preview || sending || !configured) return;
+    const { blob: rawBlob, url: rawUrl } = preview;
+    // Flip `sending` synchronously (before the first await), same as send() does —
+    // otherwise a rapid double-click on Send could slip a second request through
+    // while the first is still transcoding.
+    setSending(true);
+
+    let wav;
+    try {
+      wav = await blobToWav16k(rawBlob);
+    } catch {
+      // Transcode failed — preserve the recording in 'preview' so Send can be retried.
+      setSending(false);
+      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+        text:'Couldn’t process that recording — try sending it again, or re-record it.' }]);
+      return;
+    }
+
+    // Transcode succeeded: commit the bubble to the thread — the existing
+    // `sending` flag (already true) drives the typing dots, same as a typed message.
+    setPreview(null);
+    setVoicePhase('idle');
+    const cid = crypto.randomUUID?.() || `v_${Date.now()}_${Math.random()}`;
+    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl: rawUrl, transcript: null }]);
+    try {
+      const audio_base64 = await blobToBase64(wav);
+      const res = await fetch(N8N_CHAT_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_base64, mime_type: 'audio/wav', session_id: sessionId, name: currentUserName() }),
+      });
+      // Same error handling as the typed-message path — mirror it verbatim.
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
+        setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, transcript:'' } : msg).concat({ role:'assistant', error:true, ts:Date.now(),
+          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }));
+        return;
+      }
+      const { text: reply, images, from_cache, transcript } = await parseChatReply(res);
+      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, transcript } : msg)
+        .concat({ role:'assistant', text: reply, images, from_cache, ts:Date.now() }));
+    } catch {
+      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, transcript:'' } : msg).concat({ role:'assistant', error:true, ts:Date.now(),
+        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }));
+    } finally {
+      setSending(false);
+    }
+  }, [preview, sending, configured, sessionId]);
+
   const newChat = useCallback(() => {
     const user = currentUserName() || 'anon';
     localStorage.removeItem(threadKey(sessionId));
     const id = genSessionId();
     localStorage.setItem(`ht_web_chat_session_${user}`, id);
+    // Don't leave a recording running or a take stranded when the thread resets.
+    clearRecordTimer();
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    setPreview(p => { if (p) URL.revokeObjectURL(p.url); return null; });
+    setVoicePhase('idle');
     setSessionId(id);
     setMessages([]);
     setInput('');
@@ -1695,6 +1869,8 @@ function ChatTab() {
               {messages.map((m,i)=>(
                 m.role === 'receipt'
                   ? <ReceiptCard key={`${m.cid || m.ts}_${i}`} card={m.card} onAccept={() => acceptReceipt(m.cid)} onReject={() => rejectReceipt(m.cid)} />
+                  : m.role === 'audio'
+                  ? <AudioBubble key={`${m.cid || m.ts}_${i}`} m={m}/>
                   : <ChatBubble key={`${m.ts}_${i}`} m={m}/>
               ))}
               {sending && (
@@ -1709,40 +1885,88 @@ function ChatTab() {
           )}
         </div>
 
-        {/* Composer */}
+        {/* Composer — idle / recording / preview, see the state machine above */}
         <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
-          <div className="flex items-end gap-2">
-            {receiptEnabled && (
-              <>
-                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPickReceipt} />
-                <button type="button" onClick={() => fileRef.current?.click()} aria-label="Upload a receipt"
-                  className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
-                  <Receipt size={18} />
+          {voicePhase === 'recording' ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-3 px-4 py-2.5 border border-zinc-300 rounded-xl">
+                <span className="relative flex items-center justify-center w-2.5 h-2.5 shrink-0">
+                  <span className="absolute inset-0 rounded-full animate-ping" style={{background:NEG, opacity:0.5}}/>
+                  <span className="relative w-2.5 h-2.5 rounded-full" style={{background:NEG}}/>
+                </span>
+                <span className="mono text-[13px] text-zinc-700 tabular-nums">{fmtClock(recordElapsed)}</span>
+                <span className="text-[12.5px] text-zinc-400">Recording… (max {fmtClock(MAX_MS)})</span>
+              </div>
+              <button type="button" onClick={cancelRecording} aria-label="Discard recording"
+                className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                <Trash2 size={18}/>
+              </button>
+              <button type="button" onClick={stopRecording} aria-label="Stop recording"
+                className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                style={{background:ACCENT}}>
+                <Square size={16} fill="currentColor"/>
+              </button>
+            </div>
+          ) : voicePhase === 'preview' ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-3 px-3 py-1.5 border border-zinc-300 rounded-xl">
+                <audio controls src={preview?.url} className="flex-1 h-9 min-w-0"/>
+                <span className="mono text-[11px] text-zinc-400 tabular-nums shrink-0">{fmtClock(preview?.durationMs || 0)}</span>
+              </div>
+              <button type="button" onClick={discardPreview} aria-label="Discard recording"
+                className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                <Trash2 size={18}/>
+              </button>
+              <button type="button" onClick={reRecord} aria-label="Re-record"
+                className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                <Mic size={18}/>
+              </button>
+              <button type="button" onClick={sendVoice} disabled={sending} aria-label="Send voice note"
+                className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
+                style={{background: sending ? '#A1A1AA' : ACCENT}}>
+                <Send size={17}/>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              {receiptEnabled && (
+                <>
+                  <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPickReceipt} />
+                  <button type="button" onClick={() => fileRef.current?.click()} aria-label="Upload a receipt"
+                    className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+                    <Receipt size={18} />
+                  </button>
+                </>
+              )}
+              {recordingEnabled && (
+                <button type="button" onClick={startRecording} disabled={!configured || sending} aria-label="Record a voice note"
+                  className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-60 disabled:cursor-not-allowed">
+                  <Mic size={18} />
                 </button>
-              </>
-            )}
-            <textarea
-              ref={taRef}
-              rows={1}
-              value={input}
-              maxLength={1500}
-              disabled={!configured}
-              onChange={e=>{ setInput(e.target.value); grow(); }}
-              onKeyDown={onKeyDown}
-              placeholder={configured ? 'Message the assistant…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
-              aria-label="Message the assistant"
-              className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-white border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-            <button
-              onClick={send}
-              disabled={!configured || sending || !input.trim()}
-              aria-label="Send message"
-              className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
-              style={{background: (!configured || sending || !input.trim()) ? '#A1A1AA' : ACCENT}}
-            >
-              <Send size={17}/>
-            </button>
-          </div>
+              )}
+              <textarea
+                ref={taRef}
+                rows={1}
+                value={input}
+                maxLength={1500}
+                disabled={!configured}
+                onChange={e=>{ setInput(e.target.value); grow(); }}
+                onKeyDown={onKeyDown}
+                placeholder={configured ? 'Message the assistant…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
+                aria-label="Message the assistant"
+                className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-white border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <button
+                onClick={send}
+                disabled={!configured || sending || !input.trim()}
+                aria-label="Send message"
+                className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
+                style={{background: (!configured || sending || !input.trim()) ? '#A1A1AA' : ACCENT}}
+              >
+                <Send size={17}/>
+              </button>
+            </div>
+          )}
         </div>
 
       </Panel>
