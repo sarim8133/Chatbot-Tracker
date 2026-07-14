@@ -1602,7 +1602,7 @@ function AudioBubble({ m }) {
       className="flex justify-end"
     >
       <div className="flex flex-col gap-1.5 max-w-[80%] sm:max-w-[68%] items-end">
-        <div className="px-3 py-1.5 rounded-2xl rounded-br-sm min-w-[220px]" style={{background:INK}}>
+        <div className="px-3 py-1.5 rounded-2xl rounded-br-sm w-full min-w-[220px] max-w-[340px]" style={{background:INK}}>
           {m.audioUrl
             ? <VoicePlayer src={m.audioUrl} durationMs={m.durationMs} peaks={m.peaks} dark/>
             : <span className="flex items-center gap-1.5 text-[12.5px] text-white/70 px-1 py-2">
@@ -2173,7 +2173,7 @@ function ChatTab() {
             </div>
           ) : voicePhase === 'preview' ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="flex-1 min-w-0 flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
+              <div className="flex-1 min-w-0 max-w-[380px] flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
                 <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <button type="button" onClick={discardPreview} aria-label="Discard recording"
@@ -2192,7 +2192,7 @@ function ChatTab() {
             </div>
           ) : voicePhase === 'transcribing' ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="flex-1 min-w-0 flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
+              <div className="flex-1 min-w-0 max-w-[380px] flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
                 <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <span className="mono text-[12px] text-zinc-400 px-2 shrink-0 whitespace-nowrap">Listening…</span>
