@@ -1146,7 +1146,9 @@
         },
         "text": "Transcribe this audio EXACTLY as spoken, word for word.\n\nCRITICAL — when there is no speech:\nIf the audio contains no intelligible human speech — silence, breathing, background or ambient\nnoise, music, static, or sound you cannot make out — output exactly:\n[NO_SPEECH]\nDo NOT guess. Do NOT invent plausible words. Do NOT transcribe noise as if it were speech.\nOutputting [NO_SPEECH] is ALWAYS better than inventing a sentence. An empty or noisy recording is\na normal, expected input — not something to fill in.\n\nOtherwise, transcribe it:\n- The speaker mixes Roman Urdu, Hindi/Sindhi/Punjabi, and English, and code-switches freely.\n- Output ALL text in Latin (Roman) script ONLY. NEVER output Arabic or Urdu script.\n- NEVER translate. Write what you hear phonetically in Roman letters. Keep English words in English.\n- Transcribe ONLY what is actually audible. If a word is unclear, omit it rather than guessing.\n- Known brand/model names — always spell exactly:\n  Tederic (not Tederik, Tedrick, Tedrik, Taderik)\n  UWA (not Yuwa, Uva, Ova)\n  Haitian (not Haition, Hatian)\n  SCR (not Skar, Eskar)\n  YH, YE, YU are machine series names — keep as-is.\n- Remove any timestamps like 00:00.\n\nOutput: only the transcription text, or exactly [NO_SPEECH]. Nothing else.\n",
         "inputType": "binary",
-        "options": {}
+        "options": {
+          "maxOutputTokens": 2048
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.1,

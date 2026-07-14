@@ -176,9 +176,22 @@ preview state), not rendered as a chat bubble, so it no longer carries a `reply`
 
 ---
 
+## Part B-extra — `Analyze audio` → Options → Max Output Tokens = 2048
+
+Applies to **both** workflows, from-scratch or delta.
+
+The node's `maxOutputTokens` **defaults to 300**, which is only ~200–225 words — roughly 1.5 minutes
+of ordinary speech, and less for a fast speaker. The recording cap is 2 minutes, so a long voice note
+would have its transcript silently truncated mid-sentence and the user would confirm a cut-off
+question without noticing. Set it to **2048**.
+
+Note there is no temperature control on this node — `maxOutputTokens` is the only option it exposes.
+
+---
+
 ## Part C — WhatsApp workflow (`Mawavia Whatsapp Chatbot`)
 
-Exactly **two** node edits, regardless of whether Web Chat is being applied from scratch or as a
+Exactly **three** node edits, regardless of whether Web Chat is being applied from scratch or as a
 delta. Change nothing else.
 
 ### C1. `Analyze audio` — replace the `text` parameter
@@ -191,6 +204,11 @@ same spoken question normalizes differently per channel and stops hitting the sh
 
 Same as B2: keep the existing `{{ $json.text }}` **is not empty** condition, and add
 `{{ $json.text }}` **does not contain** `[NO_SPEECH]`, combinator AND.
+
+### C3. `Analyze audio` → Options → Max Output Tokens = 2048
+
+Same as Part B-extra. WhatsApp voice notes are frequently longer than web ones, so the 300-token
+default truncates transcripts here more often, not less.
 
 Its false branch already goes to `Send Fallback Guardrail1` ("Sorry, I couldn't understand your voice
 note..."), so a no-speech voice note now correctly gets that reply instead of a hallucinated answer.
