@@ -40,10 +40,36 @@ export async function createRecorder() {
   let startedAt = 0;
   rec.addEventListener('dataavailable', e => { if (e.data.size > 0) chunks.push(e.data); });
 
-  const releaseMic = () => stream.getTracks().forEach(t => t.stop());
+  // Live level metering. MediaRecorder exposes no amplitude data at all, so this taps
+  // an AnalyserNode off the SAME mic stream — a parallel read, not a second recording.
+  // Deliberately never connected to ctx.destination: routing the mic to the speakers
+  // would echo the user back at themselves and can start a feedback howl.
+  const MeterCtx = window.AudioContext || window.webkitAudioContext;
+  const meterCtx = new MeterCtx();
+  const analyser = meterCtx.createAnalyser();
+  analyser.fftSize = 1024;
+  meterCtx.createMediaStreamSource(stream).connect(analyser);
+  const frame = new Float32Array(analyser.fftSize);
+
+  const releaseMic = () => {
+    stream.getTracks().forEach(t => t.stop());
+    meterCtx.close?.();   // an un-closed AudioContext keeps the audio thread alive
+  };
 
   return {
     start: () => { startedAt = Date.now(); rec.start(); },
+
+    // Current mic level, 0..1, for the live waveform. Speech RMS sits low (roughly
+    // 0.02–0.2), so a linear map would leave the meter looking dead even while someone
+    // is talking normally — the sqrt curve lifts quiet speech into a visible range.
+    getLevel: () => {
+      analyser.getFloatTimeDomainData(frame);
+      let sum = 0;
+      for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+      const rms = Math.sqrt(sum / frame.length);
+      return Math.min(1, Math.sqrt(rms) * LIVE_METER_GAIN);
+    },
+
     stop: () => new Promise(resolve => {
       rec.addEventListener('stop', () => {
         releaseMic();
@@ -57,6 +83,14 @@ export async function createRecorder() {
     },
   };
 }
+
+// Tuned by feel: high enough that normal speech reaches most of the bar's height,
+// low enough that room tone stays near the floor. Raise it if the meter looks flat.
+const LIVE_METER_GAIN = 2.2;
+
+// How often the live meter samples while recording. ~12 fps — fast enough to feel
+// reactive, slow enough that it isn't re-rendering React 60 times a second.
+export const LIVE_METER_MS = 80;
 
 // Bars in the waveform. Fixed, not proportional to length: every voice note should
 // read as the same object at a glance, and a 5-second note with 5 bars would look

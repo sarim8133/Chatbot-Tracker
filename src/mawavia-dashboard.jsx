@@ -14,7 +14,7 @@ import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
-import { MAX_MS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
+import { MAX_MS, LIVE_METER_MS, WAVEFORM_BARS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1686,6 +1686,7 @@ function ChatTab() {
   // see docs/superpowers/specs/2026-07-14-voice-hallucination-fix-design.md.
   const [voicePhase,    setVoicePhase]    = useState('idle');
   const [recordElapsed, setRecordElapsed] = useState(0);   // ms, ticks during 'recording'
+  const [liveLevels,    setLiveLevels]    = useState([]);  // rolling mic levels (0..1) during 'recording'
   const [preview,       setPreview]       = useState(null); // { blob, url, durationMs } during 'preview'/'transcribing'/'confirm'
   const [voiceTranscript, setVoiceTranscript] = useState(''); // editable transcript text during 'confirm'
 
@@ -1812,12 +1813,18 @@ function ChatTab() {
       const startedAt = Date.now();
       recorder.start();
       setRecordElapsed(0);
+      setLiveLevels([]);
       setVoicePhase('recording');
+      // One ticker drives both the clock and the live meter. It runs at the meter's
+      // rate (~12fps) rather than the clock's, because a level meter that lags is
+      // worse than a clock that updates more often than it strictly needs to.
       recordTimerRef.current = setInterval(() => {
         const ms = Date.now() - startedAt;
         setRecordElapsed(ms);
+        // Newest bar on the right; the window scrolls once it's full.
+        setLiveLevels(l => [...l, recorder.getLevel()].slice(-WAVEFORM_BARS));
         if (ms >= MAX_MS) stopRecording(); // auto-stop at the cap
-      }, 200);
+      }, LIVE_METER_MS);
     } catch (ex) {
       setVoicePhase('idle'); // always reset — this can also fire mid-'preview' via reRecord()
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
@@ -2129,13 +2136,27 @@ function ChatTab() {
         <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
           {voicePhase === 'recording' ? (
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-3 px-4 py-2.5 border border-zinc-300 rounded-xl">
+              <div className="flex-1 flex items-center gap-3 px-4 py-2 border border-zinc-300 rounded-xl">
                 <span className="relative flex items-center justify-center w-2.5 h-2.5 shrink-0">
                   <span className="absolute inset-0 rounded-full animate-ping" style={{background:NEG, opacity:0.5}}/>
                   <span className="relative w-2.5 h-2.5 rounded-full" style={{background:NEG}}/>
                 </span>
-                <span className="mono text-[13px] text-zinc-700 tabular-nums">{fmtClock(recordElapsed)}</span>
-                <span className="text-[12.5px] text-zinc-400">Recording… (max {fmtClock(MAX_MS)})</span>
+                <span className="mono text-[13px] text-zinc-700 tabular-nums shrink-0">{fmtClock(recordElapsed)}</span>
+
+                {/* Live mic level. Newest bar on the right, so the wave grows in from the
+                    right edge and then scrolls — it reads as "now" rather than as a static
+                    picture. No CSS transition: at 80ms per bar a transition would smear one
+                    bar's height into the next and turn the wave to mush.
+                    aria-hidden — the timer already announces recording state; a bar chart
+                    updating 12x/second would be screen-reader noise. */}
+                <div className="flex-1 min-w-0 flex items-center justify-end gap-[2px] h-6 overflow-hidden" aria-hidden="true">
+                  {liveLevels.map((lv, i) => (
+                    <span key={i} className="w-[3px] shrink-0 rounded-full"
+                      style={{ height:`${Math.max(2, Math.round(lv * 22))}px`, background:ACCENT }}/>
+                  ))}
+                </div>
+
+                <span className="mono text-[10px] text-zinc-400 tabular-nums shrink-0 hidden sm:inline">max {fmtClock(MAX_MS)}</span>
               </div>
               <button type="button" onClick={cancelRecording} aria-label="Discard recording"
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
