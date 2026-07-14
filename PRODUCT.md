@@ -27,7 +27,7 @@ Modern, sleek, premium. Like a fintech product that respects the user's time and
 - **Clarity over density**: Show what matters most. Use space and hierarchy to reduce cognitive load.
 - **Premium through craft**: Micro-interactions, smooth animations, careful typography. Design that feels intentional.
 - **Data should feel human**: Metrics are about people and business outcomes. Visualizations should tell a story, not just display numbers.
-- **Modern confidence**: Light, airy, high-contrast. Avoid the dark/neon aesthetic that screams "tech tool."
+- **Modern confidence**: Light, airy, high-contrast. Avoid the dark/neon aesthetic that screams "tech tool." This governs the **default (light) theme**, which remains the product's identity. A dark theme also ships as an opt-in accommodation for night and low-light use (added 2026-07-15); it is not the default and does not lead the brand. Its "Console" palette is a blue-tinted near-black — restful, not neon — and it holds the same WCAG AA contrast bar below.
 
 ## Accessibility & Inclusion
 
