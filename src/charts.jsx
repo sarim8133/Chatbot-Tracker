@@ -13,25 +13,26 @@ import {
   PieChart, Pie,
 } from 'recharts';
 import { catColor, fmtPKR, fmtPKRk } from './categories';
+import { useThemeColors } from './theme';
 
-const INK       = '#1E293B';
-const ACCENT    = '#F5471D';
-const ACCENT_DK = '#D63A12';
-const LINE      = '#E4E4E7';
-const MONO      = "'Spline Sans Mono', ui-monospace, monospace";
-const tickStyle = { fill:'#71717A', fontSize:10, fontFamily:MONO };
+// Recharts sets colors as SVG *attributes* (fill="#2258B8"), where a CSS var()
+// does not resolve — the browser sees the literal string and paints nothing. So
+// every chart component below calls useThemeColors() for real hex values instead
+// of riding the index.css variable remap the rest of the app uses.
+const MONO = "'Spline Sans Mono', ui-monospace, monospace";
+const mkTick = (c) => ({ fill: c.muted, fontSize: 10, fontFamily: MONO });
 
 const ChartTip = ({active, payload, label}) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
       <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
       <p className="mono text-[14px] font-bold text-zinc-900">{payload[0].value}</p>
     </div>
   );
 };
 
-const panelCls = "bg-white border border-zinc-100 rounded-xl p-6 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)]";
+const panelCls = "bg-surface border border-zinc-100 rounded-xl p-6 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)]";
 
 const PRESETS = [
   {k:'7',   label:'7D',  days:7},
@@ -73,7 +74,7 @@ function ChartModal({ title, sub, open, onClose, children }) {
             exit={{ opacity: 0, scale: 0.96, y: 16 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             onClick={e => e.stopPropagation()}
-            className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-5xl bg-surface rounded-2xl shadow-2xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-7 py-5 border-b border-zinc-100">
               <div>
@@ -120,6 +121,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   // Unique prefix per component instance — prevents gradient ID collisions when
   // both the panel chart and the modal chart are mounted at the same time.
   const uid = useId();
+  const c = useThemeColors();
   const customActive = !!(from || to);
 
   const view = useMemo(()=>{
@@ -138,7 +140,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   const minDate   = volumeDaily[0]?.date;
   const maxDate   = volumeDaily[volumeDaily.length-1]?.date;
 
-  const dateField = "mono text-[11px] text-zinc-700 bg-white border border-zinc-300 rounded px-2 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20";
+  const dateField = "mono text-[11px] text-zinc-700 bg-surface border border-zinc-300 rounded px-2 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20";
 
   // Each call site needs its own gradient ID (panel vs modal are both mounted).
   const mkVolume = (sfx) => (
@@ -146,18 +148,18 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
       <AreaChart data={view} margin={{top:6,right:6,bottom:0,left:-20}}>
         <defs>
           <linearGradient id={`${uid}af${sfx}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor={ACCENT} stopOpacity={0.14}/>
-            <stop offset="100%" stopColor={ACCENT} stopOpacity={0}/>
+            <stop offset="0%"   stopColor={c.accent} stopOpacity={0.14}/>
+            <stop offset="100%" stopColor={c.accent} stopOpacity={0}/>
           </linearGradient>
         </defs>
-        <CartesianGrid vertical={false} stroke={LINE} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={tickStyle} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16}/>
-        <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={34} allowDecimals={false}/>
-        <Tooltip content={<ChartTip/>} cursor={{stroke:INK,strokeWidth:1,strokeDasharray:'3 3'}}/>
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16}/>
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false}/>
+        <Tooltip content={<ChartTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="count"
-          stroke={ACCENT} strokeWidth={2}
+          stroke={c.accent} strokeWidth={2}
           fill={`url(#${uid}af${sfx})`} dot={false}
-          activeDot={{r:4,fill:ACCENT,stroke:'#fff',strokeWidth:2}}/>
+          activeDot={{r:4,fill:c.accent,stroke:c.surface,strokeWidth:2}}/>
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -165,12 +167,12 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   const mkReps = () => (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={topReps} layout="vertical" margin={{top:0,right:8,bottom:0,left:8}}>
-        <XAxis type="number" tick={tickStyle} axisLine={false} tickLine={false}/>
-        <YAxis type="category" dataKey="name" tick={{...tickStyle, fill:'#52525B'}}
+        <XAxis type="number" tick={mkTick(c)} axisLine={false} tickLine={false}/>
+        <YAxis type="category" dataKey="name" tick={{...mkTick(c), fill:c.text}}
           axisLine={false} tickLine={false} width={56}/>
-        <Tooltip content={<ChartTip/>} cursor={{fill:'rgba(30,41,59,0.04)'}}/>
+        <Tooltip content={<ChartTip/>} cursor={{fill:`${c.ink}0A`}}/>
         <Bar dataKey="count" radius={[0,3,3,0]} maxBarSize={18}>
-          {topReps.map((_,i)=>(<Cell key={i} fill={i===0 ? ACCENT : INK}/>))}
+          {topReps.map((_,i)=>(<Cell key={i} fill={i===0 ? c.accent : c.ink}/>))}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -198,7 +200,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
                     <button key={p.k} type="button"
                       onClick={()=>{ setRange(p.k); setFrom(''); setTo(''); }}
                       aria-pressed={active}
-                      className={`px-2.5 py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${active ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-600 hover:text-zinc-900'}`}>
+                      className={`px-2.5 py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${active ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
                       {p.label}
                     </button>
                   );
@@ -272,9 +274,9 @@ const RateTip = ({active, payload, label}) => {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="bg-white border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
       <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
-      <p className="mono text-[14px] font-bold" style={{color:ACCENT_DK}}>{Math.round((p.rate||0)*100)}%</p>
+      <p className="mono text-[14px] font-bold" style={{color:'var(--accent-dark)'}}>{Math.round((p.rate||0)*100)}%</p>
       <p className="mono text-[9px] text-zinc-500 mt-0.5">{p.hits}/{p.total} from cache</p>
     </div>
   );
@@ -283,24 +285,25 @@ const RateTip = ({active, payload, label}) => {
 export function HitRateTrend({ data = [] }) {
   const [expanded, setExpanded] = useState(false);
   const uid = useId();
+  const c = useThemeColors();
 
   const mkChart = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:-12}}>
         <defs>
           <linearGradient id={`${uid}rf${sfx}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor={ACCENT} stopOpacity={0.16}/>
-            <stop offset="100%" stopColor={ACCENT} stopOpacity={0}/>
+            <stop offset="0%"   stopColor={c.accent} stopOpacity={0.16}/>
+            <stop offset="100%" stopColor={c.accent} stopOpacity={0}/>
           </linearGradient>
         </defs>
-        <CartesianGrid vertical={false} stroke={LINE} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={tickStyle} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24}/>
-        <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={38} domain={[0,1]} tickFormatter={v=>`${Math.round(v*100)}%`}/>
-        <Tooltip content={<RateTip/>} cursor={{stroke:INK,strokeWidth:1,strokeDasharray:'3 3'}}/>
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24}/>
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={38} domain={[0,1]} tickFormatter={v=>`${Math.round(v*100)}%`}/>
+        <Tooltip content={<RateTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="rate"
-          stroke={ACCENT} strokeWidth={2}
+          stroke={c.accent} strokeWidth={2}
           fill={`url(#${uid}rf${sfx})`} dot={false}
-          activeDot={{r:4,fill:ACCENT,stroke:'#fff',strokeWidth:2}}/>
+          activeDot={{r:4,fill:c.accent,stroke:c.surface,strokeWidth:2}}/>
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -340,7 +343,7 @@ const MoneyTip = ({ active, payload }) => {
   const p = payload[0];
   const name = p.payload?.name || p.payload?.category || p.payload?.label || '';
   return (
-    <div className="bg-white border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
       {name && <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{name}</p>}
       <p className="mono text-[14px] font-bold text-zinc-900">{fmtPKR(p.value)}</p>
     </div>
@@ -356,18 +359,19 @@ const EmptyChart = ({ label = 'No spend in this period' }) => (
 // Horizontal employee bars — leader in accent; click to drill. When one employee
 // is selected, it goes accent and the rest dim (so the selection reads clearly).
 function EmployeeSpendBars({ data, selected, onSelect }) {
+  const c = useThemeColors();
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
-        <XAxis type="number" tick={tickStyle} axisLine={false} tickLine={false} tickFormatter={fmtPKRk} />
-        <YAxis type="category" dataKey="name" tick={{ ...tickStyle, fill: '#52525B' }} axisLine={false} tickLine={false} width={64} />
-        <Tooltip content={<MoneyTip />} cursor={{ fill: 'rgba(30,41,59,0.04)' }} />
+        <XAxis type="number" tick={mkTick(c)} axisLine={false} tickLine={false} tickFormatter={fmtPKRk} />
+        <YAxis type="category" dataKey="name" tick={{ ...mkTick(c), fill: c.text }} axisLine={false} tickLine={false} width={64} />
+        <Tooltip content={<MoneyTip />} cursor={{ fill: `${c.ink}0A` }} />
         <Bar dataKey="total" radius={[0, 3, 3, 0]} maxBarSize={22} cursor="pointer"
           onClick={(d) => onSelect?.(selected === d?.name ? null : d?.name)}>
           {data.map((d, i) => {
             const isSel = selected === d.name;
             const dim = selected && !isSel;
-            const fill = isSel ? ACCENT : (!selected && i === 0 ? ACCENT : INK);
+            const fill = isSel ? c.accent : (!selected && i === 0 ? c.accent : c.ink);
             return <Cell key={d.name} fill={fill} fillOpacity={dim ? 0.32 : 1} />;
           })}
         </Bar>
@@ -379,6 +383,7 @@ function EmployeeSpendBars({ data, selected, onSelect }) {
 // Category donut — fixed per-category hues, PKR total in the hole, and a legend
 // carrying name + % so identity never rests on color alone (the relief rule).
 function CategoryDonut({ data }) {
+  const c = useThemeColors();
   const total = data.reduce((a, b) => a + b.total, 0);
   return (
     <div className="flex flex-col h-full">
@@ -387,7 +392,7 @@ function CategoryDonut({ data }) {
           <PieChart>
             <Pie data={data} dataKey="total" nameKey="category"
               innerRadius="62%" outerRadius="92%" paddingAngle={2}
-              stroke="#fff" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false}>
+              stroke={c.surface} strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false}>
               {data.map((d) => <Cell key={d.category} fill={catColor(d.category)} />)}
             </Pie>
             <Tooltip content={<MoneyTip />} />
@@ -416,21 +421,22 @@ function CategoryDonut({ data }) {
 
 function SpendTrend({ data }) {
   const uid = useId();
+  const c = useThemeColors();
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -6 }}>
         <defs>
           <linearGradient id={`${uid}sp`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={ACCENT} stopOpacity={0.14} />
-            <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+            <stop offset="0%" stopColor={c.accent} stopOpacity={0.14} />
+            <stop offset="100%" stopColor={c.accent} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid vertical={false} stroke={LINE} strokeDasharray="2 4" />
-        <XAxis dataKey="label" tick={tickStyle} axisLine={false} tickLine={false} minTickGap={20} />
-        <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
-        <Tooltip content={<MoneyTip />} cursor={{ stroke: INK, strokeWidth: 1, strokeDasharray: '3 3' }} />
-        <Area type="monotone" dataKey="total" stroke={ACCENT} strokeWidth={2}
-          fill={`url(#${uid}sp)`} dot={false} activeDot={{ r: 4, fill: ACCENT, stroke: '#fff', strokeWidth: 2 }} />
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4" />
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} minTickGap={20} />
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
+        <Tooltip content={<MoneyTip />} cursor={{ stroke: c.ink, strokeWidth: 1, strokeDasharray: '3 3' }} />
+        <Area type="monotone" dataKey="total" stroke={c.accent} strokeWidth={2}
+          fill={`url(#${uid}sp)`} dot={false} activeDot={{ r: 4, fill: c.accent, stroke: c.surface, strokeWidth: 2 }} />
       </AreaChart>
     </ResponsiveContainer>
   );

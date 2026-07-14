@@ -1,28 +1,167 @@
 @import "tailwindcss";
 
+/* ── Theme ─────────────────────────────────────────────────────────────────────
+   Dark mode works by REMAPPING TAILWIND'S OWN COLOR VARIABLES, not by adding
+   `dark:` variants to ~500 call sites. Tailwind v4 compiles every color utility as
+   a variable reference:
+
+       .text-zinc-500  { color: var(--color-zinc-500) }
+       .border-zinc-200{ border-color: var(--color-zinc-200) }
+
+   so overriding those variables under [data-theme="dark"] flips the entire app at
+   once. This works because the codebase uses the zinc scale semantically — low
+   numbers are surfaces, high numbers are text.
+
+   THE WART, STATED PLAINLY: in dark mode `text-zinc-900` renders WHITE. The class
+   name is a lie. That is a deliberate trade — the alternative was rewriting ~500
+   utilities across a 3,000-line file, with an enormous regression surface, for a
+   result identical in light mode. If this codebase ever migrates to semantic names
+   (`text-primary`, `bg-surface`), the variable layer below is the same foundation.
+
+   TWO THINGS THE REMAP CANNOT DO, hence the extra tokens:
+   1. `--color-white` backs BOTH `bg-white` (panels) AND `text-white` (labels on the
+      orange buttons). Remapping it would turn every white button label dark. So
+      panels use `bg-surface` and `text-white` stays honestly white.
+   2. Inverting the zinc scale turns `bg-zinc-900 text-white` buttons into white-on-
+      white. Those use `text-on-ink`, which flips with the theme.
+
+   Charts can't use any of this — Recharts sets colors as SVG *attributes*, where
+   var() does not resolve. They read resolved hex from useThemeColors() in theme.js.
+   ───────────────────────────────────────────────────────────────────────────── */
+
 :root {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Semantic tokens — light (the default; PRODUCT.md's "light, airy" identity). */
+  --paper:         #F1F5F9;   /* page background */
+  --surface:       #FFFFFF;   /* panels, cards */
+  --surface-2:     #FAFAFA;   /* subtle inset surfaces — the chat thread */
+  --line:          #E4E4E7;   /* borders */
+  --text:          #18181B;
+  --muted:         #71717A;
+
+  --ink:           #1E293B;   /* the color that "owns" the page; the user's chat bubble */
+  --on-ink:        #FFFFFF;   /* text on ink / on a bg-zinc-900 button */
+
+  --accent:        #F5471D;   /* signal orange — fills. Unchanged in dark: it IS the brand. */
+  --accent-dark:   #D63A12;   /* pressed state, and accent-as-text (AA-safe on light) */
+  --blue:          #2258B8;
+  --pos:           #16794C;
+  --neg:           #B91C1C;   /* neg as text/icon */
+  --neg-solid:     #B91C1C;   /* neg as a button FILL (white sits on it) — see dark note */
+
+  --danger-bg:     #FEF2F2;   /* error bubble */
+  --danger-border: #FECACA;
+  --danger-text:   #991B1B;
+  --info-bg:       #EFF6FF;   /* "from cache" badge */
+
+  --success-bg:     #F0FDF4;  /* success banner (Team "invite sent" etc.) */
+  --success-border: #BBF7D0;
+  --success-text:   #14532D;
+  --warn:           #B45309;  /* mid-confidence indicator (receipt OCR dot) */
+  --warn-text:      #92400E;  /* warning copy inside a success/info banner */
 }
 
-/* Single source of truth for the signal accent — exposes `accent` / `accent-dark`
-   as Tailwind color utilities (bg-accent, ring-accent/40, text-accent-dark, …).
-   Keep these in sync with the ACCENT / ACCENT_DK JS consts used for inline styles. */
-@theme {
-  --color-accent: #f5471d;
-  --color-accent-dark: #d63a12;
-  --color-blue: #2258b8;   /* brand blue from logo hex */
+/* ── Dark: "Console" — blue-tinted near-black ─────────────────────────────────
+   Not pure black. #000 with bright text causes halation (text smears for tired
+   eyes), forces the accent to be dimmed, and kills the shadows the panels float on.
+   Neutrals lean toward the blueprint blue so this still reads as Hi-Tech and not as
+   Generic Dark Dashboard.
+   ───────────────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --paper:         #0F1216;
+  --surface:       #171B21;
+  --surface-2:     #12161B;
+  --line:          #2A3038;
+  --text:          #E7EAEE;
+  --muted:         #98A1AD;
+
+  /* The user's chat bubble INVERTS. #1E293B is invisible on a dark page, so "my
+     message is the dark one" cannot hold — in dark it becomes the LIGHTER surface. */
+  --ink:           #2E3641;
+  --on-ink:        #0F1216;   /* a bg-zinc-900 button is now light, so its label is dark */
+
+  --accent:        #F5471D;   /* untouched */
+  --accent-dark:   #FF7A55;   /* as text on dark, the pressed shade is too dim — lift it */
+  --blue:          #5B8FF9;   /* #2258B8 fails contrast on dark */
+  --pos:           #34C08A;   /* #16794C fails contrast on dark */
+  --neg:           #F87171;   /* as TEXT/icon on a dark surface — lightened for legibility */
+  /* But white text on #F87171 as a button FILL is only 2.8:1. A solid destructive
+     button keeps a deeper red so its white label clears AA (4.8:1). */
+  --neg-solid:     #DC2626;
+
+  --danger-bg:     #2A1618;
+  --danger-border: #5B2126;
+  --danger-text:   #FCA5A5;
+  --info-bg:       #16233A;
+
+  --success-bg:     #142B1E;
+  --success-border: #1F4B32;
+  --success-text:   #86EFAC;
+  --warn:           #FBBF24;
+  --warn-text:      #FCD34D;
+
+  /* Tailwind's zinc scale, inverted. This is the line that flips ~450 utilities. */
+  --color-zinc-50:  #171B21;
+  --color-zinc-100: #1E232B;
+  --color-zinc-200: #2A3038;   /* border-zinc-200 — the most-used border in the app */
+  --color-zinc-300: #3A424D;
+  --color-zinc-400: #6B7684;
+  --color-zinc-500: #98A1AD;
+  --color-zinc-600: #B4BCC7;
+  --color-zinc-700: #CDD3DB;
+  --color-zinc-800: #DEE3E9;
+  --color-zinc-900: #E7EAEE;   /* the primary text color — and yes, it's now white-ish */
+  --color-zinc-950: #F2F4F7;
+
+  /* Slate, used by the page chrome. */
+  --color-slate-100: #1E232B;
+  --color-slate-200: #2A3038;
+  --color-slate-300: #3A424D;
+}
+
+/* Registers the semantic tokens as Tailwind utilities: bg-surface, text-muted,
+   border-line, text-on-ink, ring-accent/40, … The values point at the variables
+   above, so [data-theme="dark"] overriding a variable flips the utility too. */
+@theme inline {
+  --color-accent:      var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-blue:        var(--blue);
+  --color-pos:         var(--pos);
+  --color-neg:         var(--neg);
+  --color-neg-solid:   var(--neg-solid);
+  --color-surface:     var(--surface);
+  --color-surface-2:   var(--surface-2);
+  --color-paper:       var(--paper);
+  --color-line:        var(--line);
+  --color-ink:         var(--ink);
+  --color-on-ink:      var(--on-ink);
+  --color-muted:       var(--muted);
 }
 
 html, body, #root { height: 100%; }
 
 body {
   font-family: var(--font-sans);
-  background: #F1F5F9;
-  color: #1e293b;
+  background: var(--paper);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/* Theme changes shouldn't feel like a light switch being thrown at 2am. */
+body, .theme-fade {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  body, .theme-fade { transition: none; }
+}
+
+/* Native form controls and scrollbars follow the theme — otherwise you get a white
+   scrollbar and a blinding white date-picker popup in the middle of a dark page. */
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
 
 /* Technical readout: tabular figures for all data digits */
 .mono {

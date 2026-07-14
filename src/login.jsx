@@ -6,24 +6,24 @@ import { useState } from 'react';
 import { Lock, LogIn, AlertTriangle, RefreshCw, Eye, EyeOff, Mail, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck, LogOut } from 'lucide-react';
 import { signIn, requestPasswordReset, changePassword, recordAupAcceptance } from './auth';
 
-const ACCENT    = '#F5471D';
-const ACCENT_DK = '#D63A12';
+const ACCENT    = 'var(--accent)';
+const ACCENT_DK = 'var(--accent-dark)';
 
-const field = "w-full px-3.5 py-3 text-[14px] text-zinc-900 bg-white border border-zinc-300 rounded-lg outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 placeholder-zinc-400";
+const field = "w-full px-3.5 py-3 text-[14px] text-zinc-900 bg-surface border border-zinc-300 rounded-lg outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 placeholder-zinc-400";
 
 // Shared card shell so the sign-in, forgot, and reset screens all match.
 function Shell({ children }) {
   return (
     <div className="relative min-h-screen flex items-center justify-center px-5 text-zinc-900">
-      <div className="fixed inset-0 -z-10 pointer-events-none" aria-hidden="true" style={{ background: '#F1F5F9' }} />
+      <div className="fixed inset-0 -z-10 pointer-events-none" aria-hidden="true" style={{ background: 'var(--paper)' }} />
       <div className="w-full max-w-[440px]">
-        <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden shadow-[0_2px_8px_-2px_rgba(30,41,59,0.1),0_12px_32px_-8px_rgba(30,41,59,0.18)]">
-          <div className="h-[3px] w-full" style={{ background: '#2258B8' }} />
+        <div className="bg-surface border border-zinc-100 rounded-xl overflow-hidden shadow-[0_2px_8px_-2px_rgba(30,41,59,0.1),0_12px_32px_-8px_rgba(30,41,59,0.18)]">
+          <div className="h-[3px] w-full" style={{ background: 'var(--blue)' }} />
           <div className="p-9">
             <div className="flex items-center gap-2.5 mb-7">
               <img src="/logo.png" alt="Hi-Tech" className="h-9 w-auto" />
               <div className="leading-none">
-                <p className="text-[15px] font-semibold tracking-tight" style={{ color: '#2258B8' }}>Hi-Tech</p>
+                <p className="text-[15px] font-semibold tracking-tight" style={{ color: 'var(--blue)' }}>Hi-Tech</p>
                 <p className="text-[11px] text-zinc-400 mt-0.5">Sales Intelligence</p>
               </div>
             </div>
@@ -41,7 +41,7 @@ function Shell({ children }) {
 function ErrorNote({ children }) {
   return (
     <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-snug rounded-lg px-3 py-2"
-      style={{ color: ACCENT_DK, background: `${ACCENT}0D`, border: `1px solid ${ACCENT}33` }}>
+      style={{ color: ACCENT_DK, background: `color-mix(in srgb, ${ACCENT} 5%, transparent)`, border: `1px solid color-mix(in srgb, ${ACCENT} 20%, transparent)` }}>
       <AlertTriangle size={13} className="mt-0.5 shrink-0" />
       <span>{children}</span>
     </p>
@@ -94,7 +94,7 @@ export default function Login({ onSuccess }) {
         {sentTo ? (
           <>
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={17} style={{ color: '#16794C' }} />
+              <CheckCircle2 size={17} style={{ color: 'var(--pos)' }} />
               <h1 className="text-[22px] font-extrabold tracking-[-0.02em] text-zinc-900">Check your email</h1>
             </div>
             <p className="text-[13px] text-zinc-500 mt-2 mb-6 leading-relaxed">
@@ -102,7 +102,7 @@ export default function Login({ onSuccess }) {
               Open it on this device to set a new password. The link expires in about an hour.
             </p>
             <button onClick={goSignin}
-              className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900">
+              className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-on-ink text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900">
               <ArrowLeft size={14} /> Back to sign in
             </button>
           </>
@@ -122,7 +122,7 @@ export default function Login({ onSuccess }) {
               </div>
               {err && <ErrorNote>{err}</ErrorNote>}
               <button type="submit" disabled={busy || !user}
-                className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-on-ink text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
                 {busy ? <><RefreshCw size={14} className="animate-spin" /> Sending…</> : <><Mail size={14} /> Send reset link</>}
               </button>
               <button type="button" onClick={goSignin}
@@ -175,7 +175,7 @@ export default function Login({ onSuccess }) {
         {err && <ErrorNote>{err}</ErrorNote>}
 
         <button type="submit" disabled={busy || !user || !pass}
-          className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
+          className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-on-ink text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
           {busy
             ? <><RefreshCw size={14} className="animate-spin" /> Signing in…</>
             : <><LogIn size={14} /> Sign in</>}
@@ -206,7 +206,7 @@ export function AupGate({ onAccept, onDecline }) {
   return (
     <Shell>
       <div className="flex items-center gap-2">
-        <ShieldCheck size={16} style={{ color: '#2258B8' }} />
+        <ShieldCheck size={16} style={{ color: 'var(--blue)' }} />
         <h1 className="text-[22px] font-extrabold tracking-[-0.02em] text-zinc-900">Acceptable use</h1>
       </div>
       <p className="text-[13px] text-zinc-500 mt-1 mb-5">
@@ -216,14 +216,14 @@ export function AupGate({ onAccept, onDecline }) {
       <ul className="space-y-2.5 mb-6">
         {rules.map((r, i) => (
           <li key={i} className="flex items-start gap-2 text-[13px] leading-snug text-zinc-700">
-            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: '#16794C' }} />
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pos)' }} />
             <span>{r}</span>
           </li>
         ))}
       </ul>
 
       <button onClick={accept}
-        className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900">
+        className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-on-ink text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900">
         <CheckCircle2 size={14} /> I agree — continue
       </button>
       <button type="button" onClick={onDecline}
@@ -294,7 +294,7 @@ export function ResetPassword({ onDone, kind = 'recovery' }) {
         {err && <ErrorNote>{err}</ErrorNote>}
 
         <button type="submit" disabled={busy || !pw || !pw2}
-          className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-white text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
+          className="w-full flex items-center justify-center gap-2 min-h-[46px] rounded-lg bg-zinc-900 text-on-ink text-[14px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
           {busy ? <><RefreshCw size={14} className="animate-spin" /> Saving…</> : <><CheckCircle2 size={14} /> Set password & sign in</>}
         </button>
       </form>

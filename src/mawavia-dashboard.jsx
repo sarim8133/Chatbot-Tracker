@@ -8,13 +8,14 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
+import { useTheme } from './theme';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -41,12 +42,23 @@ const avatarColor = n => {
 };
 
 // ── Palette — disciplined: ink structure + one committed signal accent ─────────
-const INK       = '#1E293B';   // dark slate — text, structure, the color that "owns" the page
-const ACCENT    = '#F5471D';   // hot signal-orange — hero markers, active state, alerts
-const ACCENT_DK = '#D63A12';   // pressed/hover accent + accent-as-text (AA-safe)
-const BLUE      = '#2258B8';   // brand blue (logo hex) — secondary/informational
-const POS       = '#16794C';   // muted emerald — positive delta only
-const NEG       = '#B91C1C';   // alert red — negative delta only
+// Values live in src/index.css now (--ink, --accent, … under :root / [data-theme="dark"]).
+// These constants hold var(--…) strings rather than literal hex, so every inline
+// style={{…}} that references them resolves to the current theme automatically —
+// see the big comment at the top of index.css for the mechanism.
+const INK       = 'var(--ink)';           // the color that "owns" the page; the user's chat bubble
+const ACCENT    = 'var(--accent)';        // hot signal-orange — hero markers, active state, alerts (unchanged in dark)
+const ACCENT_DK = 'var(--accent-dark)';   // pressed/hover accent + accent-as-text (AA-safe in both themes)
+const BLUE      = 'var(--blue)';          // brand blue (logo hex) — secondary/informational
+const POS       = 'var(--pos)';           // muted emerald — positive delta only
+const NEG       = 'var(--neg)';           // alert red — negative delta only
+
+// `${ACCENT}14`-style hex-alpha suffixes broke once these constants held var(--…)
+// strings instead of literal hex (you can't append an alpha hex digit to a var()
+// reference and get a valid color). color-mix() is the CSS-native replacement:
+// mixing `pct`% of the color with transparent reproduces the same effective alpha,
+// and it re-resolves the var() live, so the tint still flips with the theme.
+const tint = (color, pct) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 
 const PER_PAGE = 25;
 
@@ -56,8 +68,8 @@ const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTr
 const ExpenseCharts = lazy(() => import('./charts').then(m=>({default:m.ExpenseCharts})));
 const ChartsFallback = () => (
   <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
-    <div className="h-[300px] rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
-    <div className="h-[300px] rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
+    <div className="h-[300px] rounded-xl bg-surface border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
+    <div className="h-[300px] rounded-xl bg-surface border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
   </div>
 );
 
@@ -428,7 +440,7 @@ function ContentModal({ title, sub, open, onClose, children }) {
             exit={{opacity:0,scale:0.96,y:16}}
             transition={{duration:0.22,ease:[0.22,1,0.36,1]}}
             onClick={e=>e.stopPropagation()}
-            className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="w-full max-w-5xl bg-surface rounded-2xl shadow-2xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-7 py-5 border-b border-zinc-100">
               <div>
@@ -461,7 +473,7 @@ const Panel = ({children, className='', hover=false, ...rest}) => (
       boxShadow:'0 4px 24px -4px rgba(30,41,59,0.16)',
       transition:{duration:0.15}
     } : undefined}
-    className={`bg-white border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
+    className={`bg-surface border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
     {...rest}
   >
     {children}
@@ -563,7 +575,7 @@ const ExportButton = ({exportFn, disabled=false, label='Export'}) => {
     <button
       onClick={handleClick} disabled={disabled}
       aria-label={`${label} as CSV`} title={`${label} as CSV`}
-      className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <Download size={13}/>
       <span>{label}</span>
@@ -666,7 +678,7 @@ function Heatmap({heat}) {
                 <div key={h}
                   title={`${DAY[d]} ${fmtHour(h)} — ${c} message${c===1?'':'s'}`}
                   className="aspect-square rounded-[2px]"
-                  style={{background: c===0 ? '#f4f4f5' : `rgba(245,71,29,${a.toFixed(3)})`}}/>
+                  style={{background: c===0 ? 'var(--color-zinc-100)' : tint(ACCENT, a*100)}}/>
               );
             })}
           </React.Fragment>
@@ -957,7 +969,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
     })
   ,[s,search,filter,topicDrill]);
 
-  const field = "bg-white border border-zinc-300 rounded-lg text-[14px] text-zinc-900 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20";
+  const field = "bg-surface border border-zinc-300 rounded-lg text-[14px] text-zinc-900 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20";
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -1004,11 +1016,11 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
       {topicDrill && (
         <motion.div variants={fadeUp}
           className="flex items-center gap-2 rounded-lg border px-3 py-2"
-          style={{borderColor:`${ACCENT}40`, background:`${ACCENT}0D`}}>
+          style={{borderColor:tint(ACCENT,25), background:tint(ACCENT,5)}}>
           <span className="text-[11px] font-semibold shrink-0" style={{color:ACCENT_DK}}>Topic</span>
           <span className="text-[14px] text-zinc-800 truncate">{trunc(topicDrill.label,60)}</span>
           <button onClick={()=>setTopicDrill(null)} aria-label="Clear topic filter"
-            className="ml-auto shrink-0 flex items-center justify-center w-6 h-6 rounded text-zinc-500 hover:text-zinc-900 hover:bg-white outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+            className="ml-auto shrink-0 flex items-center justify-center w-6 h-6 rounded text-zinc-500 hover:text-zinc-900 hover:bg-surface outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
             <X size={14}/>
           </button>
         </motion.div>
@@ -1046,7 +1058,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                   <span className="order-3 md:order-none basis-full md:basis-auto text-[14px] text-zinc-500 truncate md:pr-4">{trunc(m.User_Message,52)}</span>
                   <span className="order-4 md:order-none basis-full md:basis-auto mono text-[11px] text-zinc-500 tabular-nums">{ago(m.Timestamp)}</span>
                   <div className="order-2 md:order-none ml-auto md:ml-0 flex items-center justify-center transition-colors"
-                    style={{color: ex ? ACCENT : '#71717A'}}>
+                    style={{color: ex ? ACCENT : 'var(--muted)'}}>
                     {ex ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
                   </div>
                 </motion.div>
@@ -1064,7 +1076,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                         </p>
                         <div>
                           <p className="text-[12px] text-zinc-500 mb-1.5">Inbound</p>
-                          <div className="rounded-lg p-3.5 bg-white border border-zinc-300">
+                          <div className="rounded-lg p-3.5 bg-surface border border-zinc-300">
                             <p className="text-[14px] text-zinc-800 leading-relaxed">{m.User_Message}</p>
                           </div>
                         </div>
@@ -1072,11 +1084,11 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-[12px] font-medium" style={{color:ACCENT_DK}}>Assistant</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded"
-                              style={m.from_cache ? {color:BLUE, background:'#EFF6FF'} : {color:'#52525B', background:'#f4f4f5'}}>
+                              style={m.from_cache ? {color:BLUE, background:'var(--info-bg)'} : {color:'var(--color-zinc-600)', background:'var(--color-zinc-100)'}}>
                               {m.from_cache ? 'From cache' : 'AI call'}
                             </span>
                           </div>
-                          <div className="rounded-lg p-3.5 bg-white border border-zinc-300 max-h-36 overflow-y-auto">
+                          <div className="rounded-lg p-3.5 bg-surface border border-zinc-300 max-h-36 overflow-y-auto">
                             <p className="text-[14px] text-zinc-600 leading-relaxed whitespace-pre-wrap">{m.AI_Response}</p>
                           </div>
                         </div>
@@ -1145,7 +1157,7 @@ function UsersTab({s, onDrill}) {
             ))}
           </div>
           {u.msgs[0] && (
-            <div className="mt-4 rounded-lg px-3 py-2.5" style={{background:'#F8FAFC'}}>
+            <div className="mt-4 rounded-lg px-3 py-2.5" style={{background:'var(--surface-2)'}}>
               <p className="text-[12px] text-zinc-500 leading-snug">{trunc(u.msgs[0].User_Message,56)}</p>
             </div>
           )}
@@ -1267,7 +1279,7 @@ function CacheTab({s}) {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton() {
-  const block = "rounded-xl bg-white border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse";
+  const block = "rounded-xl bg-surface border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse";
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <div className={`h-32 ${block}`}/>
@@ -1385,14 +1397,14 @@ function TypingDots() {
 
 const AssistantTag = ({error=false, from_cache=false}) => (
   <span className="flex items-center gap-1.5 px-1">
-    <span className="flex items-center justify-center w-4 h-4 rounded" style={{background:`${ACCENT}1A`}}>
+    <span className="flex items-center justify-center w-4 h-4 rounded" style={{background:tint(ACCENT,10)}}>
       <Bot size={11} style={{color:ACCENT_DK}}/>
     </span>
     <span className="mono text-[10px] uppercase tracking-widest" style={{color: error ? NEG : ACCENT_DK}}>
       {error ? 'Error' : 'Assistant'}
     </span>
     {from_cache && (
-      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{color:BLUE, background:'#EFF6FF'}}>From cache</span>
+      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{color:BLUE, background:'var(--info-bg)'}}>From cache</span>
     )}
   </span>
 );
@@ -1408,7 +1420,7 @@ function ReceiptCard({ card, onAccept, onReject }) {
     ['Date', f.date || '—'],
   ];
   return (
-    <div className="max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="max-w-[420px] rounded-2xl border border-zinc-200 bg-surface p-4 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
         <Receipt size={15} className="text-zinc-500" />
         <span className="text-[13px] font-semibold text-zinc-800">Is this right?</span>
@@ -1424,7 +1436,7 @@ function ReceiptCard({ card, onAccept, onReject }) {
       {card.status === 'extracting' && <p className="text-[12.5px] text-zinc-500">Reading receipt…</p>}
       {card.status === 'pending' && (
         <div className="flex gap-2">
-          <button onClick={onAccept} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-white text-[13px] font-semibold py-2 hover:bg-accent transition-colors">
+          <button onClick={onAccept} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-on-ink text-[13px] font-semibold py-2 hover:bg-accent transition-colors">
             <CheckCircle2 size={14} /> Confirm & save
           </button>
           <button onClick={onReject} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 text-zinc-700 text-[13px] font-medium px-3 py-2 hover:border-zinc-900 transition-colors">
@@ -1433,7 +1445,7 @@ function ReceiptCard({ card, onAccept, onReject }) {
         </div>
       )}
       {card.status === 'saving' && <p className="text-[12.5px] text-zinc-500">Saving…</p>}
-      {card.status === 'saved' && <p className="text-[12.5px] font-medium" style={{ color: '#16794C' }}>✓ Saved to your expenses.</p>}
+      {card.status === 'saved' && <p className="text-[12.5px] font-medium" style={{ color: POS }}>✓ Saved to your expenses.</p>}
       {card.status === 'rejected' && <p className="text-[12.5px] text-zinc-500">Discarded — upload it again, or contact the accountant if it keeps coming out wrong.</p>}
       {card.status === 'error' && <p className="text-[12.5px] text-zinc-500">Couldn’t read that receipt — attach a clearer photo, or contact the accountant.</p>}
       {card.status === 'notreceipt' && <p className="text-[12.5px] text-zinc-500">That doesn’t look like a receipt — attach a photo of the receipt itself.</p>}
@@ -1456,11 +1468,11 @@ function ChatBubble({ m }) {
           className={`px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
             isUser ? 'text-white rounded-br-sm'
             : m.error ? 'rounded-bl-sm border'
-            : 'bg-white border border-zinc-200 text-zinc-800 rounded-bl-sm'
+            : 'bg-surface border border-zinc-200 text-zinc-800 rounded-bl-sm'
           }`}
           style={
             isUser ? {background:INK}
-            : m.error ? {background:'#FEF2F2', borderColor:'#FECACA', color:'#991B1B'}
+            : m.error ? {background:'var(--danger-bg)', borderColor:'var(--danger-border)', color:'var(--danger-text)'}
             : undefined
           }
         >
@@ -1471,7 +1483,7 @@ function ChatBubble({ m }) {
             {m.images.map((src, i) => (
               <a key={i} href={src} target="_blank" rel="noreferrer noopener"
                  title="Open full spec sheet"
-                 className="block rounded-lg overflow-hidden border border-zinc-200 bg-white transition-shadow hover:shadow-[0_4px_16px_-4px_rgba(30,41,59,0.18)] outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                 className="block rounded-lg overflow-hidden border border-zinc-200 bg-surface transition-shadow hover:shadow-[0_4px_16px_-4px_rgba(30,41,59,0.18)] outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                 <img src={src} alt={`Spec sheet ${i+1}`} loading="lazy"
                      className="w-full h-auto object-cover"/>
               </a>
@@ -1600,17 +1612,17 @@ function VoicePlayer({ src, durationMs, peaks, dark = false }) {
                     // Floor of 2px so a silent stretch still reads as part of the wave
                     // rather than a gap in it.
                     height: `${Math.max(2, Math.round(p * 22))}px`,
-                    background: played ? ACCENT : (dark ? 'rgba(255,255,255,0.28)' : '#D4D4D8'),
+                    background: played ? ACCENT : (dark ? 'rgba(255,255,255,0.28)' : 'var(--color-zinc-300)'),
                   }}/>
               );
             })}
           </div>
         ) : (
-          <div className={`w-full h-1 rounded-full ${dark ? 'bg-white/25' : 'bg-zinc-200'}`}>
+          <div className={`w-full h-1 rounded-full ${dark ? 'bg-[rgba(255,255,255,0.25)]' : 'bg-zinc-200'}`}>
             <div className="h-1 rounded-full" style={{width:`${pct}%`, background:ACCENT}}/>
           </div>
         )}
-        <span className={`absolute w-2.5 h-2.5 rounded-full pointer-events-none shadow-sm ${dark ? 'bg-white' : 'bg-zinc-900'}`}
+        <span className={`absolute w-2.5 h-2.5 rounded-full pointer-events-none shadow-sm ${dark ? 'bg-[rgba(255,255,255,1)]' : 'bg-zinc-900'}`}
               style={{left:`${pct}%`, marginLeft:'-5px'}}/>
         <input type="range" min={0} max={dur || 0} step={0.01} value={pos} onChange={seek}
           aria-label="Seek voice note" aria-valuetext={fmtClock(pos * 1000)}
@@ -1656,13 +1668,13 @@ function AudioBubble({ m }) {
 // Layer 3 of the hallucination fix: nothing reaches the agent, web_chat_histories,
 // or semantic_cache until a human approves the text. Sits in the composer in place
 // of the textarea (mirrors how 'preview' takes over the same slot) — styled like
-// ReceiptCard (rounded-2xl / border-zinc-200 / bg-white / shadow-sm, same button
+// ReceiptCard (rounded-2xl / border-zinc-200 / bg-surface / shadow-sm, same button
 // language) since it's the same confirm-before-commit discipline, just for what was
 // heard instead of what was read off a receipt. The transcript is EDITABLE — that's
 // the whole point of showing it: fix a misheard model number before it ever sends.
 function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDiscard }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-zinc-200 bg-surface p-4 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
         <Mic size={15} className="text-zinc-500" />
         <span className="text-[13px] font-semibold text-zinc-800">Is this what you said?</span>
@@ -1676,11 +1688,11 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
         rows={2}
         maxLength={1500}
         aria-label="Edit transcript before sending"
-        className="w-full resize-none px-3 py-2 mb-3 bg-white border border-zinc-300 rounded-lg text-[13.5px] text-zinc-800 leading-relaxed outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20"
+        className="w-full resize-none px-3 py-2 mb-3 bg-surface border border-zinc-300 rounded-lg text-[13.5px] text-zinc-800 leading-relaxed outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20"
       />
       <div className="flex gap-2">
         <button onClick={onConfirm} disabled={!transcript.trim()}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-white text-[13px] font-semibold py-2 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-on-ink text-[13px] font-semibold py-2 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
           <Send size={14} /> Confirm &amp; send
         </button>
         <button onClick={onDiscard}
@@ -2096,7 +2108,7 @@ function ChatTab() {
         {/* Header — bot identity + new-chat reset */}
         <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-zinc-200">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{background:`${ACCENT}14`}}>
+            <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{background:tint(ACCENT,8)}}>
               <Bot size={18} style={{color:ACCENT_DK}}/>
             </span>
             <div className="min-w-0">
@@ -2109,17 +2121,17 @@ function ChatTab() {
           </div>
           <button onClick={newChat}
             aria-label="Start a new chat"
-            className="flex items-center gap-1.5 px-3 min-h-[40px] shrink-0 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-[12px] font-semibold transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+            className="flex items-center gap-1.5 px-3 min-h-[40px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 text-[12px] font-semibold transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
             <RefreshCw size={13}/><span className="hidden sm:inline">New chat</span>
           </button>
         </div>
 
         {/* Thread */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" style={{background:'#FAFAFA'}}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" style={{background:'var(--surface-2)'}}>
           {!configured ? (
             <div className="h-full flex items-center justify-center text-center px-6">
               <div className="max-w-sm">
-                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:`${ACCENT}14`}}>
+                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:tint(ACCENT,8)}}>
                   <AlertTriangle size={22} style={{color:ACCENT_DK}}/>
                 </span>
                 <p className="text-[15px] font-semibold text-zinc-900">Chat webhook not configured</p>
@@ -2131,7 +2143,7 @@ function ChatTab() {
           ) : messages.length === 0 && !sending ? (
             <div className="h-full flex items-center justify-center text-center px-6">
               <div className="max-w-sm">
-                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:`${ACCENT}14`}}>
+                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:tint(ACCENT,8)}}>
                   <Bot size={22} style={{color:ACCENT_DK}}/>
                 </span>
                 <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi-Tech</p>
@@ -2139,7 +2151,7 @@ function ChatTab() {
                   Product specs, pricing, and availability — answered straight from the Hi-Tech catalogue. The same assistant as the WhatsApp bot, right here.
                 </p>
                 {receiptEnabled && (
-                  <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-white px-3 py-2.5">
+                  <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5">
                     <Receipt size={15} className="text-zinc-500 shrink-0 mt-0.5"/>
                     <p className="text-[12.5px] text-zinc-600 leading-relaxed">
                       <span className="font-semibold text-zinc-800">Log an expense:</span> tap the receipt icon below and pick a photo — I’ll read the vendor, total and category, and you just confirm before it’s saved.
@@ -2161,7 +2173,7 @@ function ChatTab() {
                 <div className="flex justify-start">
                   <div className="flex flex-col gap-1 items-start">
                     <AssistantTag/>
-                    <div className="px-4 py-3 bg-white border border-zinc-200 rounded-2xl rounded-bl-sm"><TypingDots/></div>
+                    <div className="px-4 py-3 bg-surface border border-zinc-200 rounded-2xl rounded-bl-sm"><TypingDots/></div>
                   </div>
                 </div>
               )}
@@ -2170,7 +2182,7 @@ function ChatTab() {
         </div>
 
         {/* Composer — idle / recording / preview / transcribing / confirm, see the state machine above */}
-        <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
+        <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-surface">
           {voicePhase === 'recording' ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 border border-zinc-300 rounded-xl">
@@ -2220,7 +2232,7 @@ function ChatTab() {
               </button>
               <button type="button" onClick={transcribeVoice} disabled={sending} aria-label="Send voice note"
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
-                style={{background: sending ? '#A1A1AA' : ACCENT}}>
+                style={{background: sending ? 'var(--color-zinc-400)' : ACCENT}}>
                 <Send size={17}/>
               </button>
             </div>
@@ -2266,14 +2278,14 @@ function ChatTab() {
                 onKeyDown={onKeyDown}
                 placeholder={configured ? 'Message the assistant…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
                 aria-label="Message the assistant"
-                className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-white border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-surface border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button
                 onClick={send}
                 disabled={!configured || sending || !input.trim()}
                 aria-label="Send message"
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
-                style={{background: (!configured || sending || !input.trim()) ? '#A1A1AA' : ACCENT}}
+                style={{background: (!configured || sending || !input.trim()) ? 'var(--color-zinc-400)' : ACCENT}}
               >
                 <Send size={17}/>
               </button>
@@ -2307,7 +2319,7 @@ const parseItems = (v) => {
 function ReceiptRow({ r, open, onToggle, showEmployee }) {
   const items = parseItems(r.items);
   const conf  = Math.round((Number(r.ai_confidence) || 0) * 100);
-  const confColor = conf >= 85 ? POS : conf >= 70 ? '#B45309' : NEG;
+  const confColor = conf >= 85 ? POS : conf >= 70 ? 'var(--warn)' : NEG;
 
   // Web receipts live in private Storage (image_path) → open via a short-lived signed
   // URL. Legacy WhatsApp receipts only have a Drive link. Open a blank tab first so the
@@ -2528,7 +2540,7 @@ function ExpensesTab({ role, onAuthError }) {
       </HelpNote>
 
       {err && (
-        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${NEG}55`, background: `${NEG}0d`, color: '#7f1d1d' }}>
+        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: 'var(--danger-border)', background: 'var(--danger-bg)', color: 'var(--danger-text)' }}>
           Couldn’t load expenses. If this persists, your account may not be mapped to an employee yet — ask the accountant.
         </div>
       )}
@@ -2550,7 +2562,7 @@ function ExpensesTab({ role, onAuthError }) {
             <div className="flex items-center gap-1.5">
               <Label>Month</Label>
               <select value={month || ''} onChange={e => { setMonthSel(e.target.value); setOpenId(null); }}
-                className="mono text-[12px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                className="mono text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                 {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
               </select>
             </div>
@@ -2558,7 +2570,7 @@ function ExpensesTab({ role, onAuthError }) {
               <div className="flex items-center gap-1.5">
                 <Label>Dept</Label>
                 <select value={dept} onChange={e => { setDept(e.target.value); setSelEmp(null); }}
-                  className="text-[12px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                   <option value="all">All departments</option>
                   {depts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
@@ -2574,7 +2586,7 @@ function ExpensesTab({ role, onAuthError }) {
                   placeholder="Search employee…"
                   aria-label="Search employee"
                   role="combobox" aria-expanded={suggestOpen && !!empQuery} aria-autocomplete="list"
-                  className="text-[12px] text-zinc-800 bg-white border border-zinc-300 rounded-md pl-8 pr-7 py-1.5 w-48 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
+                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md pl-8 pr-7 py-1.5 w-48 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
                 />
                 {empSearch && (
                   <button onClick={() => { setEmpSearch(''); setSuggestOpen(false); }} aria-label="Clear search"
@@ -2583,7 +2595,7 @@ function ExpensesTab({ role, onAuthError }) {
                   </button>
                 )}
                 {suggestOpen && empQuery && (
-                  <ul role="listbox" className="absolute top-full left-0 mt-1.5 w-64 max-h-64 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg z-30 py-1">
+                  <ul role="listbox" className="absolute top-full left-0 mt-1.5 w-64 max-h-64 overflow-auto rounded-lg border border-zinc-200 bg-surface shadow-lg z-30 py-1">
                     {byEmployeeShown.length === 0 ? (
                       <li className="px-3 py-2.5 text-[12px] text-zinc-400">No employee matches “{empSearch}”.</li>
                     ) : byEmployeeShown.slice(0, 8).map(e => (
@@ -2607,7 +2619,7 @@ function ExpensesTab({ role, onAuthError }) {
             )}
             {!isEmployee && selEmp && (
               <button onClick={() => setSelEmp(null)}
-                className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900 transition-colors">
+                className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
                 {selEmp} <X size={12} className="text-zinc-400" />
               </button>
@@ -2622,7 +2634,7 @@ function ExpensesTab({ role, onAuthError }) {
                 Nothing matches “{empSearch}” in {monthLabel(month)}. Check the spelling, or pick a different month.
               </p>
               <button onClick={() => setEmpSearch('')}
-                className="mt-4 inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900 transition-colors">
+                className="mt-4 inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
                 <X size={12} /> Clear search
               </button>
             </Panel>
@@ -2725,7 +2737,7 @@ const genPassword = () => {
   return s;
 };
 
-const teamInput = 'text-[13px] text-zinc-800 bg-white border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400';
+const teamInput = 'text-[13px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400';
 
 const emptyForm = { full_name: '', role: 'employee', department: '', email: '', phone: '', password: '', invite: true };
 
@@ -2783,7 +2795,7 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
       {showPanel && createPortal(
         <ul ref={menuRef} role="listbox"
           style={{ position: 'fixed', top: rect.bottom + 6, left: rect.left, width: Math.max(rect.width, 176), zIndex: 60 }}
-          className="max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-white shadow-lg py-1">
+          className="max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-surface shadow-lg py-1">
           {list.map(o => (
             <li key={o} role="option" aria-selected={o.toLowerCase() === q}>
               <button type="button"
@@ -2928,14 +2940,14 @@ function TeamTab({ role, onAuthError }) {
         </div>
 
         {addOk && (
-          <div className="mt-4 rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${POS}55`, background: `${POS}0d`, color: '#14532d' }}>
+          <div className="mt-4 rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: 'var(--success-border)', background: 'var(--success-bg)', color: 'var(--success-text)' }}>
             {addOk.invited ? (
               <>✓ Invite sent to <b>{addOk.login}</b>. They'll get an email to set their own password and finish signing in.</>
             ) : (
               <>✓ Created. They can sign in with <b>{addOk.login}</b> and the temporary password{' '}
-              <span className="mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-800">{addOk.password}</span> — share it with them.</>
+              <span className="mono px-1.5 py-0.5 rounded bg-surface border border-zinc-200 text-zinc-800">{addOk.password}</span> — share it with them.</>
             )}
-            {addOk.warning && <div className="mt-1 text-[12px]" style={{ color: '#92400e' }}>{addOk.warning}</div>}
+            {addOk.warning && <div className="mt-1 text-[12px]" style={{ color: 'var(--warn-text)' }}>{addOk.warning}</div>}
           </div>
         )}
 
@@ -3000,7 +3012,7 @@ function TeamTab({ role, onAuthError }) {
 
               <div className="mt-4 flex justify-end">
                 <button onClick={addMember} disabled={!canAdd || adding}
-                  className="text-[13px] font-semibold px-4 py-2 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="text-[13px] font-semibold px-4 py-2 rounded-md text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                   {adding ? (useInvite ? 'Sending…' : 'Creating…') : (useInvite ? 'Send invite' : 'Create login')}
                 </button>
               </div>
@@ -3010,7 +3022,7 @@ function TeamTab({ role, onAuthError }) {
       </Panel>
 
       {err && (
-        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: `${NEG}55`, background: `${NEG}0d`, color: '#7f1d1d' }}>
+        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: 'var(--danger-border)', background: 'var(--danger-bg)', color: 'var(--danger-text)' }}>
           {err}
         </div>
       )}
@@ -3034,7 +3046,7 @@ function TeamTab({ role, onAuthError }) {
                   <div className="min-w-0">
                     <p className="text-[14px] font-medium text-zinc-800 truncate">
                       {u.full_name || u.email}
-                      {u.banned && <span className="ml-2 mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded align-middle" style={{ color: NEG, background: `${NEG}12` }}>Inactive</span>}
+                      {u.banned && <span className="ml-2 mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded align-middle" style={{ color: NEG, background: tint(NEG, 7) }}>Inactive</span>}
                     </p>
                     <p className="mono text-[10px] text-zinc-400 mt-0.5 truncate">{u.phone || u.email}</p>
                   </div>
@@ -3056,13 +3068,13 @@ function TeamTab({ role, onAuthError }) {
                   <div className="flex items-center gap-1.5 ml-auto">
                     {savedId === u.user_id && <span className="mono text-[11px]" style={{ color: POS }}>Saved ✓</span>}
                     <button onClick={() => save(u)} disabled={!dirty || saving === u.user_id}
-                      className="text-[12px] font-semibold px-3.5 py-1.5 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                      className="text-[12px] font-semibold px-3.5 py-1.5 rounded-md text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                       {saving === u.user_id ? 'Saving…' : 'Save'}
                     </button>
                     {u.user_id !== myId && (confirmDel === u.user_id ? (
                       <span className="flex items-center gap-1">
                         <button onClick={() => manage(u.user_id, 'delete')} disabled={acting === u.user_id}
-                          className="text-[11px] font-semibold px-2 py-1.5 rounded-md text-white disabled:opacity-50" style={{ background: NEG }}>
+                          className="text-[11px] font-semibold px-2 py-1.5 rounded-md text-white disabled:opacity-50" style={{ background: 'var(--neg-solid)' }}>
                           {acting === u.user_id ? '…' : 'Delete'}
                         </button>
                         <button onClick={() => setConfirmDel(null)}
@@ -3136,7 +3148,7 @@ function ChangePasswordModal({ open, onClose }) {
           style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(3px)' }} onClick={onClose}>
           <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} onClick={e => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+            className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
               <div className="flex items-center gap-2">
                 <KeyRound size={16} className="text-zinc-400" />
@@ -3176,7 +3188,7 @@ function ChangePasswordModal({ open, onClose }) {
                   </div>
                   {err && <p className="text-[12px]" style={{ color: NEG }}>{err}</p>}
                   <button onClick={submit} disabled={busy}
-                    className="w-full text-[13px] font-semibold px-4 py-2 rounded-md text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-50">
+                    className="w-full text-[13px] font-semibold px-4 py-2 rounded-md text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-50">
                     {busy ? 'Updating…' : 'Update password'}
                   </button>
                 </>
@@ -3219,9 +3231,9 @@ function navForRole(role) {
 
 // Role display (shown in the header for everyone).
 const ROLE_META = {
-  admin:      { label:'Admin',      color:'#2258B8' },
-  accountant: { label:'Accountant', color:'#16794C' },
-  employee:   { label:'Employee',   color:'#71717A' },
+  admin:      { label:'Admin',      color:BLUE },
+  accountant: { label:'Accountant', color:POS },
+  employee:   { label:'Employee',   color:'var(--muted)' },
 };
 
 // ── Root Component ────────────────────────────────────────────────────────────
@@ -3252,6 +3264,15 @@ export default function Dashboard({ onLogout }) {
   }, [onLogout]);
 
   const {stats,loading,demo,lastUp,refreshing,refresh,channelFilter,setChannelFilter} = useData(handleLogout);
+
+  // Theme toggle (auto -> light -> dark -> auto), header-mounted so it's reachable
+  // from every tab. See src/theme.js for the mechanism.
+  const { mode: themeMode, cycle: cycleTheme } = useTheme();
+  const ThemeIcon = themeMode === 'light' ? Sun : themeMode === 'dark' ? Moon : SunMoon;
+  const themeNext  = themeMode === 'auto' ? 'light' : themeMode === 'light' ? 'dark' : 'auto';
+  const themeLabel = themeMode === 'auto'
+    ? `Theme: auto (follows your device). Click to switch to ${themeNext}.`
+    : `Theme: ${themeMode}. Click to switch to ${themeNext}.`;
 
   // Role → which tabs are visible. Employees only ever see "My Expenses".
   const profile = useProfile(handleLogout);
@@ -3333,11 +3354,10 @@ export default function Dashboard({ onLogout }) {
     <div className="relative min-h-screen text-zinc-900">
 
       {/* Clean slate surface — cards float via shadow, no grid texture */}
-      <div className="fixed inset-0 -z-10 pointer-events-none" aria-hidden="true"
-        style={{background:'#F1F5F9'}}/>
+      <div className="fixed inset-0 -z-10 bg-paper pointer-events-none" aria-hidden="true"/>
 
       {/* ── Top navigation ── */}
-      <header className="sticky top-0 z-20 bg-[#F1F5F9] border-b border-slate-200">
+      <header className="sticky top-0 z-20 bg-paper border-b border-slate-200">
         {/* signal strip */}
         <div className="h-[3px] w-full" style={{background:BLUE}}/>
         {/* Tighter gutters/gaps on phones: at px-6 + gap-5 the mobile tab-picker was left
@@ -3372,7 +3392,7 @@ export default function Dashboard({ onLogout }) {
             <div className="flex-1 min-w-0 lg:hidden flex items-center overflow-hidden">
               <button onClick={()=>setNavOpen(o=>!o)}
                 aria-haspopup="listbox" aria-expanded={navOpen}
-                className="flex items-center gap-2 min-w-0 max-w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white text-[14px] font-medium text-zinc-800 hover:border-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                className="flex items-center gap-2 min-w-0 max-w-full px-3 py-2 rounded-lg border border-zinc-200 bg-surface text-[14px] font-medium text-zinc-800 hover:border-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                 {/* No icon on phones. There isn't room for icon + label + chevron on a narrow
                     screen, and when it's tight the label is what loses — it truncates to
                     nothing and you're left with an icon and a chevron and no idea which tab
@@ -3417,7 +3437,7 @@ export default function Dashboard({ onLogout }) {
               aria-pressed={helpOpen}
               aria-label="Toggle help captions"
               title="Toggle help"
-              className={`hidden lg:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
+              className={`hidden lg:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-on-ink border-zinc-900' : 'bg-surface text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
             >
               <HelpCircle size={15}/>
             </button>
@@ -3429,7 +3449,7 @@ export default function Dashboard({ onLogout }) {
               )}
               {demo && (
                 <span className="mono text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded"
-                  style={{color:ACCENT_DK, background:`${ACCENT}14`, border:`1px solid ${ACCENT}40`}}>
+                  style={{color:ACCENT_DK, background:tint(ACCENT,8), border:`1px solid ${tint(ACCENT,25)}`}}>
                   Demo
                 </span>
               )}
@@ -3440,7 +3460,7 @@ export default function Dashboard({ onLogout }) {
               aria-label="Refresh data"
               aria-busy={refreshing}
               whileTap={{scale:0.96}}
-              className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-white text-[12px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-on-ink text-[12px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <motion.div
                 animate={refreshing ? {rotate:360} : {}}
@@ -3451,10 +3471,24 @@ export default function Dashboard({ onLogout }) {
               <span className="hidden lg:inline">Refresh</span>
             </motion.button>
             <button
+              onClick={cycleTheme}
+              aria-label={themeLabel}
+              title={themeLabel}
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-surface text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              <ThemeIcon size={15}/>
+            </button>
+            {/* Change password moves to the mobile nav dropdown below lg — see the width
+                math in the commit that adds this button: a 4th 44px icon + gap doesn't fit
+                the phone header without either crushing the tab-picker's label budget again
+                (the exact bug db5b013 fixed) or dropping a button. Change-password is the
+                least-frequent of the four actions, so it's the one that moves; it's still one
+                tap away via the tab picker → "Change password" row, and unchanged on desktop. */}
+            <button
               onClick={()=>setPwOpen(true)}
               aria-label="Change password"
               title="Change password"
-              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-white text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="hidden lg:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-surface text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               <KeyRound size={15}/>
             </button>
@@ -3462,7 +3496,7 @@ export default function Dashboard({ onLogout }) {
               onClick={handleLogout}
               aria-label="Sign out"
               title="Sign out"
-              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-white text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-surface text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               <LogOut size={15}/>
             </button>
@@ -3477,7 +3511,7 @@ export default function Dashboard({ onLogout }) {
         {demo && (
           <div role="alert"
             className="mb-6 flex items-center justify-between gap-4 rounded-lg border px-4 py-3"
-            style={{borderColor:`${ACCENT}66`, background:`${ACCENT}10`}}>
+            style={{borderColor:tint(ACCENT,40), background:tint(ACCENT,6)}}>
             <div className="flex items-center gap-2.5 min-w-0">
               <AlertTriangle size={16} style={{color:ACCENT_DK}} className="shrink-0"/>
               <p className="text-[14px] text-zinc-800 leading-snug">
@@ -3486,7 +3520,7 @@ export default function Dashboard({ onLogout }) {
               </p>
             </div>
             <button onClick={refresh} disabled={refreshing}
-              className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded text-white bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               Retry
             </button>
           </div>
@@ -3512,7 +3546,7 @@ export default function Dashboard({ onLogout }) {
               {[['all','All'],['whatsapp','WhatsApp'],['web','Website']].map(([v,label])=>(
                 <button key={v} type="button" onClick={()=>setChannelFilter(v)}
                   aria-pressed={channelFilter===v}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${channelFilter===v?'bg-white text-zinc-900 shadow-sm':'text-zinc-500 hover:text-zinc-800'}`}>
+                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${channelFilter===v?'bg-surface text-zinc-900 shadow-sm':'text-zinc-500 hover:text-zinc-800'}`}>
                   {label}
                 </button>
               ))}
@@ -3559,7 +3593,7 @@ export default function Dashboard({ onLogout }) {
               <motion.div
                 initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}
                 transition={{duration:0.15,ease:[0.22,1,0.36,1]}}
-                className="fixed left-0 right-0 z-[99] bg-white border-b border-zinc-200 shadow-[0_8px_24px_-4px_rgba(30,41,59,0.12)]"
+                className="fixed left-0 right-0 z-[99] bg-surface border-b border-zinc-200 shadow-[0_8px_24px_-4px_rgba(30,41,59,0.12)]"
                 style={{top:'83px'}}
               >
                 {nav.map(n=>{
@@ -3569,12 +3603,21 @@ export default function Dashboard({ onLogout }) {
                       onClick={()=>{ goTab(n.id); setNavOpen(false); }}
                       className={`flex items-center gap-3 w-full px-6 py-4 text-[15px] transition-colors border-b border-zinc-100 last:border-b-0 outline-none focus-visible:bg-zinc-50 ${active?'bg-zinc-50':'hover:bg-zinc-50'}`}
                     >
-                      <n.icon size={16} style={{color:active?ACCENT:'#71717A'}}/>
-                      <span className={active?'font-semibold':'font-medium'} style={{color:active?INK:'#52525B'}}>{n.label}</span>
+                      <n.icon size={16} style={{color:active?ACCENT:'var(--muted)'}}/>
+                      <span className={active?'font-semibold':'font-medium'} style={{color:active?INK:'var(--color-zinc-600)'}}>{n.label}</span>
                       {active && <span className="ml-auto w-2 h-2 rounded-full" style={{background:ACCENT}}/>}
                     </button>
                   );
                 })}
+                {/* Change password lives only here on phones — its header icon is lg-only
+                    (see the width-budget comment by that button) so this is its one mobile home. */}
+                <button
+                  onClick={()=>{ setPwOpen(true); setNavOpen(false); }}
+                  className="flex items-center gap-3 w-full px-6 py-4 text-[15px] font-medium text-zinc-700 transition-colors border-b border-zinc-100 last:border-b-0 outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50"
+                >
+                  <KeyRound size={16} style={{color:'var(--muted)'}}/>
+                  <span>Change password</span>
+                </button>
               </motion.div>
             </>
           )}
