@@ -889,6 +889,17 @@ function OverviewTab({s, onDrill}) {
 }
 
 // ── Paginator ─────────────────────────────────────────────────────────────────
+// Hoisted to module scope so it has a stable identity across Paginator re-renders.
+// Defined inline, it was a new component type every render, so React replaced the
+// underlying <button> DOM node each time — which dropped keyboard focus off the
+// prev/next control every time you changed page. It closes over nothing; it's pure props.
+const NavBtn = ({ children, disabled, onClick }) => (
+  <button type="button" disabled={disabled} onClick={onClick}
+    className="flex items-center justify-center w-7 h-7 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 disabled:opacity-35 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40 transition-colors">
+    {children}
+  </button>
+);
+
 function Paginator({ page, total, perPage = PER_PAGE, onChange }) {
   const totalPages = Math.ceil(total / perPage);
   if (totalPages <= 1) return null;
@@ -903,13 +914,6 @@ function Paginator({ page, total, perPage = PER_PAGE, onChange }) {
     if (i > 0 && sorted[i] - sorted[i - 1] > 1) items.push('…');
     items.push(sorted[i]);
   }
-
-  const NavBtn = ({ children, disabled, onClick }) => (
-    <button type="button" disabled={disabled} onClick={onClick}
-      className="flex items-center justify-center w-7 h-7 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 disabled:opacity-35 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40 transition-colors">
-      {children}
-    </button>
-  );
 
   return (
     <div className="flex items-center justify-between gap-4 px-6 py-3.5 border-t border-zinc-200">
