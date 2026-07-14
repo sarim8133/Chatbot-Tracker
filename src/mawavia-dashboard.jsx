@@ -1530,6 +1530,39 @@ function VoicePlayer({ src, durationMs, peaks, dark = false }) {
 
   const pct = dur ? Math.min(100, (pos / dur) * 100) : 0;
 
+  // How many bars actually fit. A bar is min 2px with a 2px gap, so 44 bars need ~174px —
+  // but on a phone the track only gets ~80px. Flex can't shrink them past their min-width,
+  // so they used to overflow the pill and spill over the timer and the border. Measure the
+  // track and draw only what fits, downsampling the stored peaks to match.
+  const trackRef = useRef(null);
+  const [barCount, setBarCount] = useState(WAVEFORM_BARS);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => {
+      const fits = Math.floor(entry.contentRect.width / 4);   // 2px bar + 2px gap
+      setBarCount(Math.max(8, Math.min(WAVEFORM_BARS, fits)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Max-pool down to barCount: peaks are amplitudes, so averaging them would flatten the
+  // wave into mush. Taking the loudest sample per bucket keeps the shape of the speech.
+  const bars = useMemo(() => {
+    if (!peaks?.length) return null;
+    if (barCount >= peaks.length) return peaks;
+    const out = [];
+    for (let i = 0; i < barCount; i++) {
+      const start = Math.floor((i * peaks.length) / barCount);
+      const end   = Math.floor(((i + 1) * peaks.length) / barCount);
+      let max = 0;
+      for (let j = start; j < Math.max(end, start + 1); j++) if (peaks[j] > max) max = peaks[j];
+      out.push(max);
+    }
+    return out;
+  }, [peaks, barCount]);
+
   // w-full + min-w-0 on the root: a flex item defaults to min-width:auto, so without this
   // the player refuses to shrink below its content and shoves the composer's buttons off
   // the right edge of a phone screen.
@@ -1552,13 +1585,13 @@ function VoicePlayer({ src, durationMs, peaks, dark = false }) {
           be whatever we want. Bars are aria-hidden: the input already announces position.
           `peaks` can be absent (an older persisted message), so the flat track stays as the
           fallback rather than rendering nothing. */}
-      <div className="relative flex-1 min-w-[40px] h-8 flex items-center">
-        {peaks?.length ? (
+      <div ref={trackRef} className="relative flex-1 min-w-[40px] h-8 flex items-center overflow-hidden">
+        {bars?.length ? (
           <div className="w-full flex items-center gap-[2px] h-6" aria-hidden="true">
-            {peaks.map((p, i) => {
+            {bars.map((p, i) => {
               // Colour whole bars, like WhatsApp — a partially-filled bar reads as a
               // rendering artifact, not as progress.
-              const played = (i + 1) / peaks.length <= pct / 100;
+              const played = (i + 1) / bars.length <= pct / 100;
               return (
                 <span key={i}
                   className={`flex-1 min-w-[2px] rounded-full ${reduce ? '' : 'transition-colors duration-150'}`}
@@ -1633,7 +1666,7 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
         <Mic size={15} className="text-zinc-500" />
         <span className="text-[13px] font-semibold text-zinc-800">Is this what you said?</span>
       </div>
-      <div className="flex items-center px-3 py-1 mb-3 border border-zinc-200 rounded-xl">
+      <div className="flex items-center min-w-0 max-w-[380px] px-3 py-1 mb-3 border border-zinc-200 rounded-xl">
         <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks} />
       </div>
       <textarea
