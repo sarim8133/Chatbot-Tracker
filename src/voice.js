@@ -65,6 +65,11 @@ export async function createRecorder() {
 // regardless, so this just moves that step before the wire and shrinks the payload.
 // Pure function of its input — no globals besides the Web Audio constructors — so
 // it's unit-testable with a synthesized tone.
+//
+// Returns { wav, peak, rms, durationSec } rather than a bare Blob: peak/rms are the
+// energy-gate inputs for Layer 2 of the hallucination fix (see
+// docs/superpowers/specs/2026-07-14-voice-hallucination-fix-design.md) and cost
+// almost nothing to compute since the rendered 16kHz mono PCM is already in hand.
 export async function blobToWav16k(blob) {
   const SAMPLE_RATE = 16000;
   const arrayBuffer = await blob.arrayBuffer();
@@ -101,7 +106,36 @@ export async function blobToWav16k(blob) {
   const rendered = await offline.startRendering();
   const samples = rendered.getChannelData(0);
 
-  return encodeWav(samples, SAMPLE_RATE);
+  // Peak (max |sample|) and RMS over the same buffer we're about to encode — nearly
+  // free, and exactly what isProbablySilent() below needs.
+  let peak = 0;
+  let sumSquares = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const abs = Math.abs(samples[i]);
+    if (abs > peak) peak = abs;
+    sumSquares += samples[i] * samples[i];
+  }
+  const rms = samples.length ? Math.sqrt(sumSquares / samples.length) : 0;
+  const durationSec = samples.length / SAMPLE_RATE;
+
+  return { wav: encodeWav(samples, SAMPLE_RATE), peak, rms, durationSec };
+}
+
+// Layer 2 of the hallucination fix: reject the *obvious* nothing before a single
+// byte reaches n8n. These thresholds are deliberately conservative — energy alone
+// cannot tell loud background noise from real speech (a noisy room can clear both
+// bars easily), so this only catches silence / near-silence. The real defense
+// against a confident hallucination is Layer 1, the `[NO_SPEECH]` sentinel in the
+// n8n transcription prompt; this is just the free win that skips a round trip for
+// the emptiest recordings. See the design doc's "Layer 2" section for the numbers.
+export const MIN_VOICE_DURATION_SEC = 0.7;    // shorter than this can't be a spoken utterance
+export const SILENCE_PEAK_THRESHOLD = 0.02;   // ~ -34 dBFS
+export const SILENCE_RMS_THRESHOLD  = 0.005;
+
+export function isProbablySilent({ peak, rms, durationSec }) {
+  if (durationSec < MIN_VOICE_DURATION_SEC) return true;
+  if (peak < SILENCE_PEAK_THRESHOLD && rms < SILENCE_RMS_THRESHOLD) return true;
+  return false;
 }
 
 // 44-byte canonical RIFF/WAVE header + 16-bit PCM samples, mono.

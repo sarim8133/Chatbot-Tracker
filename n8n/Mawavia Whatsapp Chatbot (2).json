@@ -1,0 +1,1736 @@
+{
+  "name": "Mawavia Whatsapp Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Message: {{ $('Guardrails').first().json.guardrailsInput }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=PREVIOUS CONVERSATION HISTORY \n{{ $json.formatted_history }}\nHISTORY END\n\nSYSTEM INSTRUCTIONS ROLE \nYou are the Strict Machinery Lookup Assistant. Your sole purpose is to act as a bridge between the user and the search_pinecone tool.\n\nKNOWLEDGE BOUNDARIES\n🔹 COMPANY DATA (specific machines, models, specs, prices, availability, recommendations): You have ZERO internal knowledge. Never invent or recall a company machine, model name, specification, or number from training data. For ANY request about a specific machine, a recommendation, or a spec, you MUST call search_pinecone and answer ONLY from its results.\n🔹 TECHNICAL / PROCESS GUIDANCE (how to choose or apply equipment, e.g. \"which screw diameter for thin wall parts?\", \"what happens to injection pressure if screw diameter increases?\", \"what shot volume should I run?\", \"which screw for HDPE crates?\"): The index ALSO contains company reference guides — their catalogue is \"General Information\". These questions are NOT general concepts. You MUST call search_pinecone FIRST. If a General Information guide is returned, answer ONLY from that guide and include its image_url in the images array. Never answer these from training data when a guide exists.\n🔹 GENERAL CONCEPTS (plain terminology only, e.g. \"what does clamping force mean?\", \"what is tonnage?\", \"hydraulic vs electric injection molding\"): You MAY define the term in 1-3 sentences from general engineering knowledge to help new sales staff learn — but ONLY after search_pinecone has returned nothing relevant. You must NEVER state a specific number, ratio, dimension, threshold or spec from training data (for example, never assert \"L/D is typically 25:1\"). Every number you output must come from a tool result. After explaining a concept, proactively end with: \"Would you like me to search for machines with [that property]?\"\nRULE OF THUMB: Defining a word, with no numbers = allowed. Any number, spec, selection rule, or recommendation = tool only.\n\n\n\nEXACT MATCH FILTERING RULE \nVector searches often return the exact requested machine alongside similarly named models (e.g., querying \"YH 278\" might return \"YH 278\", \"YH5 278\", and \"YH 200\"). If the user asks for a specific model, you MUST silently filter the tool results. Output ONLY the details and image for the exact model they asked for.IGNORE all other similar models in the search results unless the user explicitly asked for \\\"alternatives\\\" or a \\\"comparison\\\". If the exact model does NOT appear in the results at all, do NOT invent it — respond: \\\"I couldn't find [model] in our current catalog. Here are the closest matches I found:\\\" and list those instead.\n\nBRAND PERSISTENCE RULE Brand Lock-In:\nIf a user specifies a brand (e.g., Tederic, UWA), stay locked into that brand for the remainder of the conversation unless the user explicitly asks to \"switch brands\" or \"compare with others.\" Self-Correction: Before answering, check the retrieved context from the tool. If the context contains multiple brands, ONLY describe and include images for the brand the user previously showed interest in. Discard results for other brands unless explicitly requested.\n\nQUERY REFINEMENT RULE\nBefore calling the search_pinecone tool, you must synthesize the user's current request with the established context (Brand and Machine Type).\n\n🔹 Context Synthesis: If the user says \"smaller,\" \"faster,\" or \"another one,\" do not search for those words in isolation.\n🔹 Mandatory Query Construction: Re-write the search query to include the Brand and Machine Type from the conversation history.\n🔹 Example: If the history shows \"Tederic PET Preform\" and the user says \"give me a smaller one,\" your tool call must be search_pinecone(query=\"smaller Tederic PET preform machine\").\n\nCOMPARISON QUERY RULE (ANTI-SWAMPING)\nIf the user asks to compare two or more distinct machine models (e.g., \"Compare D100 and D200\" or \"What is the difference between DT 400 and a similar UWA model?\"), DO NOT search for them together in a single tool call string.\n🔹 Separate Tool Calls Required: You must execute separate, sequential tool calls for each individual model mentioned. \n🔹 Example execution: Call 1 must be search_pinecone(query=\"Tederic D100\"). Call 2 must be search_pinecone(query=\"Tederic D200\").\n🔹 Synthesis: Collect data from all successful tool executions, extract the correct unique image URLs for each model, and merge them into your final comparative response. This prevents the variant configurations of one machine from crowding out the other model.\n\nNO RESULTS RULE:\nIf search_pinecone returns no results or returns results clearly irrelevant to the query, do NOT guess or hallucinate. Respond: \\\"I couldn't find [query] in our catalog. Could you double-check the model name, or describe what you need (e.g. tonnage range, application type)?\"\n\nINTERACTION LOGIC Greetings:\nIf the user says \"Hi\", \"Hello\", or similar, respond politely and immediately ask: \"Which machinery are you looking for today?\" Search: Call search_pinecone. Extract the summary and image_url for all relevant matches. Multi-Item Logic: If 3 machines are discussed, there MUST be 3 URLs in the images array.\n\nFORMATTING RULES \n(For the \"reply\" field) The reply is shown in a web chat. Format it as follows: Bolding: Use single asterisks ONLY (e.g., *Model X100:*). Lists: Use emojis (🔹 or ⚙️) instead of dashes or dots. Spacing: Use double line breaks (\\n\\n) between different machines or sections to ensure readability. Style: Keep it punchy, scannable, and concise. No long paragraphs.\n\nOUTPUT SPECIFICATION FORMAT\nReturn ONLY a raw JSON object. NO MARKDOWN: Do not use json blocks. Do not include any text before or after the JSON. SCHEMA: { \"reply\": \"string\", \"images\": [\"url1\", \"url2\"] }\n\nEXAMPLE OF DESIRED OUTPUT User: \n\"I need a heavy duty drill.\" Assistant Tool Call: search_pinecone(query=\"heavy duty drill\") Tool Response: [{summary: \"Drill Max 500: High torque, 500W\", image_url: \"img1.jpg\"}, {summary: \"Drill Pro 200: Precision, 200W\", image_url: \"img2.jpg\"}] Final Assistant Response: { \"reply\": \"Drill Max 500:\\n🔹 High torque\\n🔹 500W power\\n\\nDrill Pro 200:\\n🔹 High precision\\n🔹 200W power\", \"images\": [\"img1.jpg\", \"img2.jpg\"] }\n\nCACHEABILITY RULE\nSet \"cacheable\": true only if BOTH hold:\n1. Self-contained - answering required NOTHING from earlier turns. Set false for \"that one\", \"a smaller one\", \"the price\", \"the Tederic instead\", or a bare yes/no.\n2. Stable & reusable - the answer came from a search_pinecone result (a machine record or a General Information guide). Set false when you returned an \"I couldn't find [model] / double-check the name\" fallback, since the catalog changes and the miss is often a user typo. Set false when you answered a general concept from your own knowledge WITHOUT a tool result - those must never be cached."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1664,
+        4352
+      ],
+      "id": "a0f25662-bba0-4f93-9e73-396b3c6fde2b",
+      "name": "AI Agent",
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "executeOnce": false,
+      "maxTries": 2,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        4784
+      ],
+      "id": "cd58ccd2-b679-4cd9-8b40-da5d00ab2a29",
+      "name": "Embeddings Google Gemini",
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.Transcript || $json.text }}",
+        "guardrails": {
+          "nsfw": {
+            "value": {
+              "threshold": 0.7,
+              "customizePrompt": true,
+              "prompt": "System Role:\nAct as a precise Content Moderator. Your goal is to distinguish between actual NSFW material and technical, industrial, or benign terminology that may share keywords with sensitive topics.\n\nGuidelines:\n\nAnalyze Context: Before flagging, determine the intent. Terms like \"blow,\" \"pipe,\" or \"stroke\" are often technical (e.g., \"auto blow\" in mechanical engineering or \"semi-blow\" in glass manufacturing/molding).\n\nCriteria for \"Fail\": Only flag content that is explicitly sexual, promotes real-world violence, uses slurs (hateful), encourages illegal acts, or is gratuitously vulgar.\n\nInternal Reasoning: Briefly evaluate the context of potentially ambiguous terms."
+            }
+          },
+          "urls": {
+            "value": {
+              "allowedUrls": ""
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.guardrails",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        4160
+      ],
+      "id": "4417dc6e-2491-414d-a5b9-15fa5c6782b5",
+      "name": "Guardrails",
+      "alwaysOutputData": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        4384
+      ],
+      "id": "61b0afad-3f55-4a55-aeaa-a36cea78effd",
+      "name": "Google Gemini Chat Model1",
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": []
+        }
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2528,
+        4112
+      ],
+      "id": "6ffbf6e8-5073-4313-9f65-c279d6318a8e",
+      "name": "WhatsApp Trigger",
+      "webhookId": "05f71d0c-b0f4-4b6d-ae07-bfca8520e4f1",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "aPgcGl0C3N0yMhFi",
+          "name": "Mawavia WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \"User_Message\", \"AI_Response\", \"Timestamp\"\nFROM n8n_chat_histories\nWHERE \"User_Number\" = '{{ $('WhatsApp Trigger').item.json.messages[0].from }}'\nORDER BY \"Timestamp\" DESC\nLIMIT 5;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1088,
+        4352
+      ],
+      "id": "de504e6d-03ad-47ed-aa93-fa022cc5edd6",
+      "name": "Execute a SQL query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "TcBH9ArS9Q7UT3Pi",
+          "name": "Mawavia Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all rows from the SQL node and reverse them so the oldest is first\nconst rows = $input.all().reverse();\nlet historyText = \"\";\n\n// Loop through each row and format it\nfor (const row of rows) {\n  // Safe navigation to check if data exists\n  if (row.json) {\n    historyText += `User: ${row.json.User_Message}\\n`;\n    historyText += `AI: ${row.json.AI_Response}\\n\\n`;\n  }\n}\n\n// Pass a single item forward containing the bundled text\nreturn [{ json: { formatted_history: historyText } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        4352
+      ],
+      "id": "17dbdeb7-b917-478f-ad45-fb89c3d112d1",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "reaction",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "5498ae13-84bd-4f84-ba5e-df8b7d0d17f6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Reaction"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "00c3fc9b-14ec-422b-853b-71b1db4cec13",
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "35fe19f5-7fdf-42d8-8724-82b14fc1aaf5",
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "=audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "93ac8bcf-00df-436c-9913-3a542fc1dcbd",
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "sticker",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sticker"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -2080,
+        4064
+      ],
+      "id": "e223a2ab-bd29-4c66-b04e-8c9b3ffd6348",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "43770af1-31f3-4976-b0bd-11fed0863c7e",
+              "leftValue": "={{ $json.messages[0] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2304,
+        4112
+      ],
+      "id": "feef447c-d7ec-4336-9f07-9bb31ac8bef6",
+      "name": "Check Msg Exist"
+    },
+    {
+      "parameters": {
+        "content": "## RECIEVE AND CLASSIFY WHATSAPP MESSAGE",
+        "height": 480,
+        "width": 992,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2640,
+        3872
+      ],
+      "id": "311a80f1-5d5f-4edd-97db-525a1159df52",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## RETIEVE HISTORY FROM DATABASE",
+        "height": 320,
+        "width": 496,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        992,
+        4192
+      ],
+      "id": "b064fbd9-2507-460a-85c4-7c06d493ef26",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## SEND MESSAGE AND SAVE TO DATABASE",
+        "height": 944,
+        "width": 880,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2144,
+        3664
+      ],
+      "id": "1b9c873b-eda9-4949-b8bc-4fd06102f27c",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## MAIN AI BOT WITH RAG + RERANKING ",
+        "height": 800,
+        "width": 640,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        4128
+      ],
+      "id": "483ab637-a9f4-4117-8838-f77a6b05fcae",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## CHECK MESSAGE FOR VIOLATION\n",
+        "height": 448,
+        "width": 416,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        4080
+      ],
+      "id": "ff31a8a3-af35-4aec-90e4-d3c571b8169c",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## AUDIO WORKFLOW\n",
+        "height": 656,
+        "width": 1568,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1872,
+        4352
+      ],
+      "id": "659b6183-966f-4f34-ab53-080d06786d8b",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.messages[0].audio.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1856,
+        4480
+      ],
+      "id": "b477a44d-c2b5-4875-944f-94f5e0edf156",
+      "name": "Download media",
+      "webhookId": "5f2f1fd3-b4f0-469b-af19-a6c583b85804",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "834cfcea-758c-4683-ae86-65227705cf36",
+              "name": "Transcript",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -384,
+        4336
+      ],
+      "id": "15f63bdc-d7af-45c9-a610-a3253473e5ec",
+      "name": "Transcript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef3f4b37-e0b7-40cc-bb77-5882564469bc",
+              "name": "text",
+              "value": "={{ $json.messages[0].text.body }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -384,
+        4048
+      ],
+      "id": "381f8b54-c039-416b-9c7d-e0dfcc693af5",
+      "name": "Text"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool to search the company machinery catalogues AND the company's technical reference guides. Call it whenever the user asks for equipment recommendations, specific machine models, technical specifications, OR any process/selection guidance (e.g. which screw diameter to use, L/D ratio, shot weight, clamping force sizing, material suitability, thin-wall molding, cycle time). This tool searches the Pinecone vector database and returns the best matching records. Each result includes the model_name, a highly accurate summary of the specifications or guide content, and the image_url linking to the spec sheet or reference chart. Use the returned data to write your reply, and use the image_url to populate the images array in your final JSON output. NOTE: results whose catalogue is \"General Information\" are company reference guides, not purchasable machines — present them as technical guidance and still show their image_url.",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "hitech-v2",
+          "mode": "list",
+          "cachedResultName": "hitech-v2"
+        },
+        "topK": 10,
+        "useReranker": true,
+        "options": {
+          "pineconeNamespace": "hitech"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        1664,
+        4576
+      ],
+      "id": "f94d6712-b682-49c3-b270-b2330add4595",
+      "name": "Search Pinecone",
+      "credentials": {
+        "pineconeApi": {
+          "id": "TlRrv4OUHiTNOmix",
+          "name": "Mawavia Pinecone"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Parse agent output ----\nlet out = $input.first().json.output;\nlet parsedData;\nif (typeof out === 'string') {\n    const m = out.match(/\\{[\\s\\S]*\\}/);\n    parsedData = m ? JSON.parse(m[0]) : { reply: out, images: [], cacheable: false };\n} else if (out && typeof out === 'object') {\n    parsedData = (out.reply !== undefined || out.images !== undefined) ? out : (out.output || out);\n} else {\n    parsedData = { reply: \"Here is the information you requested.\", images: [], cacheable: false };\n}\n\nlet replyText = parsedData.reply || \"Here is the information you requested.\";\nlet uniqueImageUrls = Array.isArray(parsedData.images) ? [...new Set(parsedData.images)] : [];\nconst imageUrlsJson = JSON.stringify(uniqueImageUrls);\n\n// ---- GATE 1: deterministic backstop (free, predictable) ----\nconst userMessage = ($('Guardrails').first().json.guardrailsInput || \"\").trim().toLowerCase();\nconst stop = [\"yes\",\"no\",\"ok\",\"okay\",\"sure\",\"yeah\",\"nope\",\"haan\",\"han\",\"ji\",\"jee\",\"nahi\",\"nai\",\"g\",\"acha\",\"achha\",\"theek\",\"thik\",\"done\",\"k\"];\nconst bareConfirmation = stop.includes(userMessage.replace(/[^\\w]/g, \"\"));\n\n// ---- GATE 2: agent judgment (defaults false if the flag is missing) ----\nconst agentCacheable = parsedData.cacheable === true;\n\n// store only if BOTH gates agree\nconst storeable = !bareConfirmation && agentCacheable;\n\n// --- Build the cache INSERT here, so n8n never comma-splits the values ---\nconst escSql = (s) => String(s ?? '').replace(/'/g, \"''\");\nconst embedding = $('Embed Query').first().json.embedding.values;\nconst vectorLiteral = '[' + embedding.join(',') + ']';\n\nconst insert_sql =\n  \"INSERT INTO semantic_cache (query_embedding, query_text, reply_text, image_urls) VALUES (\" +\n  \"'\" + vectorLiteral + \"'::vector, \" +\n  \"'\" + escSql($('Guardrails').first().json.guardrailsInput) + \"', \" +\n  \"'\" + escSql(replyText) + \"', \" +\n  \"'\" + escSql(imageUrlsJson) + \"')\";\n\nreturn {\n    json: {\n        reply_text: replyText,\n        image_urls: uniqueImageUrls,\n        image_urls_json: imageUrlsJson,\n        user_phone: $('WhatsApp Trigger').first().json.messages[0].from,\n        from_cache: false,\n        storeable,\n        insert_sql\n    }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        4256
+      ],
+      "id": "98b114a8-90d5-497f-a6c3-b12f1a622f4a",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "image_urls",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2544,
+        4160
+      ],
+      "id": "48cd076f-575e-4f7b-83d1-25963b445581",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "messageType": "image",
+        "mediaLink": "={{ $json.image_urls }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2768,
+        4160
+      ],
+      "id": "88af598b-ae72-4e36-9332-a33733364854",
+      "name": "Send Pictures",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "maxTries": 4,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "n8n_chat_histories",
+          "mode": "list",
+          "cachedResultName": "n8n_chat_histories"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "User_Number": "={{ $('WhatsApp Trigger').first().json.contacts[0].wa_id }}",
+            "Timestamp": "={{ $now }}",
+            "User_Message": "={{ $('Guardrails').first().json.guardrailsInput }}",
+            "AI_Response": "={{ $json.reply_text }}",
+            "Name": "={{ $('WhatsApp Trigger').item.json.contacts[0].profile.name }}",
+            "from_cache": "={{ $json.from_cache }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_Message",
+              "displayName": "User_Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI_Response",
+              "displayName": "AI_Response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_Number",
+              "displayName": "User_Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "unq_id",
+              "displayName": "unq_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from_cache",
+              "displayName": "from_cache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2544,
+        3968
+      ],
+      "id": "c22301bc-57f8-4961-910b-87a484a4d034",
+      "name": "Insert rows in a table",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "TcBH9ArS9Q7UT3Pi",
+          "name": "Mawavia Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        4448
+      ],
+      "id": "8ade7f4f-20c3-44f0-9ea3-69fe4625b42d",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=Task: You will receive a transcript. Your goals are:\n1. Convert any Urdu/Hindi/Sindhi/Punjabi script to Romanized Phonetic Script\n2. Correct any mispronounced or misspelled brand names to their exact correct form\n\nBRAND NAME CORRECTIONS (apply to ALL text, including already-Roman input):\nTederik / Tedrick / Tedrik / Taderik / Tederiq → Tederic\nYuwa / Uva / Ova / U.W.A → UWA\nHaition / Hatian / Hation / Haytian → Haitian\nSkar / Eskar / S.C.R → SCR\nYHH / Y.H → YH\nYEE / Y.E → YE\n\nStrict Rules:\nNo Translation: Do NOT translate meaning into English (e.g. \"دو\" → \"do\", not \"two\").\nRomanization: Urdu/Punjabi → Roman Urdu. Sindhi → Roman Sindhi.\nPreserve correctly spelled technical terms and model numbers exactly.\nRemove audio timestamps like \"00:00\" or \"00:01\".\n\nOutput: Just the corrected, Romanized text. Nothing else.\n\nInput: {{ $json.text }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -736,
+        4224
+      ],
+      "id": "8606dbeb-efeb-420d-8f7c-bf5219afbe40",
+      "name": "Romanizer"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=Your message couldn't be processed as it contains restricted content (links or inappropriate language). Please rephrase and try again.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        4336
+      ],
+      "id": "6568d64f-a589-4a7a-9ffe-c88ec6c3bfc3",
+      "name": "Send Fallback Guardrail",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": false,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=This message type isn't supported. Please send text or a voice note.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1856,
+        4192
+      ],
+      "id": "257b4c37-d751-4307-ab7b-2260b4e510e0",
+      "name": "Send Fallback Type",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": false,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        3904
+      ],
+      "id": "eae0d5f1-dd6d-472c-a687-311e64f17c40",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bdf142a8-6924-4496-8436-50ef4f83273d",
+              "name": "text",
+              "value": "={{ $json.content?.parts?.[0]?.text ?? $json.output ?? $json.text ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1184,
+        4480
+      ],
+      "id": "666b9897-96a0-4e9c-ab9d-03fc00f704b2",
+      "name": "Transcribe Text"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=Sorry, I couldn't understand your voice note. Please try again or type your message.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -672,
+        4624
+      ],
+      "id": "1481ab53-7066-4993-a15f-110133665d68",
+      "name": "Send Fallback Guardrail1",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": false,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0f8c6533-731c-4119-8304-7718ce6589b4",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "b2d4f6a8-1c3e-4d5f-9a7b-3e5c7d9f1a2b",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "[NO_SPEECH]",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -960,
+        4480
+      ],
+      "id": "67e70688-31ad-4fdf-82cd-1980f4c8ea00",
+      "name": "Check Text"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=Sorry, we are facing a temporary issue. Our team will assist you shortly.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        4448
+      ],
+      "id": "986a2ba4-0c0c-4aa5-bbfb-a528a2d1f41c",
+      "name": "Temp Issue Msg",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.reply_text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2544,
+        3776
+      ],
+      "id": "4efaaba5-99ce-46c1-bd0b-054197450481",
+      "name": "Send Text Message",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1632,
+        4480
+      ],
+      "id": "7f89c2e9-d5cf-4115-b623-369c3085f271",
+      "name": "Download Audio1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GKWpewmFovqBnoK6",
+          "name": "Mawavia Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 5
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        4784
+      ],
+      "id": "3d7f762b-0804-4cbd-96e0-f4b8796eb4c9",
+      "name": "Reranker Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "xBgDsFmOz0l04BDC",
+          "name": "Mawavia Cohere account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1098966963303717",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "🔍 Looking that up for you...",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        3952
+      ],
+      "id": "d42861a4-108e-4218-9dd2-c4f35d633e69",
+      "name": "Send Waiting Message",
+      "webhookId": "5571338f-0e07-48c1-a851-fed55ab67c4a",
+      "retryOnFail": false,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"models/gemini-embedding-001\",\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": \"{{ $('Guardrails').first().json.guardrailsInput }}\"\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        192,
+        4144
+      ],
+      "id": "83833fdd-6700-4f65-ac1f-4bd4cec46c09",
+      "name": "Embed Query",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "KNzOeURXJScWzKuu",
+          "name": "Mawavia Query Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT reply_text, image_urls\nFROM semantic_cache\nWHERE 1 - (query_embedding <=> $1::vector) > 0.94\nORDER BY 1 - (query_embedding <=> $1::vector) DESC\nLIMIT 1",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.embedding.values) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        416,
+        4144
+      ],
+      "id": "1b699006-db8e-468f-9abb-063aeb6ad418",
+      "name": "Check Semantic Cache",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "TcBH9ArS9Q7UT3Pi",
+          "name": "Mawavia Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b2eae1c9-4f08-4544-9389-100783fe730e",
+              "leftValue": "={{ $json.cache_hit }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        4144
+      ],
+      "id": "86f091cd-50ff-4404-b124-b94b07560a2b",
+      "name": "Cache Hit?"
+    },
+    {
+      "parameters": {
+        "jsCode": "let imageUrls = [];\ntry {\n  const rawUrls = $('Parse Cache Result').item.json.image_urls;\n  imageUrls = JSON.parse(rawUrls || '[]');\n} catch(e) {\n  imageUrls = [];\n}\n\nconst replyText = $('Parse Cache Result').item.json.reply_text;\n\nreturn [{\n  json: {\n    reply_text: replyText,\n    image_urls: imageUrls,\n    user_phone: $('WhatsApp Trigger').first().json.messages[0].from,\n    is_cached: true,\n    from_cache: true \n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        3776
+      ],
+      "id": "69069141-c394-4f1b-accf-5b5641049986",
+      "name": "Return Cached Reply"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $('Code in JavaScript1').item.json.insert_sql }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2816,
+        4448
+      ],
+      "id": "571993d8-7092-4b43-8e57-26757bfb3059",
+      "name": "Save to Semantic Cache",
+      "credentials": {
+        "postgres": {
+          "id": "TcBH9ArS9Q7UT3Pi",
+          "name": "Mawavia Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// If no rows returned or reply_text is empty = cache miss\nif (items.length === 0 || !items[0].json.reply_text) {\n  return [{\n    json: {\n      cache_hit: false,\n      reply_text: null,\n      image_urls: null\n    }\n  }];\n}\n\n// Cache hit — data is directly in items[0].json, not items[0].json[0]\nreturn [{\n  json: {\n    cache_hit: true,\n    reply_text: items[0].json.reply_text,\n    image_urls: items[0].json.image_urls\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        4144
+      ],
+      "id": "c2ba8b9a-53b6-4b47-a8a3-0f7e1cb61ad1",
+      "name": "Parse Cache Result"
+    },
+    {
+      "parameters": {
+        "content": "## Semantic caching with Supabase",
+        "height": 672,
+        "width": 816
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        3824
+      ],
+      "id": "94af31e4-d5ea-4c74-8de7-d543717af5d6",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "text": "Transcribe this audio EXACTLY as spoken, word for word.\n\nCRITICAL — when there is no speech:\nIf the audio contains no intelligible human speech — silence, breathing, background or ambient\nnoise, music, static, or sound you cannot make out — output exactly:\n[NO_SPEECH]\nDo NOT guess. Do NOT invent plausible words. Do NOT transcribe noise as if it were speech.\nOutputting [NO_SPEECH] is ALWAYS better than inventing a sentence. An empty or noisy recording is\na normal, expected input — not something to fill in.\n\nOtherwise, transcribe it:\n- The speaker mixes Roman Urdu, Hindi/Sindhi/Punjabi, and English, and code-switches freely.\n- Output ALL text in Latin (Roman) script ONLY. NEVER output Arabic or Urdu script.\n- NEVER translate. Write what you hear phonetically in Roman letters. Keep English words in English.\n- Transcribe ONLY what is actually audible. If a word is unclear, omit it rather than guessing.\n- Known brand/model names — always spell exactly:\n  Tederic (not Tederik, Tedrick, Tedrik, Taderik)\n  UWA (not Yuwa, Uva, Ova)\n  Haitian (not Haition, Hatian)\n  SCR (not Skar, Eskar)\n  YH, YE, YU are machine series names — keep as-is.\n- Remove any timestamps like 00:00.\n\nOutput: only the transcription text, or exactly [NO_SPEECH]. Nothing else.\n",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1408,
+        4480
+      ],
+      "id": "8d712d4a-5f66-4f1f-a127-4c05f26d8d98",
+      "name": "Analyze audio",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        4576
+      ],
+      "id": "52317ba9-21da-4ab1-950e-3d607ec2fd1e",
+      "name": "Gemini",
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"The formatted message to be viewed on WhatsApp using single asterisks for bolding and emojis for bullet points.\"\n    },\n    \"images\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"An array containing the extracted image URLs matching the machines mentioned in the reply.\"\n    },\n    \"cacheable\": {\n      \"type\": \"boolean\",\n      \"description\": \"true ONLY if (1) the message is self-contained AND (2) the answer is stable and reusable. false for follow-ups ('that one','a smaller one','the price'), bare confirmations, OR a 'couldn't find / double-check the model' fallback. When unsure, false.\"\n    }\n  },\n  \"required\": [\"reply\", \"images\", \"cacheable\"]\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1952,
+        4576
+      ],
+      "id": "a2727890-526a-42cb-884b-68764925851b",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2032,
+        4784
+      ],
+      "id": "e42d3e23-b49a-41e8-a642-38343c22e64a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b7c8d9e0-f1a2-43b4-85c6-d7e8f9a0b1c2",
+              "leftValue": "={{ $json.storeable }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2544,
+        4448
+      ],
+      "id": "bf289e1b-1ca8-46c1-89fc-1355d5444d28",
+      "name": "If Cacheable"
+    }
+  ],
+  "pinData": {
+    "WhatsApp Trigger": [
+      {
+        "json": {
+          "messaging_product": "whatsapp",
+          "metadata": {
+            "display_phone_number": "15556514887",
+            "phone_number_id": "1098966963303717"
+          },
+          "contacts": [
+            {
+              "profile": {
+                "name": "Sarim"
+              },
+              "wa_id": "923366179838",
+              "user_id": "PK.965736566322392"
+            }
+          ],
+          "messages": [
+            {
+              "from": "923366179838",
+              "from_user_id": "PK.965736566322392",
+              "id": "wamid.HBgMOTIzMzY2MTc5ODM4FQIAEhgWM0VCMDAxREQ1OEU0RkFFNTQ3MzI2RAA=",
+              "timestamp": "1781282244",
+              "text": {
+                "body": "tederic machine"
+              },
+              "type": "text"
+            }
+          ],
+          "field": "messages"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Temp Issue Msg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Search Pinecone",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardrails": {
+      "main": [
+        [
+          {
+            "node": "Send Waiting Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Embed Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Fallback Guardrail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Guardrails",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Msg Exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Fallback Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Fallback Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Msg Exist": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download media": {
+      "main": [
+        [
+          {
+            "node": "Download Audio1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcript": {
+      "main": [
+        [
+          {
+            "node": "Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text": {
+      "main": [
+        [
+          {
+            "node": "Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Pinecone": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Text Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Cacheable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Send Pictures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Romanizer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Romanizer": {
+      "main": [
+        [
+          {
+            "node": "Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Text": {
+      "main": [
+        [
+          {
+            "node": "Check Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Text": {
+      "main": [
+        [
+          {
+            "node": "Romanizer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Fallback Guardrail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio1": {
+      "main": [
+        [
+          {
+            "node": "Analyze audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Search Pinecone",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Query": {
+      "main": [
+        [
+          {
+            "node": "Check Semantic Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Semantic Cache": {
+      "main": [
+        [
+          {
+            "node": "Parse Cache Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit?": {
+      "main": [
+        [
+          {
+            "node": "Return Cached Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Cached Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Text Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Cache Result": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Cacheable": {
+      "main": [
+        [
+          {
+            "node": "Save to Semantic Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "8cc6a0b6-aac8-4919-87d2-2a740b76adbe",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "10a850d4da272d178bded5fca62981a8cddf507948e5177ac123d4f6ec8344ab"
+  },
+  "id": "E6Bi8G9MKf8tyVn0",
+  "tags": []
+}

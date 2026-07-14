@@ -14,7 +14,7 @@ import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
-import { MAX_MS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64 } from './voice';
+import { MAX_MS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent } from './voice';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1337,6 +1337,21 @@ async function parseChatReply(res) {
   };
 }
 
+// Response shape for the transcribe-only call (Layer 3 of the hallucination fix,
+// step 1 of the two-round-trip voice flow): { has_speech, transcript }. The workflow
+// no longer answers the question on this call — see
+// docs/superpowers/specs/2026-07-14-voice-hallucination-fix-design.md.
+async function parseTranscribeReply(res) {
+  const raw = await res.text();
+  let data = null;
+  try { data = JSON.parse(raw); } catch { /* non-JSON body — treat as no speech */ }
+  const obj = Array.isArray(data) ? (data[0] ?? {}) : (data ?? {});
+  return {
+    has_speech: !!obj.has_speech,
+    transcript: typeof obj.transcript === 'string' ? obj.transcript : '',
+  };
+}
+
 // M:SS for the recording timer and the preview player's duration readout.
 const fmtClock = ms => {
   const total = Math.round(ms / 1000);
@@ -1577,6 +1592,45 @@ function AudioBubble({ m }) {
   );
 }
 
+// Layer 3 of the hallucination fix: nothing reaches the agent, web_chat_histories,
+// or semantic_cache until a human approves the text. Sits in the composer in place
+// of the textarea (mirrors how 'preview' takes over the same slot) — styled like
+// ReceiptCard (rounded-2xl / border-zinc-200 / bg-white / shadow-sm, same button
+// language) since it's the same confirm-before-commit discipline, just for what was
+// heard instead of what was read off a receipt. The transcript is EDITABLE — that's
+// the whole point of showing it: fix a misheard model number before it ever sends.
+function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDiscard }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <Mic size={15} className="text-zinc-500" />
+        <span className="text-[13px] font-semibold text-zinc-800">Is this what you said?</span>
+      </div>
+      <div className="flex items-center px-3 py-1 mb-3 border border-zinc-200 rounded-xl">
+        <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} />
+      </div>
+      <textarea
+        value={transcript}
+        onChange={e => onTranscriptChange(e.target.value)}
+        rows={2}
+        maxLength={1500}
+        aria-label="Edit transcript before sending"
+        className="w-full resize-none px-3 py-2 mb-3 bg-white border border-zinc-300 rounded-lg text-[13.5px] text-zinc-800 leading-relaxed outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20"
+      />
+      <div className="flex gap-2">
+        <button onClick={onConfirm} disabled={!transcript.trim()}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-white text-[13px] font-semibold py-2 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <Send size={14} /> Confirm &amp; send
+        </button>
+        <button onClick={onDiscard}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 text-zinc-700 text-[13px] font-medium px-3 py-2 hover:border-zinc-900 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <X size={14} /> Discard
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ChatTab() {
   const reduce = useReducedMotion();
   const [sessionId, setSessionId] = useState(() => {
@@ -1594,6 +1648,7 @@ function ChatTab() {
   const fileRef   = useRef(null);
   const receiptFiles = useRef(new Map());   // cid -> File (in-memory only, never persisted)
   const objectUrls   = useRef([]);          // created blob: URLs, revoked on unmount
+  const voiceRun       = useRef(0);         // generation token — invalidates an in-flight transcription
   const recorderRef    = useRef(null);      // active createRecorder() instance while voicePhase==='recording'
   const recordTimerRef = useRef(null);      // setInterval id driving the M:SS ticker
 
@@ -1601,11 +1656,14 @@ function ChatTab() {
   const receiptEnabled = !!N8N_RECEIPT_WEBHOOK;
   const recordingEnabled = useMemo(() => isRecordingSupported(), []); // computed once, like receiptEnabled
 
-  // Composer state machine: idle -> recording -> preview -> (idle, via a successful
-  // send) | preview (transcode failed, recording preserved for retry).
+  // Composer state machine: idle -> recording -> preview -> transcribing -> confirm
+  // -> (idle, via a successful send). transcribing falls back to preview (recording
+  // intact) on a Layer-2 energy-gate rejection, a fetch error, or has_speech:false —
+  // see docs/superpowers/specs/2026-07-14-voice-hallucination-fix-design.md.
   const [voicePhase,    setVoicePhase]    = useState('idle');
   const [recordElapsed, setRecordElapsed] = useState(0);   // ms, ticks during 'recording'
-  const [preview,       setPreview]       = useState(null); // { blob, url, durationMs } during 'preview'
+  const [preview,       setPreview]       = useState(null); // { blob, url, durationMs } during 'preview'/'transcribing'/'confirm'
+  const [voiceTranscript, setVoiceTranscript] = useState(''); // editable transcript text during 'confirm'
 
   // Restore on mount / "New chat". localStorage is the source of truth (it keeps
   // image URLs); only fall back to the DB (text-only) when there's no local thread.
@@ -1752,6 +1810,7 @@ function ChatTab() {
 
   // Trash button while 'preview' — discard the take, release its object URL.
   const discardPreview = useCallback(() => {
+    voiceRun.current++;
     setPreview(p => { if (p) URL.revokeObjectURL(p.url); return null; });
     setVoicePhase('idle');
   }, []);
@@ -1762,31 +1821,45 @@ function ChatTab() {
     startRecording();
   }, [startRecording]);
 
-  const sendVoice = useCallback(async () => {
+  // Step 1 of the two-round-trip voice flow (Layer 3 of the hallucination fix): run
+  // the Layer-2 energy gate, transcode, and ask n8n only "was there speech, and what
+  // was it" — the workflow no longer answers the question on this call. A Layer-2
+  // rejection, a fetch error, or has_speech:false all fall back to 'preview' with the
+  // recording INTACT so the user can replay it and decide, never touching n8n at all
+  // in the energy-gate case.
+  const transcribeVoice = useCallback(async () => {
     if (!preview || sending || !configured) return;
-    const { blob: rawBlob, url: rawUrl, durationMs } = preview;
-    // Flip `sending` synchronously (before the first await), same as send() does —
-    // otherwise a rapid double-click on Send could slip a second request through
-    // while the first is still transcoding.
-    setSending(true);
+    const { blob: rawBlob } = preview;
+    setVoicePhase('transcribing');
 
-    let wav;
+    // Abandoning the take (Discard, New chat) bumps voiceRun, so a transcription
+    // that was already in flight lands stale and is dropped. Without this, a slow
+    // response could drag us into 'confirm' with a recording that no longer exists.
+    const run = ++voiceRun.current;
+    const stale = () => voiceRun.current !== run;
+
+    let wav, peak, rms, durationSec;
     try {
-      wav = await blobToWav16k(rawBlob);
+      ({ wav, peak, rms, durationSec } = await blobToWav16k(rawBlob));
     } catch {
+      if (stale()) return;
       // Transcode failed — preserve the recording in 'preview' so Send can be retried.
-      setSending(false);
+      setVoicePhase('preview');
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
         text:'Couldn’t process that recording — try sending it again, or re-record it.' }]);
       return;
     }
 
-    // Transcode succeeded: commit the bubble to the thread — the existing
-    // `sending` flag (already true) drives the typing dots, same as a typed message.
-    setPreview(null);
-    setVoicePhase('idle');
-    const cid = crypto.randomUUID?.() || `v_${Date.now()}_${Math.random()}`;
-    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl: rawUrl, durationMs, transcript: null }]);
+    if (stale()) return;
+
+    // Layer 2: obvious silence never leaves the browser — no fetch at all.
+    if (isProbablySilent({ peak, rms, durationSec })) {
+      setVoicePhase('preview');
+      setMessages(m => [...m, { role:'assistant', ts:Date.now(),
+        text:'I couldn’t hear anything in that voice note — try again, or type your message.' }]);
+      return;
+    }
+
     try {
       const audio_base64 = await blobToBase64(wav);
       const res = await fetch(N8N_CHAT_WEBHOOK, {
@@ -1796,33 +1869,93 @@ function ChatTab() {
       });
       // Same error handling as the typed-message path — mirror it verbatim.
       if (!res.ok) {
+        if (stale()) return;
         let detail = `HTTP ${res.status}`;
         try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
-        setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, transcript:'' } : msg).concat({ role:'assistant', error:true, ts:Date.now(),
-          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }));
+        setVoicePhase('preview');
+        setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
-      const { text: reply, images, from_cache, transcript } = await parseChatReply(res);
-      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, transcript } : msg)
-        .concat({ role:'assistant', text: reply, images, from_cache, ts:Date.now() }));
+      const { has_speech, transcript } = await parseTranscribeReply(res);
+      if (stale()) return;
+      if (!has_speech) {
+        setVoicePhase('preview');
+        setMessages(m => [...m, { role:'assistant', ts:Date.now(),
+          text:'I couldn’t hear anything in that voice note — try again, or type your message.' }]);
+        return;
+      }
+      setVoiceTranscript(transcript);
+      setVoicePhase('confirm');
     } catch {
-      setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, transcript:'' } : msg).concat({ role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }));
-    } finally {
-      setSending(false);
+      if (stale()) return;
+      setVoicePhase('preview');
+      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
     }
   }, [preview, sending, configured, sessionId]);
+
+  // Discard button in 'confirm' — same housekeeping as discardPreview: drop the
+  // take, release its object URL.
+  const discardConfirm = useCallback(() => {
+    voiceRun.current++;
+    setPreview(p => { if (p) URL.revokeObjectURL(p.url); return null; });
+    setVoiceTranscript('');
+    setVoicePhase('idle');
+  }, []);
+
+  // Step 2: post the (possibly user-edited) transcript as an ORDINARY typed message —
+  // same payload shape and response handling as send(), reusing the pipeline that
+  // already works. Nothing reached the agent, web_chat_histories, or semantic_cache
+  // until this point. The committed thread bubble is the existing AudioBubble (player
+  // + final transcript), so the thread still shows it was spoken.
+  const sendConfirmedVoice = useCallback(async () => {
+    const text = voiceTranscript.trim();
+    if (!text || sending || !configured || !preview) return;
+    const { url: audioUrl, durationMs } = preview;
+    // Commit the bubble and flip `sending` synchronously (before the first await),
+    // same as send() does — the existing `sending` flag drives the typing dots.
+    setPreview(null);
+    setVoicePhase('idle');
+    setSending(true);
+    const cid = crypto.randomUUID?.() || `v_${Date.now()}_${Math.random()}`;
+    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl, durationMs, transcript: text }]);
+    try {
+      const res = await fetch(N8N_CHAT_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, session_id: sessionId, name: currentUserName() }),
+      });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
+        setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
+        return;
+      }
+      const { text: reply, images, from_cache } = await parseChatReply(res);
+      setMessages(m => [...m, { role:'assistant', text: reply, images, from_cache, ts:Date.now() }]);
+    } catch {
+      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
+        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+    } finally {
+      setSending(false);
+      setVoiceTranscript('');
+    }
+  }, [voiceTranscript, sending, configured, preview, sessionId]);
 
   const newChat = useCallback(() => {
     const user = currentUserName() || 'anon';
     localStorage.removeItem(threadKey(sessionId));
     const id = genSessionId();
     localStorage.setItem(`ht_web_chat_session_${user}`, id);
+    voiceRun.current++;   // a transcription still in flight belongs to the old thread — drop it
     // Don't leave a recording running or a take stranded when the thread resets.
     clearRecordTimer();
     recorderRef.current?.cancel();
     recorderRef.current = null;
     setPreview(p => { if (p) URL.revokeObjectURL(p.url); return null; });
+    setVoiceTranscript('');
     setVoicePhase('idle');
     setSessionId(id);
     setMessages([]);
@@ -1965,7 +2098,7 @@ function ChatTab() {
           )}
         </div>
 
-        {/* Composer — idle / recording / preview, see the state machine above */}
+        {/* Composer — idle / recording / preview / transcribing / confirm, see the state machine above */}
         <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
           {voicePhase === 'recording' ? (
             <div className="flex items-center gap-2">
@@ -2000,12 +2133,27 @@ function ChatTab() {
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                 <Mic size={18}/>
               </button>
-              <button type="button" onClick={sendVoice} disabled={sending} aria-label="Send voice note"
+              <button type="button" onClick={transcribeVoice} disabled={sending} aria-label="Send voice note"
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed"
                 style={{background: sending ? '#A1A1AA' : ACCENT}}>
                 <Send size={17}/>
               </button>
             </div>
+          ) : voicePhase === 'transcribing' ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
+                <VoicePlayer src={preview?.url} durationMs={preview?.durationMs}/>
+              </div>
+              <span className="mono text-[12px] text-zinc-400 px-2 shrink-0 whitespace-nowrap">Listening…</span>
+            </div>
+          ) : voicePhase === 'confirm' ? (
+            <VoiceCard
+              preview={preview}
+              transcript={voiceTranscript}
+              onTranscriptChange={setVoiceTranscript}
+              onConfirm={sendConfirmedVoice}
+              onDiscard={discardConfirm}
+            />
           ) : (
             <div className="flex items-end gap-2">
               {receiptEnabled && (
