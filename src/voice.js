@@ -92,10 +92,22 @@ const LIVE_METER_GAIN = 2.2;
 // reactive, slow enough that it isn't re-rendering React 60 times a second.
 export const LIVE_METER_MS = 80;
 
-// Bars in the waveform. Fixed, not proportional to length: every voice note should
-// read as the same object at a glance, and a 5-second note with 5 bars would look
-// broken. WhatsApp does the same.
-export const WAVEFORM_BARS = 44;
+// Stored resolution of the waveform — NOT the number of bars drawn. The player
+// measures its own width and downsamples this to however many bars actually fit, so
+// the bars stay ~3px wide whether the player is 200px or 900px across. Storing a
+// generous 256 peaks is what lets the player be fully fluid: with a low stored
+// resolution, a wide player would have to stretch a few bars into fat slabs.
+// 256 floats per voice note is nothing.
+export const WAVEFORM_RES = 256;
+
+// One bar every 5px (a ~3px bar + a 2px gap). The player divides its measured width
+// by this to decide how many bars to draw.
+export const BAR_PITCH = 5;
+
+// The live meter appends a bar per tick while recording, so this is a rolling window,
+// not a resolution. Generous enough to fill a wide desktop composer; anything past the
+// left edge is clipped by overflow-hidden on a narrow one.
+export const LIVE_METER_BARS = 160;
 
 // Peak amplitude per bucket, for the player's waveform. Normalized against the
 // loudest bucket so a quietly-recorded note still draws a full-height wave instead
@@ -105,7 +117,7 @@ export const WAVEFORM_BARS = 44;
 // Decoded independently of blobToWav16k because the preview needs the waveform the
 // moment recording stops, long before the user has decided to send anything. It's a
 // second decode of a <=2 minute blob, which is a few tens of milliseconds.
-export async function computeWaveform(blob, buckets = WAVEFORM_BARS) {
+export async function computeWaveform(blob, buckets = WAVEFORM_RES) {
   const DecodeCtx = window.AudioContext || window.webkitAudioContext;
   const ctx = new DecodeCtx();
   let decoded;

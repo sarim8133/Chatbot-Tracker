@@ -14,7 +14,7 @@ import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
-import { MAX_MS, LIVE_METER_MS, WAVEFORM_BARS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
+import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1530,18 +1530,19 @@ function VoicePlayer({ src, durationMs, peaks, dark = false }) {
 
   const pct = dur ? Math.min(100, (pos / dur) * 100) : 0;
 
-  // How many bars actually fit. A bar is min 2px with a 2px gap, so 44 bars need ~174px —
-  // but on a phone the track only gets ~80px. Flex can't shrink them past their min-width,
-  // so they used to overflow the pill and spill over the timer and the border. Measure the
-  // track and draw only what fits, downsampling the stored peaks to match.
+  // The player is fully fluid: it measures its own track and draws one bar every
+  // BAR_PITCH px, so bars stay ~3px wide at any width instead of being stretched into
+  // slabs on a wide screen or overflowing on a phone. This is why the peaks are stored
+  // at WAVEFORM_RES (256) rather than at a fixed bar count — there's always enough
+  // resolution to downsample to whatever fits.
   const trackRef = useRef(null);
-  const [barCount, setBarCount] = useState(WAVEFORM_BARS);
+  const [barCount, setBarCount] = useState(48);
   useEffect(() => {
     const el = trackRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(([entry]) => {
-      const fits = Math.floor(entry.contentRect.width / 4);   // 2px bar + 2px gap
-      setBarCount(Math.max(8, Math.min(WAVEFORM_BARS, fits)));
+      const fits = Math.floor(entry.contentRect.width / BAR_PITCH);
+      setBarCount(Math.max(8, Math.min(WAVEFORM_RES, fits)));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -1666,7 +1667,7 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
         <Mic size={15} className="text-zinc-500" />
         <span className="text-[13px] font-semibold text-zinc-800">Is this what you said?</span>
       </div>
-      <div className="flex items-center min-w-0 max-w-[380px] px-3 py-1 mb-3 border border-zinc-200 rounded-xl">
+      <div className="flex items-center min-w-0 px-3 py-1 mb-3 border border-zinc-200 rounded-xl">
         <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks} />
       </div>
       <textarea
@@ -1858,7 +1859,7 @@ function ChatTab() {
         const ms = Date.now() - startedAt;
         setRecordElapsed(ms);
         // Newest bar on the right; the window scrolls once it's full.
-        setLiveLevels(l => [...l, recorder.getLevel()].slice(-WAVEFORM_BARS));
+        setLiveLevels(l => [...l, recorder.getLevel()].slice(-LIVE_METER_BARS));
         if (ms >= MAX_MS) stopRecording(); // auto-stop at the cap
       }, LIVE_METER_MS);
     } catch (ex) {
@@ -2206,7 +2207,7 @@ function ChatTab() {
             </div>
           ) : voicePhase === 'preview' ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="flex-1 min-w-0 max-w-[380px] flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
+              <div className="flex-1 min-w-0 flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
                 <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <button type="button" onClick={discardPreview} aria-label="Discard recording"
@@ -2225,7 +2226,7 @@ function ChatTab() {
             </div>
           ) : voicePhase === 'transcribing' ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="flex-1 min-w-0 max-w-[380px] flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
+              <div className="flex-1 min-w-0 flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
                 <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <span className="mono text-[12px] text-zinc-400 px-2 shrink-0 whitespace-nowrap">Listening…</span>
