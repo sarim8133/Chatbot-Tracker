@@ -58,6 +58,47 @@ export async function createRecorder() {
   };
 }
 
+// Bars in the waveform. Fixed, not proportional to length: every voice note should
+// read as the same object at a glance, and a 5-second note with 5 bars would look
+// broken. WhatsApp does the same.
+export const WAVEFORM_BARS = 44;
+
+// Peak amplitude per bucket, for the player's waveform. Normalized against the
+// loudest bucket so a quietly-recorded note still draws a full-height wave instead
+// of a flat line — the wave is there to show WHERE the speech is, not how loud the
+// mic gain was.
+//
+// Decoded independently of blobToWav16k because the preview needs the waveform the
+// moment recording stops, long before the user has decided to send anything. It's a
+// second decode of a <=2 minute blob, which is a few tens of milliseconds.
+export async function computeWaveform(blob, buckets = WAVEFORM_BARS) {
+  const DecodeCtx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new DecodeCtx();
+  let decoded;
+  try {
+    decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+  } finally {
+    ctx.close?.();
+  }
+
+  const data = decoded.getChannelData(0);   // channel 0 is enough — this is only for drawing
+  const size = Math.floor(data.length / buckets) || 1;
+  const peaks = [];
+  for (let b = 0; b < buckets; b++) {
+    const start = b * size;
+    const end   = Math.min(start + size, data.length);
+    let max = 0;
+    for (let i = start; i < end; i++) {
+      const v = Math.abs(data[i]);
+      if (v > max) max = v;
+    }
+    peaks.push(max);
+  }
+
+  const loudest = Math.max(...peaks, 1e-6);  // guard: a fully silent take would divide by zero
+  return peaks.map(p => p / loudest);
+}
+
 // Gemini's audio API accepts WAV/MP3/AIFF/AAC/OGG-Vorbis/FLAC but NOT WebM, which
 // is what MediaRecorder produces in Chrome. Decode -> downmix to mono -> resample
 // to 16kHz -> write a WAV header, all with Web Audio built-ins (no dependency).

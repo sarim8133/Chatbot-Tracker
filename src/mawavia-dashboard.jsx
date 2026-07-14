@@ -14,7 +14,7 @@ import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
-import { MAX_MS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent } from './voice';
+import { MAX_MS, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -1488,8 +1488,9 @@ function ChatBubble({ m }) {
 // themed, so it reads as a foreign object dropped into the thread. Same reasoning as
 // the styled combobox that replaced the native datalist.
 // `dark` = sitting on the ink user-bubble; otherwise the white composer.
-function VoicePlayer({ src, durationMs, dark = false }) {
-  const ref = useRef(null);
+function VoicePlayer({ src, durationMs, peaks, dark = false }) {
+  const ref    = useRef(null);
+  const reduce = useReducedMotion();
   const [playing, setPlaying] = useState(false);
   const [pos, setPos]         = useState(0);
   // Chrome reports duration:Infinity for a MediaRecorder blob until it's been seeked,
@@ -1542,14 +1543,37 @@ function VoicePlayer({ src, durationMs, dark = false }) {
           : <Play  size={13} fill="currentColor" className="translate-x-[1px]"/>}
       </button>
 
-      {/* The look is the div; the semantics and keyboard seeking are a transparent
-          range input laid over it. Styling ::-webkit-slider-thumb consistently across
-          browsers is a losing game — this way arrow keys work for free. */}
+      {/* The look is the bars; the semantics and keyboard seeking are a transparent range
+          input laid over them. Styling ::-webkit-slider-thumb consistently across browsers
+          is a losing game — this way arrow keys work for free, and the waveform is free to
+          be whatever we want. Bars are aria-hidden: the input already announces position.
+          `peaks` can be absent (an older persisted message), so the flat track stays as the
+          fallback rather than rendering nothing. */}
       <div className="relative flex-1 min-w-[110px] h-8 flex items-center">
-        <div className={`w-full h-1 rounded-full ${dark ? 'bg-white/25' : 'bg-zinc-200'}`}>
-          <div className="h-1 rounded-full" style={{width:`${pct}%`, background:ACCENT}}/>
-        </div>
-        <span className={`absolute w-2.5 h-2.5 rounded-full pointer-events-none ${dark ? 'bg-white' : 'bg-zinc-900'}`}
+        {peaks?.length ? (
+          <div className="w-full flex items-center gap-[2px] h-6" aria-hidden="true">
+            {peaks.map((p, i) => {
+              // Colour whole bars, like WhatsApp — a partially-filled bar reads as a
+              // rendering artifact, not as progress.
+              const played = (i + 1) / peaks.length <= pct / 100;
+              return (
+                <span key={i}
+                  className={`flex-1 min-w-[2px] rounded-full ${reduce ? '' : 'transition-colors duration-150'}`}
+                  style={{
+                    // Floor of 2px so a silent stretch still reads as part of the wave
+                    // rather than a gap in it.
+                    height: `${Math.max(2, Math.round(p * 22))}px`,
+                    background: played ? ACCENT : (dark ? 'rgba(255,255,255,0.28)' : '#D4D4D8'),
+                  }}/>
+              );
+            })}
+          </div>
+        ) : (
+          <div className={`w-full h-1 rounded-full ${dark ? 'bg-white/25' : 'bg-zinc-200'}`}>
+            <div className="h-1 rounded-full" style={{width:`${pct}%`, background:ACCENT}}/>
+          </div>
+        )}
+        <span className={`absolute w-2.5 h-2.5 rounded-full pointer-events-none shadow-sm ${dark ? 'bg-white' : 'bg-zinc-900'}`}
               style={{left:`${pct}%`, marginLeft:'-5px'}}/>
         <input type="range" min={0} max={dur || 0} step={0.01} value={pos} onChange={seek}
           aria-label="Seek voice note" aria-valuetext={fmtClock(pos * 1000)}
@@ -1577,7 +1601,7 @@ function AudioBubble({ m }) {
       <div className="flex flex-col gap-1.5 max-w-[80%] sm:max-w-[68%] items-end">
         <div className="px-3 py-1.5 rounded-2xl rounded-br-sm min-w-[220px]" style={{background:INK}}>
           {m.audioUrl
-            ? <VoicePlayer src={m.audioUrl} durationMs={m.durationMs} dark/>
+            ? <VoicePlayer src={m.audioUrl} durationMs={m.durationMs} peaks={m.peaks} dark/>
             : <span className="flex items-center gap-1.5 text-[12.5px] text-white/70 px-1 py-2">
                 <Mic size={13}/> Voice note (expired — reload started a fresh session)
               </span>}
@@ -1607,7 +1631,7 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
         <span className="text-[13px] font-semibold text-zinc-800">Is this what you said?</span>
       </div>
       <div className="flex items-center px-3 py-1 mb-3 border border-zinc-200 rounded-xl">
-        <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} />
+        <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks} />
       </div>
       <textarea
         value={transcript}
@@ -1774,7 +1798,10 @@ function ChatTab() {
     const { blob, durationMs } = await recorder.stop();
     const url = URL.createObjectURL(blob);
     objectUrls.current.push(url);
-    setPreview({ blob, url, durationMs });
+    // The waveform is decoration on top of a working player — if decoding it fails,
+    // fall back to the flat track rather than losing the recording.
+    const peaks = await computeWaveform(blob).catch(() => null);
+    setPreview({ blob, url, durationMs, peaks });
     setVoicePhase('preview');
   }, []);
 
@@ -1912,14 +1939,14 @@ function ChatTab() {
   const sendConfirmedVoice = useCallback(async () => {
     const text = voiceTranscript.trim();
     if (!text || sending || !configured || !preview) return;
-    const { url: audioUrl, durationMs } = preview;
+    const { url: audioUrl, durationMs, peaks } = preview;
     // Commit the bubble and flip `sending` synchronously (before the first await),
     // same as send() does — the existing `sending` flag drives the typing dots.
     setPreview(null);
     setVoicePhase('idle');
     setSending(true);
     const cid = crypto.randomUUID?.() || `v_${Date.now()}_${Math.random()}`;
-    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl, durationMs, transcript: text }]);
+    setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl, durationMs, peaks, transcript: text }]);
     try {
       const res = await fetch(N8N_CHAT_WEBHOOK, {
         method: 'POST',
@@ -2123,7 +2150,7 @@ function ChatTab() {
           ) : voicePhase === 'preview' ? (
             <div className="flex items-center gap-2">
               <div className="flex-1 flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
-                <VoicePlayer src={preview?.url} durationMs={preview?.durationMs}/>
+                <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <button type="button" onClick={discardPreview} aria-label="Discard recording"
                 className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
@@ -2142,7 +2169,7 @@ function ChatTab() {
           ) : voicePhase === 'transcribing' ? (
             <div className="flex items-center gap-2">
               <div className="flex-1 flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
-                <VoicePlayer src={preview?.url} durationMs={preview?.durationMs}/>
+                <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <span className="mono text-[12px] text-zinc-400 px-2 shrink-0 whitespace-nowrap">Listening…</span>
             </div>
