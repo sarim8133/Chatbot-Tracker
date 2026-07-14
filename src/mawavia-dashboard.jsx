@@ -1530,8 +1530,11 @@ function VoicePlayer({ src, durationMs, peaks, dark = false }) {
 
   const pct = dur ? Math.min(100, (pos / dur) * 100) : 0;
 
+  // w-full + min-w-0 on the root: a flex item defaults to min-width:auto, so without this
+  // the player refuses to shrink below its content and shoves the composer's buttons off
+  // the right edge of a phone screen.
   return (
-    <div className="flex items-center gap-2.5 py-0.5">
+    <div className="flex items-center gap-2.5 py-0.5 w-full min-w-0">
       <audio ref={ref} src={src} preload="metadata" className="hidden"/>
 
       <button type="button" onClick={toggle}
@@ -1549,7 +1552,7 @@ function VoicePlayer({ src, durationMs, peaks, dark = false }) {
           be whatever we want. Bars are aria-hidden: the input already announces position.
           `peaks` can be absent (an older persisted message), so the flat track stays as the
           fallback rather than rendering nothing. */}
-      <div className="relative flex-1 min-w-[110px] h-8 flex items-center">
+      <div className="relative flex-1 min-w-[40px] h-8 flex items-center">
         {peaks?.length ? (
           <div className="w-full flex items-center gap-[2px] h-6" aria-hidden="true">
             {peaks.map((p, i) => {
@@ -2135,8 +2138,8 @@ function ChatTab() {
         {/* Composer — idle / recording / preview / transcribing / confirm, see the state machine above */}
         <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-white">
           {voicePhase === 'recording' ? (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-3 px-4 py-2 border border-zinc-300 rounded-xl">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 border border-zinc-300 rounded-xl">
                 <span className="relative flex items-center justify-center w-2.5 h-2.5 shrink-0">
                   <span className="absolute inset-0 rounded-full animate-ping" style={{background:NEG, opacity:0.5}}/>
                   <span className="relative w-2.5 h-2.5 rounded-full" style={{background:NEG}}/>
@@ -2169,8 +2172,8 @@ function ChatTab() {
               </button>
             </div>
           ) : voicePhase === 'preview' ? (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex-1 min-w-0 flex items-center px-3 py-1 border border-zinc-300 rounded-xl">
                 <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <button type="button" onClick={discardPreview} aria-label="Discard recording"
@@ -2188,8 +2191,8 @@ function ChatTab() {
               </button>
             </div>
           ) : voicePhase === 'transcribing' ? (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex-1 min-w-0 flex items-center px-3 py-1 border border-zinc-300 rounded-xl opacity-60 pointer-events-none">
                 <VoicePlayer src={preview?.url} durationMs={preview?.durationMs} peaks={preview?.peaks}/>
               </div>
               <span className="mono text-[12px] text-zinc-400 px-2 shrink-0 whitespace-nowrap">Listening…</span>
