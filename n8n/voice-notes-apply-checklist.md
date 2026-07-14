@@ -212,7 +212,48 @@ default truncates transcripts here more often, not less.
 
 Its false branch already goes to `Send Fallback Guardrail1` ("Sorry, I couldn't understand your voice
 note..."), so a no-speech voice note now correctly gets that reply instead of a hallucinated answer.
-**No other WhatsApp node changes.**
+**No other WhatsApp node changes** beyond Part E below.
+
+---
+
+## Part E — `AI Agent` → System Message: the LANGUAGE RULE
+
+Applies to **both** workflows. The two `AI Agent` system messages are byte-identical (7502 chars
+after this change) and **must stay that way** — they share one `semantic_cache`, which stores the
+*reply text*. If one channel replies in English and the other doesn't, a cached reply from either is
+served to users of the other in the wrong language.
+
+**The bug:** the system prompt contained *no language instruction whatsoever*. With nothing telling
+it what to do, the model mirrored the user and drifted — a Roman Urdu question came back answered in
+Hindi.
+
+**The fix:** paste this block immediately after the `ROLE` line
+("You are the Strict Machinery Lookup Assistant... search_pinecone tool.") and before
+`KNOWLEDGE BOUNDARIES`:
+
+```
+LANGUAGE RULE (ABSOLUTE — OVERRIDES EVERYTHING ELSE)
+Always write the "reply" field in ENGLISH. No exceptions.
+🔹 Customers often write in Roman Urdu, Hindi, Sindhi or Punjabi, or mix them with English. Understand them perfectly — but ALWAYS answer in English.
+🔹 NEVER reply in Urdu, Hindi, Sindhi or Punjabi — not in Roman letters, and not in Arabic or Devanagari script.
+🔹 NEVER output Arabic or Devanagari characters anywhere in the reply.
+🔹 Do not apologise for the language, do not offer to switch, do not comment on it. Just answer in English.
+Machine and model names, specs and numbers always keep their exact catalogue spelling.
+```
+
+Then, in the reply-formatting section, append to the line ending
+"Style: Keep it punchy, scannable, and concise. No long paragraphs.":
+
+```
+ Language: ENGLISH ONLY — see LANGUAGE RULE.
+```
+
+Copy both from `n8n/Hi-Tech Web Chat.json` (`AI Agent` → `parameters.options.systemMessage`) if you'd
+rather not retype the em dashes and emoji.
+
+**This change does nothing on its own until the cache is cleared.** `semantic_cache` is checked
+*before* the agent runs, so every question already asked keeps returning its old, wrong-language
+reply no matter what the prompt says.
 
 ---
 
