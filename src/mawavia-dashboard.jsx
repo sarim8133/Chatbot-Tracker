@@ -3339,7 +3339,10 @@ export default function Dashboard({ onLogout }) {
       <header className="sticky top-0 z-20 bg-[#F1F5F9] border-b border-slate-200">
         {/* signal strip */}
         <div className="h-[3px] w-full" style={{background:BLUE}}/>
-        <div className="w-full px-6 lg:px-8 h-20 flex items-center gap-5">
+        {/* Tighter gutters/gaps on phones: at px-6 + gap-5 the mobile tab-picker was left
+            with 14px for its label, so it truncated to nothing and the chevron drifted away
+            from the icon with an empty gap between them. */}
+        <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center gap-3 sm:gap-5">
 
           {/* Wordmark */}
           <div className="flex items-center gap-2.5 shrink-0">
@@ -3368,10 +3371,14 @@ export default function Dashboard({ onLogout }) {
             <div className="flex-1 min-w-0 lg:hidden flex items-center overflow-hidden">
               <button onClick={()=>setNavOpen(o=>!o)}
                 aria-haspopup="listbox" aria-expanded={navOpen}
-                className="flex items-center gap-2 min-w-0 max-w-full px-3.5 py-2 rounded-lg border border-zinc-200 bg-white text-[14px] font-medium text-zinc-800 hover:border-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-                <cur.icon size={15} className="shrink-0" style={{color:ACCENT}}/>
+                className="flex items-center gap-2 min-w-0 max-w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white text-[14px] font-medium text-zinc-800 hover:border-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                {/* No icon on phones. There isn't room for icon + label + chevron on a narrow
+                    screen, and when it's tight the label is what loses — it truncates to
+                    nothing and you're left with an icon and a chevron and no idea which tab
+                    you're on. The label always wins; the icon returns at sm. */}
+                <cur.icon size={15} className="shrink-0 hidden sm:block" style={{color:ACCENT}}/>
                 <span className="truncate">{cur.label}</span>
-                <ChevronDown size={13} className={`shrink-0 text-zinc-400 ml-0.5 transition-transform duration-200${navOpen?' rotate-180':''}`}/>
+                <ChevronDown size={13} className={`shrink-0 text-zinc-400 transition-transform duration-200${navOpen?' rotate-180':''}`}/>
               </button>
             </div>
           ); })()}
