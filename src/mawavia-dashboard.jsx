@@ -350,10 +350,22 @@ function useData(onAuthError) {
     setRefreshing(false);
   }, [onAuthError, channelFilter]);
 
+  // Poll every 30s, but ONLY while the tab is actually being looked at. Polling a
+  // backgrounded tab burns phone battery and mobile data for data nobody is reading —
+  // and this dashboard is used on a phone. On return we refetch immediately rather
+  // than waiting out the interval, so you never stare at stale numbers.
   useEffect(()=>{
     load();
-    const iv=setInterval(()=>load(true),30000);
-    return()=>clearInterval(iv);
+    let iv = null;
+    const start = () => { if (!iv) iv = setInterval(()=>load(true), 30000); };
+    const stop  = () => { if (iv) { clearInterval(iv); iv = null; } };
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else { load(true); start(); }
+    };
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   },[load]);
 
   return {stats,loading,demo,lastUp,refreshing,refresh:()=>load(true),channelFilter,setChannelFilter};
