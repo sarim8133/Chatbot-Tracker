@@ -2,8 +2,15 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+// Build commit, injected for the client error sink so a logged error says which
+// deploy it came from. Vercel sets VERCEL_GIT_COMMIT_SHA at build; 'dev' locally.
+const APP_VERSION = (process.env.VERCEL_GIT_COMMIT_SHA || 'dev').slice(0, 7);
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   build: {
     chunkSizeWarningLimit: 900,
     // Skip the inline module-preload polyfill so a strict `script-src 'self'` CSP
