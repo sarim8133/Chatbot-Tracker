@@ -21,9 +21,9 @@ function Shell({ children }) {
           <div className="h-[3px] w-full" style={{ background: 'var(--blue)' }} />
           <div className="p-9">
             <div className="flex items-center gap-2.5 mb-7">
-              <img src="/logo-icon.png" alt="Hi-Tech Machinery" width="256" height="256" className="h-9 w-auto" />
+              <img src="/logo-icon.png" alt="Hi Tech Machinery" width="256" height="256" className="h-9 w-auto" />
               <div className="leading-none">
-                <p className="text-[15px] font-semibold tracking-tight" style={{ color: 'var(--blue)' }}>Hi-Tech</p>
+                <p className="text-[15px] font-semibold tracking-tight" style={{ color: 'var(--blue)' }}>Hi Tech</p>
                 <p className="text-[11px] text-zinc-400 mt-0.5">Sales Intelligence</p>
               </div>
             </div>
@@ -31,7 +31,7 @@ function Shell({ children }) {
           </div>
         </div>
         <p className="text-[12px] text-zinc-400 text-center mt-5">
-          Hi-Tech Machinery · Authorized access only
+          Hi Tech Machinery · Authorized access only
         </p>
       </div>
     </div>
@@ -143,7 +143,7 @@ export default function Login({ onSuccess }) {
         <Lock size={15} className="text-zinc-400" />
         <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">Sign in</h1>
       </div>
-      <p className="text-[13px] text-zinc-500 mt-1 mb-6">For authorized Hi-Tech personnel only.</p>
+      <p className="text-[13px] text-zinc-500 mt-1 mb-6">For authorized Hi Tech personnel only.</p>
 
       <form onSubmit={submit} className="space-y-3.5">
         <div>
@@ -184,7 +184,7 @@ export default function Login({ onSuccess }) {
 
       <p className="flex items-start gap-1.5 text-[11.5px] leading-snug text-zinc-400 mt-6 pt-4 border-t border-zinc-100">
         <ShieldCheck size={13} className="mt-0.5 shrink-0 text-zinc-400" />
-        <span>This is a private Hi-Tech system. Access is restricted to authorized staff; logins, views, exports and uploads are logged and may be audited.</span>
+        <span>This is a private Hi Tech system. Access is restricted to authorized staff; logins, views, exports and uploads are logged and may be audited.</span>
       </p>
     </Shell>
   );
@@ -196,7 +196,7 @@ export default function Login({ onSuccess }) {
 // that makes "authorized use only" enforceable and on the record.
 export function AupGate({ onAccept, onDecline }) {
   const rules = [
-    'Use the dashboard only for legitimate Hi-Tech business.',
+    'Use the dashboard only for legitimate Hi Tech business.',
     'Keep your account private — never share your login or password.',
     "Don't try to bypass access controls or reach data outside your role.",
     'Your activity (logins, views, exports, uploads) is logged and may be audited.',
@@ -264,7 +264,7 @@ export function ResetPassword({ onDone, kind = 'recovery' }) {
     <Shell>
       <div className="flex items-center gap-2">
         <KeyRound size={15} className="text-zinc-400" />
-        <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">{invite ? 'Welcome to Hi-Tech' : 'Set new password'}</h1>
+        <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">{invite ? 'Welcome to Hi Tech' : 'Set new password'}</h1>
       </div>
       <p className="text-[13px] text-zinc-500 mt-1 mb-6">
         {invite ? 'Set a password to finish setting up your account.' : 'Choose a new password for your account.'}

@@ -2128,7 +2128,7 @@ function ChatTab() {
               <Bot size={18} style={{color:ACCENT_DK}}/>
             </span>
             <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-zinc-900 leading-tight">Hi-Tech Assistant</p>
+              <p className="text-[15px] font-semibold text-zinc-900 leading-tight">Hi Tech Assistant</p>
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
                 <span className="mono text-[10px] uppercase tracking-widest text-zinc-500">live · n8n</span>
@@ -2162,9 +2162,9 @@ function ChatTab() {
                 <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:tint(ACCENT,8)}}>
                   <Bot size={22} style={{color:ACCENT_DK}}/>
                 </span>
-                <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi-Tech</p>
+                <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi Tech</p>
                 <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
-                  Product specs, pricing, and availability — answered straight from the Hi-Tech catalogue. The same assistant as the WhatsApp bot, right here.
+                  Product specs, pricing, and availability — answered straight from the Hi Tech catalogue. The same assistant as the WhatsApp bot, right here.
                 </p>
                 {receiptEnabled && (
                   <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5">
@@ -3383,9 +3383,9 @@ export default function Dashboard({ onLogout }) {
 
           {/* Wordmark */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <img src="/logo-icon.png" alt="Hi-Tech Machinery" width="256" height="256" className="h-11 w-auto"/>
+            <img src="/logo-icon.png" alt="Hi Tech Machinery" width="256" height="256" className="h-11 w-auto"/>
             <div className="leading-none hidden md:block">
-              <p className="text-[16px] font-bold tracking-tight" style={{color:BLUE}}>Hi-Tech</p>
+              <p className="text-[16px] font-bold tracking-tight" style={{color:BLUE}}>Hi Tech</p>
               <p className="text-[12px] text-zinc-400 mt-0.5">Sales Intelligence</p>
             </div>
           </div>
