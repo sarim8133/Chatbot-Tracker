@@ -1,10 +1,21 @@
 # Security headers for Netlify / Cloudflare Pages (this file is copied into dist/
-# and applied to every response). For Vercel, see vercel.json instead. GitHub
-# Pages does NOT support custom headers — host on Netlify/Cloudflare/Vercel to use
-# these (all have free tiers).
+# and applied to every response). For Vercel, see vercel.json instead — the two are
+# meant to stay equivalent, so change both together. GitHub Pages does NOT support
+# custom headers — host on Netlify/Cloudflare/Vercel to use these (all have free tiers).
+#
+# Note the three allowances that are load-bearing for shipped features:
+#   img-src   blob:  — the receipt upload previews the picked file from a blob: URL
+#   media-src blob:  — voice notes play back the recording from a blob: URL
+#   microphone=(self) — an empty allowlist blocks EVERY origin, including our own,
+#                       and the browser then denies the mic with no permission prompt
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co https://bot.hitech-machinery.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Referrer-Policy: no-referrer
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Permissions-Policy: geolocation=(), microphone=(self), camera=()
+
+# Hashed filenames — safe to cache forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
