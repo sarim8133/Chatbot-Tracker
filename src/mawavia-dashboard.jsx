@@ -3383,7 +3383,7 @@ export default function Dashboard({ onLogout }) {
 
           {/* Wordmark */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <img src="/logo.png" alt="Hi-Tech" className="h-11 w-auto"/>
+            <img src="/logo-icon.png" alt="Hi-Tech Machinery" width="256" height="256" className="h-11 w-auto"/>
             <div className="leading-none hidden md:block">
               <p className="text-[16px] font-bold tracking-tight" style={{color:BLUE}}>Hi-Tech</p>
               <p className="text-[12px] text-zinc-400 mt-0.5">Sales Intelligence</p>

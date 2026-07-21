@@ -21,7 +21,7 @@ function Shell({ children }) {
           <div className="h-[3px] w-full" style={{ background: 'var(--blue)' }} />
           <div className="p-9">
             <div className="flex items-center gap-2.5 mb-7">
-              <img src="/logo.png" alt="Hi-Tech" className="h-9 w-auto" />
+              <img src="/logo-icon.png" alt="Hi-Tech Machinery" width="256" height="256" className="h-9 w-auto" />
               <div className="leading-none">
                 <p className="text-[15px] font-semibold tracking-tight" style={{ color: 'var(--blue)' }}>Hi-Tech</p>
                 <p className="text-[11px] text-zinc-400 mt-0.5">Sales Intelligence</p>
