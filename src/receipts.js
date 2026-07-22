@@ -6,14 +6,77 @@
 import { N8N_RECEIPT_WEBHOOK, SB_URL, SB_KEY } from './config';
 import { getAccessToken } from './auth';
 
-const MAX_BYTES = 10 * 1024 * 1024;
+// What the user may PICK. Generous, because compressImage() below shrinks whatever
+// they choose — this only rejects the absurd. The real constraint is the request
+// size (see below), which the raw file size no longer predicts.
+const MAX_BYTES = 25 * 1024 * 1024;
 const OK_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+
+// nginx in front of n8n caps a request at 1MB (measured 2026-07-22: 0.5MB → 401,
+// 1MB → 413). Base64 inflates by ~4/3, so the image itself has to stay near 700KB
+// or the POST dies at the proxy — no CORS headers on the 413, so the browser can
+// only report a bare "Failed to fetch" and n8n never even logs an execution.
+// 500KB leaves comfortable headroom for the JSON wrapper.
+const TARGET_BYTES = 500 * 1000;
+const EDGES = [1600, 1200, 900];          // long-edge px, tried in order
+const QUALITY = [0.82, 0.7, 0.6, 0.5];
 
 export function validateImage(file) {
   if (!file) return 'No file selected.';
   if (!OK_MIME.includes(file.type)) return 'Please choose a JPG, PNG or WebP image.';
-  if (file.size > MAX_BYTES) return 'Image too large (max 10MB).';
+  if (file.size > MAX_BYTES) return 'Image too large (max 25MB).';
   return null;
+}
+
+const canvasToBlob = (canvas, quality) =>
+  new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+
+// Decode with EXIF rotation baked into the pixels. Phone cameras store the photo
+// sideways plus an orientation tag; canvas reads raw pixels and would drop it,
+// handing Gemini a rotated receipt and wrecking the OCR.
+async function decode(file) {
+  try {
+    return await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    // Safari < 16 and friends: no imageOrientation option. Best effort.
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')); };
+      img.src = url;
+    });
+  }
+}
+
+// Downscale + re-encode to JPEG until it fits TARGET_BYTES. A receipt does not
+// need 12 megapixels — 1600px on the long edge reads fine and turns a 3MB phone
+// photo into ~200-400KB. Returns a Blob (its .type is 'image/jpeg', which is what
+// extractReceipt/saveReceipt send as mime_type).
+export async function compressImage(file) {
+  const src = await decode(file);
+  const sw = src.width, sh = src.height;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  let best = null;
+  for (const edge of EDGES) {
+    const scale = Math.min(1, edge / Math.max(sw, sh));
+    canvas.width  = Math.max(1, Math.round(sw * scale));
+    canvas.height = Math.max(1, Math.round(sh * scale));
+    ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+    for (const q of QUALITY) {
+      const blob = await canvasToBlob(canvas, q);
+      if (!blob) continue;
+      if (!best || blob.size < best.size) best = blob;
+      if (blob.size <= TARGET_BYTES) { src.close?.(); return blob; }
+    }
+  }
+  src.close?.();
+  if (!best) throw new Error('Could not process that image — try a different photo.');
+  // Everything we tried is still over target. Send the smallest and let the proxy
+  // decide; a 413 is at least now a genuine edge case rather than the normal path.
+  return best;
 }
 
 export function fileToBase64(file) {

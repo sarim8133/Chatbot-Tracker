@@ -13,7 +13,7 @@ import {
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
-import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
+import { validateImage, compressImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { useTheme } from './theme';
@@ -2224,10 +2224,16 @@ function ChatTab() {
     const cid = (crypto.randomUUID?.() || `r_${Date.now()}_${Math.random()}`);
     const thumb = URL.createObjectURL(file);
     objectUrls.current.push(thumb);
-    receiptFiles.current.set(cid, file);
     setMessages(m => [...m, { role:'receipt', ts:Date.now(), cid, card:{ status:'extracting', thumb } }]);
     try {
-      const { fields, is_receipt } = await extractReceipt(file);
+      // Shrink before anything leaves the browser. nginx caps the webhook request
+      // at 1MB and base64 adds a third on top, so a raw phone photo 413s at the
+      // proxy — n8n never sees it and the browser only reports "Failed to fetch".
+      // Store the COMPRESSED blob: Confirm & save re-sends the image, so both legs
+      // have to be under the cap, and both should send identical bytes.
+      const img = await compressImage(file);
+      receiptFiles.current.set(cid, img);
+      const { fields, is_receipt } = await extractReceipt(img);
       const notReceipt = is_receipt === false || fields?.is_receipt === false;
       if (notReceipt) receiptFiles.current.delete(cid);
       setMessages(m => m.map(msg => msg.cid===cid
