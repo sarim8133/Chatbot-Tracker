@@ -8,13 +8,14 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
+import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { useTheme } from './theme';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -148,22 +149,12 @@ function buildDaily(msgs, now) {
   };
 }
 
-// Knowledge gaps: questions the assistant couldn't answer. By this project's
-// definition a near-empty reply (<20 chars) is the bot's fallback / failure mode
-// — the same threshold "Most asked" uses to exclude fallbacks. Grouped by question.
-function computeGaps(msgs) {
-  const gm = {};
-  msgs.forEach(x=>{
-    const ans=(x.AI_Response||'').trim();
-    const q  =(x.User_Message||'').trim();
-    if (q.length<3 || ans.length>=20) return;
-    if (!gm[q]) gm[q]={count:0, last:x.Timestamp};
-    gm[q].count++;
-    if (new Date(x.Timestamp) > new Date(gm[q].last)) gm[q].last = x.Timestamp;
-  });
-  return Object.entries(gm).map(([text,g])=>({text, count:g.count, last:g.last}))
-    .sort((a,b)=>b.count-a.count).slice(0,8);
-}
+// NOTE: this used to be computeGaps(), which flagged questions whose reply ran
+// under 20 chars. It was dead code in practice — the agent's NO RESULTS RULE
+// makes it answer "I couldn't find [model] in our catalog…" (~90 chars), so
+// measured over 128 turns it matched exactly 0. And the failure that actually
+// hurts is a long, confident, WRONG answer, which no length test can catch.
+// The signal now comes from the reps instead: see chat_feedback / db/chat-feedback.sql.
 
 // columns: [{label, get(row)}]. Prepends a BOM so Excel reads UTF-8 (emoji) right.
 function exportCSV(name, columns, rows) {
@@ -221,12 +212,12 @@ function demoStats() {
     const hits=Math.round(v.count*rate);
     return {date:v.date, label:v.label, hits, total:v.count, rate: v.count ? hits/v.count : 0};
   });
-  const gaps = [
-    {text:'do you have spare parts for tederic d100', count:4, last:new Date(now-3600000*2).toISOString()},
-    {text:'warranty period for screw compressor',     count:3, last:new Date(now-3600000*9).toISOString()},
-    {text:'emi / installment options available',      count:2, last:new Date(now-3600000*26).toISOString()},
+  const badResponses = [
+    {id:'d1', reason:'wrong_machine', user_message:'compare dt 100 and dd 250', ai_response:'DT D100 vs SCR250H-7…', note:'gave me an air compressor', from_cache:false, user_name:'ahsan',  created_at:new Date(now-3600000*2).toISOString()},
+    {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', from_cache:true,  user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
+    {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', from_cache:false, user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
   ];
-  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,gaps,cacheHits,cacheMisses,hitRate};
+  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate};
 }
 
 // ── Data Fetching ─────────────────────────────────────────────────────────────
@@ -281,9 +272,12 @@ function useData(onAuthError) {
     try { token = await getAccessToken(); }
     catch { onAuthError?.(); setLoading(false); setRefreshing(false); return; }   // session gone → back to login
     try {
-      const [m,c] = await Promise.all([
+      // chat_feedback is admin-read; for a non-admin RLS just returns [], which
+      // renders the panel's empty state rather than erroring the whole load.
+      const [m,c,fb] = await Promise.all([
         sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
+        sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,user_name&order=created_at.desc&limit=100'),
       ]);
       const msgs=m.data, cache=c.data, now=new Date();
       // Web chats have no phone. Use the display name as the rep identity so the whole
@@ -330,14 +324,14 @@ function useData(onAuthError) {
       const cacheHits = msgs.filter(x=>x.from_cache===true).length;
       const cacheMisses = msgs.length - cacheHits;
       const {volumeDaily, cacheDaily} = buildDaily(msgs, now);
-      const gaps = computeGaps(msgs);
+      const badResponses = fb.data;
       setStats({
         totalMsgs:m.total||msgs.length, todayCount:today, ystCount:yest,
         userCount:users.length, cacheTotal:c.total||cache.length,
         msgsByDay:Object.entries(bk).map(([date,count])=>({date,count})),
         users, topQ, maxQ:topQ[0]?.count||1, recent:msgs.slice(0,300), cacheEntries:cache,
         heat:buildHeat(msgs, x=>x.Timestamp),
-        volumeDaily, cacheDaily, gaps,
+        volumeDaily, cacheDaily, badResponses,
         cacheHits, cacheMisses, hitRate: msgs.length ? cacheHits/msgs.length : 0,
       });
       setDemo(false);
@@ -701,6 +695,47 @@ function Heatmap({heat}) {
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
+// One flagged reply. Collapsed it shows the question; expanded it shows what the
+// bot actually said plus the rep's note — the point of the panel is that a 👎 is
+// reconstructable, so the answer has to be one click away, not a DB query away.
+function BadResponseRow({ r }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="py-2.5">
+      <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open}
+        className="w-full flex items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-lg">
+        <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{background:ACCENT}}/>
+        <span className="flex-1 min-w-0 text-[14px] text-zinc-800 truncate">{trunc(r.user_message || '(no question captured)', 72)}</span>
+        {r.from_cache && (
+          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded hidden sm:inline"
+            style={{color:BLUE, background:'var(--info-bg)'}}>CACHED</span>
+        )}
+        <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 hidden sm:inline">
+          {REASON_LABEL[r.reason] || r.reason}
+        </span>
+        <span className="text-[11px] text-zinc-400 shrink-0">{ago(r.created_at)}</span>
+        <ChevronDown size={13} className={`shrink-0 text-zinc-400 transition-transform ${open?'rotate-180':''}`}/>
+      </button>
+      {/* Below sm the badges are hidden above to keep the row on one line, so
+          repeat them here — otherwise a phone never sees the reason at all. */}
+      <div className="flex flex-wrap items-center gap-1.5 mt-1.5 pl-4 sm:hidden">
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600">{REASON_LABEL[r.reason] || r.reason}</span>
+        {r.from_cache && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{color:BLUE, background:'var(--info-bg)'}}>CACHED</span>}
+      </div>
+      {open && (
+        <div className="mt-2 ml-4 pl-3 border-l-2 border-zinc-200 space-y-2">
+          {r.note && <p className="text-[12.5px] text-zinc-700"><span className="text-zinc-400">Rep said:</span> {r.note}</p>}
+          <p className="text-[12.5px] text-zinc-500 whitespace-pre-wrap break-words">{trunc(r.ai_response || '(no reply captured)', 600)}</p>
+          <p className="text-[11px] text-zinc-400">
+            {r.user_name || 'unknown'}
+            {r.from_cache && ' · served from cache — delete the semantic_cache row, or a prompt fix will look like it did nothing'}
+          </p>
+        </div>
+      )}
+    </li>
+  );
+}
+
 function OverviewTab({s, onDrill}) {
   const delta  = s.todayCount - s.ystCount;
   const total  = useCountUp(s.totalMsgs);
@@ -823,40 +858,57 @@ function OverviewTab({s, onDrill}) {
         </Panel>
       </div>
 
-      {/* Knowledge gaps — questions that got no real answer (the bot's fallback) */}
+      {/* Bad responses — replies the reps flagged. Replaces "Knowledge gaps", which
+          keyed on short replies and, measured over 128 turns, never once fired. */}
       <Panel className="p-6">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Knowledge gaps</h2>
-            <p className="text-[14px] text-zinc-500 mt-1">Questions the assistant couldn’t answer</p>
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Bad responses</h2>
+            <p className="text-[14px] text-zinc-500 mt-1">Replies reps flagged as wrong</p>
           </div>
-          {s.gaps?.length > 0 && (
+          {s.badResponses?.length > 0 && (
             <ExportButton
-              exportFn={()=>exportCSV('gaps', [
-                {label:'Question',    get:g=>g.text},
-                {label:'Times asked', get:g=>g.count},
-                {label:'Last asked',  get:g=>new Date(g.last).toISOString()},
-              ], s.gaps)}
+              exportFn={()=>exportCSV('bad-responses', [
+                {label:'When',     get:r=>new Date(r.created_at).toISOString()},
+                {label:'Reason',   get:r=>REASON_LABEL[r.reason] || r.reason},
+                {label:'Question', get:r=>r.user_message},
+                {label:'Reply',    get:r=>r.ai_response},
+                {label:'Note',     get:r=>r.note},
+                {label:'Cached',   get:r=>r.from_cache ? 'yes' : 'no'},
+                {label:'Rep',      get:r=>r.user_name},
+              ], s.badResponses)}
             />
           )}
         </div>
-        <HelpNote>Questions where the assistant gave no real answer (a near-empty reply). These are the highest-value things to teach it next — sorted by how often reps hit them.</HelpNote>
-        {!s.gaps?.length
-          ? <div className="py-10 text-center">
-              <p className="text-[13px] text-zinc-500">No gaps detected</p>
-              <p className="text-[12px] text-zinc-500 mt-2">Every question in the loaded period got a real answer.</p>
+        <HelpNote>Answers a rep marked “Bad answer” in the Chat tab, newest first. Click a row to see what the bot actually replied. A <strong>CACHED</strong> badge means the reply came from the semantic cache — delete that cache row, or a prompt fix will look like it changed nothing.</HelpNote>
+        {(() => {
+          const rows = s.badResponses || [];
+          if (!rows.length) return (
+            <div className="py-10 text-center">
+              <p className="text-[13px] text-zinc-500">Nothing flagged</p>
+              <p className="text-[12px] text-zinc-500 mt-2">Reps haven’t reported a bad answer yet.</p>
             </div>
-          : <ul className="mt-2 divide-y divide-zinc-100">
-              {s.gaps.map((g,i)=>(
-                <li key={i} className="flex items-center gap-3 py-2.5">
-                  <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{background:ACCENT}}/>
-                  <span className="flex-1 text-[14px] text-zinc-800 truncate">{trunc(g.text,72)}</span>
-                  <span className="text-[11px] text-zinc-400 shrink-0 hidden sm:inline">{ago(g.last)}</span>
-                  <span className="mono text-[11px] font-semibold text-zinc-900 tabular-nums shrink-0 w-9 text-right">{g.count}×</span>
-                </li>
-              ))}
-            </ul>
-        }
+          );
+          // Reason counts up top: which failure mode dominates is the thing that
+          // decides what to fix next, and that's lost in a flat reverse-chron list.
+          const byReason = Object.entries(
+            rows.reduce((a,r)=>{ a[r.reason]=(a[r.reason]||0)+1; return a; }, {})
+          ).sort((a,b)=>b[1]-a[1]);
+          return (
+            <>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {byReason.map(([id,n])=>(
+                  <span key={id} className="text-[11px] px-2 py-1 rounded-lg bg-zinc-100 text-zinc-700">
+                    {REASON_LABEL[id] || id} <span className="mono font-semibold tabular-nums">{n}</span>
+                  </span>
+                ))}
+              </div>
+              <ul className="mt-2 divide-y divide-zinc-100">
+                {rows.map(r => <BadResponseRow key={r.id} r={r}/>)}
+              </ul>
+            </>
+          );
+        })()}
       </Panel>
 
       {/* Busiest hours — weekday × hour heatmap */}
@@ -1470,7 +1522,87 @@ function ReceiptCard({ card, onAccept, onReject }) {
   );
 }
 
-function ChatBubble({ m }) {
+// Dislike-only feedback under an assistant reply. There is no "like" — only
+// failures are actionable. A bare vote isn't actionable either, so the picker
+// insists on a reason tag and the row we write carries the whole exchange plus
+// from_cache (a disliked CACHED reply needs the semantic_cache row deleted,
+// which is a different fix from a prompt/RAG problem). See src/feedback.js.
+function BadAnswerButton({ m, question, sessionId }) {
+  const [open, setOpen]     = useState(false);
+  const [reason, setReason] = useState(null);
+  const [note, setNote]     = useState('');
+  const [busy, setBusy]     = useState(false);
+  const [done, setDone]     = useState(false);
+  const [err, setErr]       = useState('');
+
+  const send = async () => {
+    if (!reason || busy) return;
+    setBusy(true); setErr('');
+    try {
+      await submitFeedback({
+        sessionId, turnTs: m.ts, userMessage: question,
+        aiResponse: m.text, fromCache: m.from_cache, reason, note,
+        userName: currentUserName(), userId: currentUserId(),
+      });
+      setDone(true);
+    } catch (ex) {
+      setErr(ex?.message || "Couldn't send that.");
+      setBusy(false);
+    }
+  };
+
+  if (done) return (
+    <p className="flex items-center gap-1.5 text-[11px] text-zinc-400 px-1">
+      <CheckCircle2 size={11}/> Thanks — logged for review.
+    </p>
+  );
+
+  if (!open) return (
+    <button type="button" onClick={() => setOpen(true)} title="Report a bad answer"
+      className="inline-flex items-center gap-1.5 min-h-[28px] px-1.5 text-[11px] text-zinc-400 rounded-md transition-colors hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+      <ThumbsDown size={12}/> Bad answer
+    </button>
+  );
+
+  return (
+    // Deliberately NOT w-full: the parent column is shrink-to-fit (items-start,
+    // max-w-[80%]), so w-full would inherit the BUBBLE's width — and after a
+    // one-word reply that's ~50px, which a 135px chip then overflows. Sizing to
+    // its own content lets the panel widen up to the column cap and wrap there.
+    <div className="min-w-0 rounded-xl border border-zinc-200 bg-surface p-3">
+      <p className="text-[12px] font-semibold text-zinc-700 mb-2">What went wrong?</p>
+      <div className="flex flex-wrap gap-1.5 mb-2.5">
+        {REASONS.map(r => {
+          const on = reason === r.id;
+          return (
+            <button key={r.id} type="button" onClick={() => setReason(r.id)} aria-pressed={on}
+              className={`min-h-[36px] px-2.5 text-[11px] font-medium rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+                on ? 'text-white border-transparent' : 'text-zinc-600 border-zinc-300 hover:border-zinc-900'}`}
+              style={on ? { background: INK } : undefined}>
+              {r.label}
+            </button>
+          );
+        })}
+      </div>
+      <input value={note} onChange={e => setNote(e.target.value)} maxLength={500}
+        placeholder="What were you expecting? (optional)"
+        className="w-full px-2.5 py-2 text-[12px] text-zinc-900 bg-surface border border-zinc-300 rounded-lg outline-none transition-colors focus:border-zinc-900 placeholder-zinc-400"/>
+      {err && <p className="text-[11px] mt-1.5" style={{ color: NEG }}>{err}</p>}
+      <div className="flex gap-2 mt-2.5">
+        <button type="button" onClick={send} disabled={!reason || busy}
+          className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 rounded-lg bg-zinc-900 text-on-ink text-[12px] font-semibold transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed">
+          {busy ? <><RefreshCw size={12} className="animate-spin"/> Sending…</> : 'Send'}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setErr(''); }}
+          className="min-h-[36px] px-3 rounded-lg border border-zinc-300 text-zinc-600 text-[12px] font-medium transition-colors hover:border-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChatBubble({ m, question, sessionId }) {
   const isUser = m.role === 'user';
   return (
     <motion.div
@@ -1506,6 +1638,9 @@ function ChatBubble({ m }) {
             ))}
           </div>
         )}
+        {/* Not on error bubbles — a failed request is already logged by errlog.js,
+            and asking "what went wrong?" about a network error is just noise. */}
+        {!isUser && !m.error && <BadAnswerButton m={m} question={question} sessionId={sessionId}/>}
       </div>
     </motion.div>
   );
@@ -1774,6 +1909,19 @@ function ChatTab() {
     })();
     return () => { cancelled = true; };
   }, [sessionId]);
+
+  // The question each reply answered, by index — a dislike report is only useful
+  // if it carries the exchange, and a bubble doesn't know what came before it.
+  // Voice turns count as questions too, via their transcript.
+  const questionFor = useMemo(() => {
+    const out = []; let last = null;
+    for (const m of messages) {
+      if (m.role === 'user')       last = m.text;
+      else if (m.role === 'audio') last = m.transcript || '(voice note)';
+      out.push(last);
+    }
+    return out;
+  }, [messages]);
 
   // Persist the thread so switching tabs / reloading keeps it intact. Receipt cards
   // carry a live blob: thumb (and their File lives in the receiptFiles ref, never here);
@@ -2183,7 +2331,7 @@ function ChatTab() {
                   ? <ReceiptCard key={`${m.cid || m.ts}_${i}`} card={m.card} onAccept={() => acceptReceipt(m.cid)} onReject={() => rejectReceipt(m.cid)} />
                   : m.role === 'audio'
                   ? <AudioBubble key={`${m.cid || m.ts}_${i}`} m={m}/>
-                  : <ChatBubble key={`${m.ts}_${i}`} m={m}/>
+                  : <ChatBubble key={`${m.ts}_${i}`} m={m} question={questionFor[i]} sessionId={sessionId}/>
               ))}
               {sending && (
                 <div className="flex justify-start">
