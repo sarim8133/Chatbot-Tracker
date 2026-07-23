@@ -1441,12 +1441,30 @@ const fmtClock = ms => {
 // The assistant replies in WhatsApp style: *single-asterisk bold* and \n line
 // breaks (the web clone shares the WhatsApp semantic_cache, so cached hits arrive
 // pre-formatted that way). Render *bold* via React nodes — never innerHTML.
+// Knowledge-base answers cite a source URL, so links are turned into real anchors.
+// Only http(s) is matched, so a javascript:/data: URL in a reply can never become a
+// clickable href. Still React nodes throughout — never innerHTML.
+const REPLY_TOKEN = /(\*[^*\n]+\*|https?:\/\/[^\s<>"']+)/g;
+
 function formatReply(text) {
-  return String(text).split(/(\*[^*\n]+\*)/g).map((p, i) =>
-    /^\*[^*\n]+\*$/.test(p)
-      ? <strong key={i} className="font-semibold">{p.slice(1, -1)}</strong>
-      : <span key={i}>{p}</span>
-  );
+  return String(text).split(REPLY_TOKEN).map((p, i) => {
+    if (/^\*[^*\n]+\*$/.test(p)) return <strong key={i} className="font-semibold">{p.slice(1, -1)}</strong>;
+    if (/^https?:\/\//i.test(p)) {
+      // Trailing punctuation is almost always the sentence's, not the URL's —
+      // "see https://x.com/page." should link the page, not a 404 ending in a dot.
+      const m = p.match(/^(.*?)([.,;:!?)\]}'"]*)$/);
+      const href = m[1], tail = m[2];
+      return (
+        <span key={i}>
+          <a href={href} target="_blank" rel="noreferrer noopener"
+             className="underline underline-offset-2 break-all hover:opacity-80 transition-opacity"
+             style={{ color: BLUE }}>{href}</a>
+          {tail}
+        </span>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
 }
 
 function TypingDots() {
