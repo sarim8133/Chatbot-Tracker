@@ -2371,7 +2371,20 @@ function ChatTab() {
       if (sending || voicePhase !== 'idle') return;
 
       const file = imageFromClipboard(e.clipboardData);
-      if (!file) return;   // plain text paste — leave it alone
+      if (!file) {
+        // Silence here is indistinguishable from a broken feature. If the paste
+        // carried NOTHING we can use but the user clearly meant to paste an image
+        // (WhatsApp Web is the common case: its own context menu has no "Copy
+        // image", so the clipboard only ever gets text/html), say so. A normal
+        // text paste has text/plain and must still pass through untouched.
+        const types = Array.from(e.clipboardData?.types || []);
+        const looksLikeImageAttempt = types.length > 0 && !types.includes('text/plain');
+        if (looksLikeImageAttempt) {
+          setMessages(m => [...m, { role:'assistant', ts:Date.now(),
+            text:'That paste didn’t carry an image. Some apps (WhatsApp Web especially) copy only a link, not the picture. Save the image first, then paste it or use the receipt button.' }]);
+        }
+        return;
+      }
 
       e.preventDefault();  // otherwise the image can also drop into the textarea
       startReceipt(file);
