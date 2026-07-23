@@ -115,15 +115,10 @@ const csvCell = v => {
   if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
-// 7×24 weekday-by-hour activity matrix from a list of timestamped items.
-function buildHeat(items, getTs) {
-  const heat = Array.from({length:7}, ()=>Array(24).fill(0));
-  items.forEach(x => {
-    const d = new Date(getTs(x));
-    if (!isNaN(d)) heat[d.getDay()][d.getHours()]++;
-  });
-  return heat;
-}
+// NOTE: buildHeat() and buildDaily() used to live here, deriving the heatmap and
+// the daily trends in the browser from the 500-row fetch. Both now come from
+// dashboard_stats() so they cover the whole table instead of a sliding window —
+// see db/dashboard-stats.sql.
 
 // Local YYYY-MM-DD key (timezone-safe day bucketing) + display label from a key.
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -132,22 +127,6 @@ const localKey = d => {
   return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
 };
 const labelFromKey = k => { const [,m,d] = k.split('-'); return `${+d} ${MONTHS[+m-1]}`; };
-
-// Zero-filled daily series across the loaded window (earliest msg → today).
-// Returns a volume series and a cache-hit-rate series sharing one day axis.
-function buildDaily(msgs, now) {
-  const times = msgs.map(x=>+new Date(x.Timestamp)).filter(t=>!isNaN(t));
-  const start = new Date(times.length ? Math.min(...times) : now); start.setHours(0,0,0,0);
-  const end   = new Date(now); end.setHours(0,0,0,0);
-  const days  = [];
-  for (let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) days.push(localKey(d));
-  const idx = Object.fromEntries(days.map(k=>[k,{count:0,hits:0}]));
-  msgs.forEach(x=>{ const b=idx[localKey(x.Timestamp)]; if(!b) return; b.count++; if(x.from_cache===true) b.hits++; });
-  return {
-    volumeDaily: days.map(k=>({date:k, label:labelFromKey(k), count:idx[k].count})),
-    cacheDaily:  days.map(k=>({date:k, label:labelFromKey(k), hits:idx[k].hits, total:idx[k].count, rate: idx[k].count ? idx[k].hits/idx[k].count : 0})),
-  };
-}
 
 // NOTE: this used to be computeGaps(), which flagged questions whose reply ran
 // under 20 chars. It was dead code in practice — the agent's NO RESULTS RULE
@@ -272,67 +251,50 @@ function useData(onAuthError) {
     try { token = await getAccessToken(); }
     catch { onAuthError?.(); setLoading(false); setRefreshing(false); return; }   // session gone → back to login
     try {
+      // Aggregates come from dashboard_stats(), which groups server-side over the
+      // WHOLE table. They used to be derived here from a 500-row fetch, which meant
+      // `limit=500` wasn't a display cap — it was the sample every metric ran on, so
+      // past 500 rows the numbers quietly became "the last 500 messages". See
+      // db/dashboard-stats.sql. The raw fetch below is now only what it claims to be:
+      // the recent messages the Conversations tab lists.
+      //
       // chat_feedback is admin-read; for a non-admin RLS just returns [], which
       // renders the panel's empty state rather than erroring the whole load.
-      const [m,c,fb] = await Promise.all([
+      const chanArg = channelFilter !== 'all' ? { p_channel: channelFilter } : {};
+      const [agg,m,c,fb] = await Promise.all([
+        sbRpc(token, 'dashboard_stats', chanArg),
         sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
         sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,user_name&order=created_at.desc&limit=100'),
       ]);
-      const msgs=m.data, cache=c.data, now=new Date();
+      const msgs=m.data, cache=c.data;
       // Web chats have no phone. Use the display name as the rep identity so the whole
       // phone-keyed pipeline (grouping, the Conversations filter, rep drill-down, CSV)
       // treats them uniformly instead of collapsing every web row into a null rep.
+      // The RPC applies the same rule server-side, so both agree on identity.
       msgs.forEach(x=>{ if(x.channel==='web' || x.User_Number==null) x.User_Number = WEB + (x.Name || 'Website user'); });
-      const tStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-      const yStart=new Date(+tStart-86400000);
-      const today=msgs.filter(x=>new Date(x.Timestamp)>=tStart).length;
-      const yest =msgs.filter(x=>new Date(x.Timestamp)>=yStart&&new Date(x.Timestamp)<tStart).length;
-      const bk={};
-      for(let i=13;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);bk[fmtDay(d)]=0;}
-      msgs.forEach(x=>{const k=fmtDay(x.Timestamp);if(k in bk)bk[k]++;});
-      const um={};
-      msgs.forEach(x=>{
-        const u=String(x.User_Number);
-        if(!um[u])um[u]={number:u,name:x.Name||null,channel:x.channel||'whatsapp',count:0,lastActive:x.Timestamp,msgs:[]};
-        if(!um[u].name && x.Name) um[u].name = x.Name;
-        um[u].count++;
-        if(um[u].msgs.length<50)um[u].msgs.push(x);
-        if(new Date(x.Timestamp)>new Date(um[u].lastActive))um[u].lastActive=x.Timestamp;
-      });
-      const users=Object.values(um).sort((a,b)=>b.count-a.count);
+      // The Reps tab reads u.msgs[0].User_Message for the latest-question preview;
+      // the RPC returns just that value, so re-wrap it in the shape the UI expects.
+      const users = (agg?.users || []).map(u => ({
+        ...u, msgs: u.lastQuestion ? [{ User_Message: u.lastQuestion }] : [],
+      }));
       // Register only WhatsApp reps (phone-keyed) — web reps carry their name in the
       // "web:" identity itself, so repName reads it directly without a lookup.
       _repNames = Object.fromEntries(users.filter(u=>u.name && !isWebRep(u.number)).map(u=>[clean(u.number),u.name]));
-      // "Most asked" groups by the cached ANSWER, not the question text: paraphrases
-      // that hit the same cache entry share an identical answer, so they merge into
-      // one topic. Skip empty/short answers so generic fallbacks can't cluster
-      // unrelated questions. Representative label = the most common phrasing.
-      const am={};
-      msgs.forEach(x=>{
-        const ans=(x.AI_Response||'').trim();
-        const q  =(x.User_Message||'').trim();
-        if(ans.length<20 || q.length<3) return;
-        if(!am[ans]) am[ans]={count:0, qc:{}};
-        am[ans].count++;
-        am[ans].qc[q]=(am[ans].qc[q]||0)+1;
-      });
-      const topQ=Object.entries(am).sort((a,b)=>b[1].count-a[1].count).slice(0,8).map(([answer,g])=>{
-        const [text]=Object.entries(g.qc).sort((a,b)=>b[1]-a[1])[0];
-        return {text, count:g.count, variants:Object.keys(g.qc).length, answer};
-      });
-      const cacheHits = msgs.filter(x=>x.from_cache===true).length;
-      const cacheMisses = msgs.length - cacheHits;
-      const {volumeDaily, cacheDaily} = buildDaily(msgs, now);
-      const badResponses = fb.data;
+      const topQ = agg?.top_questions || [];
+      const cacheHits = agg?.cache_hits ?? 0;
+      const cacheMisses = agg?.cache_misses ?? 0;
+      const totalMsgs = agg?.total_msgs ?? 0;
+      const withLabels = (arr) => (arr||[]).map(d => ({...d, label: labelFromKey(d.date)}));
       setStats({
-        totalMsgs:m.total||msgs.length, todayCount:today, ystCount:yest,
-        userCount:users.length, cacheTotal:c.total||cache.length,
-        msgsByDay:Object.entries(bk).map(([date,count])=>({date,count})),
+        totalMsgs, todayCount: agg?.today_count ?? 0, ystCount: agg?.yst_count ?? 0,
+        userCount: agg?.user_count ?? 0, cacheTotal:c.total||cache.length,
+        msgsByDay: agg?.msgs_by_day || [],
         users, topQ, maxQ:topQ[0]?.count||1, recent:msgs.slice(0,300), cacheEntries:cache,
-        heat:buildHeat(msgs, x=>x.Timestamp),
-        volumeDaily, cacheDaily, badResponses,
-        cacheHits, cacheMisses, hitRate: msgs.length ? cacheHits/msgs.length : 0,
+        heat: agg?.heat || null,
+        volumeDaily: withLabels(agg?.volume_daily), cacheDaily: withLabels(agg?.cache_daily),
+        badResponses: fb.data,
+        cacheHits, cacheMisses, hitRate: totalMsgs ? cacheHits/totalMsgs : 0,
       });
       setDemo(false);
     } catch {

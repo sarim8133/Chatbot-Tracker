@@ -1,0 +1,166 @@
+-- ============================================================================
+-- Hi Tech dashboard — server-side analytics aggregates
+-- ----------------------------------------------------------------------------
+-- The dashboard used to fetch the 500 most recent rows of chat_all and derive
+-- EVERY metric in the browser — Today, Active reps, Most asked, the heatmap, the
+-- cache split, the 30-day trends. So `limit=500` was never a display cap, it was
+-- the sample the analytics ran on. At ~30 messages/day the table crosses 500 in
+-- about ten days, after which "Most asked" silently means "most asked in the last
+-- fortnight" with nothing on screen saying so, and the numbers just drift wrong.
+--
+-- dashboard_stats() does the grouping in SQL over the WHOLE table instead:
+--   payload   110 kB (growing) -> ~9.8 kB flat, whatever the row count
+--   coverage  last 500 rows    -> every row, exact
+--
+-- Built and verified while the table was still UNDER 500 rows (192 on
+-- 2026-07-23), which is the only window in which the new numbers can be checked
+-- against the old ones — past the cap the old path is already wrong and there is
+-- nothing to compare against. Verified: scalars match an independent
+-- re-derivation; heat, volume and per-rep counts each sum to the exact row total;
+-- web + whatsapp splits sum to the unfiltered total; a non-admin gets zeros and
+-- anon cannot execute.
+--
+-- Two deliberate behaviour changes:
+--   * Day/hour buckets are pinned to Asia/Karachi. The client bucketed in the
+--     VIEWER's local timezone, so the same data showed different numbers
+--     depending on where it was opened.
+--   * The volume/cache trend spans earliest activity -> today as before, but is
+--     floored at 90 days so the series cannot grow without bound.
+--
+-- SECURITY INVOKER is deliberate: chat_all is a security_invoker view over
+-- admin-only tables, so RLS still applies and a non-admin gets empty aggregates
+-- exactly as they get no rows today. No privilege escalation.
+--
+-- Applied 2026-07-23 via Supabase MCP migration `create_dashboard_stats_rpc`.
+-- This file is the checked-in record; the live schema is the source of truth.
+-- ============================================================================
+
+create or replace function public.dashboard_stats(p_channel text default null)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+with base as (
+  select
+    c."Timestamp"                                                        as ts,
+    (c."Timestamp" at time zone 'Asia/Karachi')::date                    as d,
+    extract(dow  from c."Timestamp" at time zone 'Asia/Karachi')::int    as dow,
+    extract(hour from c."Timestamp" at time zone 'Asia/Karachi')::int    as hr,
+    btrim(coalesce(c."User_Message", ''))                                as q,
+    btrim(coalesce(c."AI_Response", ''))                                 as a,
+    c."Name"                                                             as nm,
+    c.from_cache                                                         as cached,
+    c.channel                                                            as ch,
+    -- Web rows have no phone: identify them by display name, matching the
+    -- client's `web:` prefix so grouping/filtering/CSV stay uniform.
+    case when c.channel = 'web' or c."User_Number" is null
+         then 'web:' || coalesce(nullif(btrim(c."Name"), ''), 'Website user')
+         else c."User_Number"::text
+    end                                                                  as ident
+  from public.chat_all c
+  where p_channel is null or c.channel = p_channel
+),
+today as (select (now() at time zone 'Asia/Karachi')::date as t),
+totals as (
+  select
+    count(*)                                        as total_msgs,
+    count(*) filter (where cached is true)          as cache_hits,
+    count(*) filter (where cached is not true)      as cache_misses,
+    count(distinct ident)                           as user_count,
+    count(*) filter (where d = (select t from today))              as today_count,
+    count(*) filter (where d = (select t from today) - 1)          as yst_count,
+    min(d)                                          as first_day
+  from base
+),
+-- 14-day sparkline, zero-filled.
+by_day as (
+  select jsonb_agg(jsonb_build_object('date', to_char(g.d, 'YYYY-MM-DD'), 'count', coalesce(x.n, 0)) order by g.d) as v
+  from generate_series((select t from today) - 13, (select t from today), interval '1 day') g(d)
+  left join (select d, count(*) n from base group by d) x on x.d = g.d::date
+),
+-- Volume + cache-rate trend. Spans earliest activity to today like the client did,
+-- but floored at 90 days so the series can't grow without bound.
+span as (
+  select greatest(coalesce((select first_day from totals), (select t from today)),
+                  (select t from today) - 89) as from_d,
+         (select t from today) as to_d
+),
+daily as (
+  select
+    jsonb_agg(jsonb_build_object('date', to_char(g.d,'YYYY-MM-DD'), 'count', coalesce(x.n,0)) order by g.d) as volume,
+    jsonb_agg(jsonb_build_object('date', to_char(g.d,'YYYY-MM-DD'), 'hits', coalesce(x.h,0),
+                                 'total', coalesce(x.n,0),
+                                 'rate', case when coalesce(x.n,0) > 0 then x.h::numeric / x.n else 0 end) order by g.d) as cache
+  from generate_series((select from_d from span), (select to_d from span), interval '1 day') g(d)
+  left join (select d, count(*) n, count(*) filter (where cached is true) h from base group by d) x on x.d = g.d::date
+),
+-- 7x24 weekday-by-hour matrix, fully populated so the client can index it directly.
+heat_cells as (
+  select g.dow, g.hr, coalesce(c.n, 0) as n
+  from (select dw.dow, hh.hr from generate_series(0,6) dw(dow) cross join generate_series(0,23) hh(hr)) g
+  left join (select dow, hr, count(*) n from base group by dow, hr) c on c.dow = g.dow and c.hr = g.hr
+),
+heat as (
+  select jsonb_agg(r.row order by r.dow) as v
+  from (select dow, jsonb_agg(n order by hr) as row from heat_cells group by dow) r
+),
+-- "Most asked" groups by the ANSWER, so paraphrases that hit one cache entry merge
+-- into a single topic. Short answers are fallbacks and must not cluster unrelated
+-- questions -- same >=20 char rule the client used.
+topq as (
+  select jsonb_agg(jsonb_build_object(
+           'text', rep, 'count', cnt, 'variants', variants, 'answer', a) order by cnt desc) as v
+  from (
+    select a,
+           count(*)                              as cnt,
+           count(distinct q)                     as variants,
+           mode() within group (order by q)      as rep
+    from base
+    where length(a) >= 20 and length(q) >= 3
+    group by a
+    order by count(*) desc
+    limit 8
+  ) t
+),
+-- Ranked reps. The client kept up to 50 messages each but only ever read the most
+-- recent question, so only that is returned.
+users as (
+  select jsonb_agg(jsonb_build_object(
+           'number', ident, 'name', nm, 'channel', ch,
+           'count', cnt, 'lastActive', last_active, 'lastQuestion', last_q) order by cnt desc) as v
+  from (
+    select ident,
+           count(*) as cnt,
+           max(ts)  as last_active,
+           (array_agg(nm order by ts desc) filter (where nullif(btrim(coalesce(nm,'')),'') is not null))[1] as nm,
+           (array_agg(ch order by ts desc))[1] as ch,
+           (array_agg(nullif(q,'') order by ts desc) filter (where nullif(q,'') is not null))[1] as last_q
+    from base
+    group by ident
+    order by count(*) desc
+    limit 500
+  ) u
+)
+select jsonb_build_object(
+  'total_msgs',   (select total_msgs   from totals),
+  'today_count',  (select today_count  from totals),
+  'yst_count',    (select yst_count    from totals),
+  'user_count',   (select user_count   from totals),
+  'cache_hits',   (select cache_hits   from totals),
+  'cache_misses', (select cache_misses from totals),
+  'msgs_by_day',  coalesce((select v from by_day), '[]'::jsonb),
+  'volume_daily', coalesce((select volume from daily), '[]'::jsonb),
+  'cache_daily',  coalesce((select cache  from daily), '[]'::jsonb),
+  'heat',         coalesce((select v from heat), '[]'::jsonb),
+  'top_questions',coalesce((select v from topq), '[]'::jsonb),
+  'users',        coalesce((select v from users), '[]'::jsonb)
+);
+$$;
+
+comment on function public.dashboard_stats(text) is
+  'Dashboard aggregates computed server-side over the whole of chat_all. Replaces client-side derivation from a 500-row fetch, which silently turned every metric into "the last 500 messages". Day/hour buckets are Asia/Karachi. SECURITY INVOKER so chat_all RLS still applies.';
+
+grant execute on function public.dashboard_stats(text) to authenticated;
+revoke execute on function public.dashboard_stats(text) from anon;
