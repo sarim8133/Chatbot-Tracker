@@ -743,7 +743,7 @@ function OverviewTab({s, onDrill}) {
   const [heatExpanded, setHeatExpanded] = useState(false);
   const ledger = [
     {label:'Today',       value:s.todayCount, delta, hint:'Messages today, compared with yesterday'},
-    {label:'Active reps', value:s.userCount,         hint:'Reps who messaged the assistant in this period'},
+    {label:'Active reps', value:s.userCount,         hint:'Reps who messaged Hi Tech AI in this period'},
     {label:'Cache',       value:s.cacheTotal,        hint:'Answers served instantly from cache — no AI call'},
   ];
   return (
@@ -758,7 +758,7 @@ function OverviewTab({s, onDrill}) {
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1">
               <Label>Total messages</Label>
-              <HintIcon text="All messages exchanged with the assistant, across every rep"/>
+              <HintIcon text="All messages exchanged with Hi Tech AI, across every rep"/>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
@@ -806,7 +806,7 @@ function OverviewTab({s, onDrill}) {
         <Panel className="p-6">
           <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Most asked</h2>
           <p className="text-[14px] text-zinc-500 mt-1 mb-5">By topic — paraphrases merged</p>
-          <HelpNote>Grouped by the assistant’s answer, so different wordings of the same question count as one topic. "2 phrasings merged" shows when wordings were combined.</HelpNote>
+          <HelpNote>Grouped by Hi Tech AI’s answer, so different wordings of the same question count as one topic. "2 phrasings merged" shows when wordings were combined.</HelpNote>
           <div className="space-y-3.5">
             {s.topQ.slice(0,6).map((q,i)=>(
               <button key={i} type="button"
@@ -838,7 +838,7 @@ function OverviewTab({s, onDrill}) {
         <Panel className="p-6">
           <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Recent activity</h2>
           <p className="text-[14px] text-zinc-500 mt-1 mb-4">Live message log</p>
-          <HelpNote>The latest messages reps sent the assistant, newest first.</HelpNote>
+          <HelpNote>The latest messages reps sent Hi Tech AI, newest first.</HelpNote>
           <div>
             {s.recent.slice(0,7).map((m,i)=>(
               <motion.div key={i}
@@ -932,7 +932,7 @@ function OverviewTab({s, onDrill}) {
               </button>
             </div>
           </div>
-          <HelpNote>When reps message the assistant, by weekday and hour. Darker cells = busier; hover a cell for the exact count.</HelpNote>
+          <HelpNote>When reps message Hi Tech AI, by weekday and hour. Darker cells = busier; hover a cell for the exact count.</HelpNote>
           <div className="mt-4" role="img"
             aria-label={peak.c>0 ? `Activity heatmap. Busiest is ${DAY[peak.d]} at ${fmtHour(peak.h)} with ${peak.c} messages.` : 'Activity heatmap — no activity yet.'}>
             <Heatmap heat={s.heat}/>
@@ -942,7 +942,7 @@ function OverviewTab({s, onDrill}) {
 
       <ContentModal
         title="Busiest hours"
-        sub={peak.c>0 ? `Peak: ${DAY[peak.d]} at ${fmtHour(peak.h)} — ${peak.c} messages` : 'When reps message the assistant'}
+        sub={peak.c>0 ? `Peak: ${DAY[peak.d]} at ${fmtHour(peak.h)} — ${peak.c} messages` : 'When reps message Hi Tech AI'}
         open={heatExpanded}
         onClose={() => setHeatExpanded(false)}
       >
@@ -1079,7 +1079,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
         />
       </motion.div>
 
-      <HelpNote>Every message reps exchanged with the assistant, newest first. Search by text, filter by rep, click a row to see the full reply. Export sends all matches to CSV.</HelpNote>
+      <HelpNote>Every message reps exchanged with Hi Tech AI, newest first. Search by text, filter by rep, click a row to see the full reply. Export sends all matches to CSV.</HelpNote>
 
       {topicDrill && (
         <motion.div variants={fadeUp}
@@ -1150,7 +1150,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[12px] font-medium" style={{color:ACCENT_DK}}>Assistant</span>
+                            <span className="text-[12px] font-medium" style={{color:ACCENT_DK}}>Hi Tech AI</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded"
                               style={m.from_cache ? {color:BLUE, background:'var(--info-bg)'} : {color:'var(--color-zinc-600)', background:'var(--color-zinc-100)'}}>
                               {m.from_cache ? 'From cache' : 'AI call'}
@@ -1180,13 +1180,13 @@ function UsersTab({s, onDrill}) {
     <motion.div variants={stagger} initial="hidden" animate="show">
       <Panel className="py-16 text-center">
         <p className="text-[13px] text-zinc-500">No reps yet</p>
-        <p className="text-[12px] text-zinc-500 mt-2">Once reps message the WhatsApp assistant, they’ll appear here ranked by activity.</p>
+        <p className="text-[12px] text-zinc-500 mt-2">Once reps message Hi Tech AI on WhatsApp, they’ll appear here ranked by activity.</p>
       </Panel>
     </motion.div>
   );
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      <HelpNote>Your sales reps, ranked by how many messages they sent the assistant. Each card shows their message count, rank, latest question, and last-active time.</HelpNote>
+      <HelpNote>Your sales reps, ranked by how many messages they sent Hi Tech AI. Each card shows their message count, rank, latest question, and last-active time.</HelpNote>
       <motion.div variants={fadeUp} className="flex items-center justify-between gap-3">
         <p className="text-[14px] text-zinc-500">{s.users.length} {s.users.length===1?'rep':'reps'}</p>
         <ExportButton
@@ -1309,7 +1309,7 @@ function CacheTab({s}) {
         <div className="px-6 py-4 border-b border-zinc-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Cached queries</h2>
-            <p className="text-[12px] text-zinc-500 mt-1 leading-snug">Questions the assistant has answered before — served instantly from cache instead of calling the AI. {(s.cacheTotal||0).toLocaleString()} cached in total, most recent first.</p>
+            <p className="text-[12px] text-zinc-500 mt-1 leading-snug">Questions Hi Tech AI has answered before — served instantly from cache instead of calling the AI. {(s.cacheTotal||0).toLocaleString()} cached in total, most recent first.</p>
           </div>
           <ExportButton
             disabled={!s.cacheEntries.length}
@@ -1322,7 +1322,7 @@ function CacheTab({s}) {
         {!s.cacheEntries.length
           ? <div className="py-16 text-center">
               <p className="text-[13px] text-zinc-500">Nothing cached yet</p>
-              <p className="text-[12px] text-zinc-500 mt-2">The assistant caches answers as reps ask new questions — entries will appear here.</p>
+              <p className="text-[12px] text-zinc-500 mt-2">Hi Tech AI caches answers as reps ask new questions — entries will appear here.</p>
             </div>
           : <>
               {s.cacheEntries.slice((cachePage-1)*PER_PAGE, cachePage*PER_PAGE).map((c,i) => {
@@ -1451,7 +1451,7 @@ function formatReply(text) {
 
 function TypingDots() {
   return (
-    <span className="inline-flex items-center gap-1" aria-label="Assistant is typing">
+    <span className="inline-flex items-center gap-1" aria-label="Hi Tech AI is typing">
       {[0,1,2].map(i=>(
         <motion.span key={i}
           className="w-1.5 h-1.5 rounded-full bg-zinc-400"
@@ -1469,7 +1469,7 @@ const AssistantTag = ({error=false, from_cache=false}) => (
       <Bot size={11} style={{color:ACCENT_DK}}/>
     </span>
     <span className="mono text-[10px] uppercase tracking-widest" style={{color: error ? NEG : ACCENT_DK}}>
-      {error ? 'Error' : 'Assistant'}
+      {error ? 'Error' : 'Hi Tech AI'}
     </span>
     {from_cache && (
       <span className="text-[10px] px-1.5 py-0.5 rounded" style={{color:BLUE, background:'var(--info-bg)'}}>From cache</span>
@@ -1477,9 +1477,41 @@ const AssistantTag = ({error=false, from_cache=false}) => (
   </span>
 );
 
+// Gemini OCR takes several seconds with no progress to report, so a single static
+// line reads as a hang. Cycling stage labels name what's plausibly happening and
+// keep the card visibly alive. The labels are indicative, not measured — they're
+// paced slower than the usual round-trip so the last one holds rather than the
+// list looping and implying a stall.
+const OCR_STAGES = ['Reading receipt…', 'Finding the vendor…', 'Reading the total…', 'Sorting the category…', 'Almost there…'];
+
+function OcrProgress({ reduce }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI(n => Math.min(n + 1, OCR_STAGES.length - 1)), 2200);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="flex items-center gap-2" role="status" aria-live="polite">
+      <RefreshCw size={13} className={reduce ? '' : 'animate-spin'} style={{ color: ACCENT }}/>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span key={i}
+          initial={reduce ? false : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduce ? undefined : { opacity: 0, y: -4 }}
+          transition={{ duration: 0.18 }}
+          className="text-[13px] font-semibold text-zinc-800">
+          {OCR_STAGES[i]}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // A receipt preview bubble: shows extracted fields with Accept / Reject. Until the
 // user accepts, NOTHING is saved server-side. Reject is purely local.
 function ReceiptCard({ card, onAccept, onReject }) {
+  const reduce = useReducedMotion();
+  const scanning = card.status === 'extracting';
   const f = card.fields || {};
   const rows = [
     ['Vendor', f.vendor_name || '—'],
@@ -1489,19 +1521,53 @@ function ReceiptCard({ card, onAccept, onReject }) {
   ];
   return (
     <div className="max-w-[420px] rounded-2xl border border-zinc-200 bg-surface p-4 shadow-sm">
+      {/* While scanning there is nothing to confirm yet, so the header states what's
+          happening instead of asking a question about empty fields. */}
       <div className="flex items-center gap-2 mb-3">
         <Receipt size={15} className="text-zinc-500" />
-        <span className="text-[13px] font-semibold text-zinc-800">Is this right?</span>
+        <span className="text-[13px] font-semibold text-zinc-800">{scanning ? 'Scanning receipt' : 'Is this right?'}</span>
       </div>
-      {card.thumb && <img src={card.thumb} alt="receipt" className="max-h-40 rounded-lg mb-3 border border-zinc-100" />}
-      <dl className="space-y-1.5 mb-3">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-4 text-[13px]">
-            <dt className="text-zinc-400">{k}</dt><dd className="text-zinc-800 font-medium text-right">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {card.status === 'extracting' && <p className="text-[12.5px] text-zinc-500">Reading receipt…</p>}
+      {card.thumb && (
+        <div className="relative overflow-hidden rounded-lg mb-3 border border-zinc-100">
+          <img src={card.thumb} alt="receipt" className="max-h-40 w-auto block"/>
+          {/* Scan line sweeping the image — the clearest signal that the RECEIPT
+              itself is being read, rather than something generic loading. */}
+          {scanning && !reduce && (
+            <motion.div
+              className="absolute inset-x-0 h-1/3 pointer-events-none"
+              style={{ background:`linear-gradient(to bottom, transparent, ${tint(ACCENT,28)}, transparent)` }}
+              initial={{ top:'-33%' }} animate={{ top:'100%' }}
+              transition={{ duration:1.6, repeat:Infinity, ease:'easeInOut' }}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+      )}
+      {/* Shimmering placeholders instead of a column of em-dashes: it reads as
+          "these are coming" rather than "these came back empty". */}
+      {scanning ? (
+        <dl className="space-y-1.5 mb-3">
+          {rows.map(([k]) => (
+            <div key={k} className="flex justify-between items-center gap-4 text-[13px]">
+              <dt className="text-zinc-400">{k}</dt>
+              <dd className="flex-1 max-w-[140px]">
+                <motion.span className="block h-3 rounded bg-zinc-200"
+                  animate={reduce ? undefined : { opacity:[0.45,0.9,0.45] }}
+                  transition={{ duration:1.2, repeat:Infinity, ease:'easeInOut' }}/>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <dl className="space-y-1.5 mb-3">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-4 text-[13px]">
+              <dt className="text-zinc-400">{k}</dt><dd className="text-zinc-800 font-medium text-right">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {scanning && <OcrProgress reduce={reduce}/>}
       {card.status === 'pending' && (
         <div className="flex gap-2">
           <button onClick={onAccept} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-zinc-900 text-on-ink text-[13px] font-semibold py-2 hover:bg-accent transition-colors">
@@ -1983,7 +2049,7 @@ function ChatTab() {
         let detail = `HTTP ${res.status}`;
         try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
         setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
+          text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
       const { text: reply, images, from_cache } = await parseChatReply(res);
@@ -1992,7 +2058,7 @@ function ChatTab() {
       // fetch itself threw → the request never completed (network down, wrong URL,
       // or a genuine CORS block where no response is readable).
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+        text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
     } finally {
       setSending(false);
     }
@@ -2121,7 +2187,7 @@ function ChatTab() {
         try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
         setVoicePhase('preview');
         setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
+          text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
       const { has_speech, transcript } = await parseTranscribeReply(res);
@@ -2138,7 +2204,7 @@ function ChatTab() {
       if (stale()) return;
       setVoicePhase('preview');
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+        text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
     }
   }, [preview, sending, configured, sessionId]);
 
@@ -2177,14 +2243,14 @@ function ChatTab() {
         let detail = `HTTP ${res.status}`;
         try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
         setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-          text:`The assistant workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
+          text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
       const { text: reply, images, from_cache } = await parseChatReply(res);
       setMessages(m => [...m, { role:'assistant', text: reply, images, from_cache, ts:Date.now() }]);
     } catch {
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach the assistant — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+        text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
     } finally {
       setSending(false);
       setVoiceTranscript('');
@@ -2282,7 +2348,7 @@ function ChatTab() {
               <Bot size={18} style={{color:ACCENT_DK}}/>
             </span>
             <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-zinc-900 leading-tight">Hi Tech Assistant</p>
+              <p className="text-[15px] font-semibold text-zinc-900 leading-tight">Hi Tech AI</p>
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
                 <span className="mono text-[10px] uppercase tracking-widest text-zinc-500">live · n8n</span>
@@ -2318,7 +2384,7 @@ function ChatTab() {
                 </span>
                 <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi Tech</p>
                 <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
-                  Product specs, pricing, and availability — answered straight from the Hi Tech catalogue. The same assistant as the WhatsApp bot, right here.
+                  Product specs, pricing, and availability — answered straight from the Hi Tech catalogue. The same AI as the WhatsApp bot, right here.
                 </p>
                 {receiptEnabled && (
                   <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5">
@@ -2446,8 +2512,8 @@ function ChatTab() {
                 disabled={!configured}
                 onChange={e=>{ setInput(e.target.value); grow(); }}
                 onKeyDown={onKeyDown}
-                placeholder={configured ? 'Message the assistant…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
-                aria-label="Message the assistant"
+                placeholder={configured ? 'Message Hi Tech AI…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
+                aria-label="Message Hi Tech AI"
                 className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-surface border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <button
@@ -2461,6 +2527,13 @@ function ChatTab() {
               </button>
             </div>
           )}
+
+          {/* Accuracy disclaimer. Deliberately quiet and always present — it is a
+              standing caveat, not a notification, and reps quoting specs to
+              customers are exactly who needs to see it. */}
+          <p className="text-[11px] text-zinc-500 text-center mt-2.5 px-2 leading-snug">
+            Hi Tech AI can make mistakes. Please verify important information.
+          </p>
         </div>
 
       </Panel>
@@ -3379,7 +3452,7 @@ const SALES_NAV = [
   {id:'conversations', label:'Conversations', icon:MessageSquare},
   {id:'users',         label:'Reps',          icon:Users},
   {id:'cache',         label:'Cache',         icon:Database},
-  {id:'chat',          label:'Chat',          icon:Bot, sub:'Test your assistant live'},
+  {id:'chat',          label:'Chat',          icon:Bot, sub:'Test Hi Tech AI live'},
 ];
 const EXPENSES_NAV = {id:'expenses', label:'Expenses', icon:Receipt, sub:'Employee receipts & spend'};
 const TEAM_NAV = {id:'team', label:'Team', icon:Shield, sub:'Manage logins & roles'};
