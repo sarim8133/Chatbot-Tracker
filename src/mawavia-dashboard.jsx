@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -1588,6 +1588,55 @@ function ReceiptCard({ card, onAccept, onReject }) {
   );
 }
 
+// Copy a reply to the clipboard. Reps relay these answers to customers, so the
+// text is copied RAW, *asterisks* included — that's WhatsApp's bold syntax and
+// the usual destination, where it renders as intended rather than as literal
+// punctuation. navigator.clipboard needs a secure context; the textarea fallback
+// covers anything serving this over plain http.
+function CopyButton({ text }) {
+  const [done, setDone] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const legacyCopy = (s) => {
+    const ta = document.createElement('textarea');
+    ta.value = s;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { return document.execCommand('copy'); }
+    finally { document.body.removeChild(ta); }   // remove even if the copy threw
+  };
+
+  const copy = async () => {
+    const s = String(text ?? '');
+    if (!s) return;
+    let ok;
+    try {
+      await navigator.clipboard.writeText(s);
+      ok = true;
+    } catch {
+      try { ok = legacyCopy(s); } catch { ok = false; }
+    }
+    if (!ok) return;
+    setDone(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setDone(false), 1600);
+  };
+
+  return (
+    <button type="button" onClick={copy} title="Copy this reply"
+      aria-label={done ? 'Copied' : 'Copy this reply'}
+      className="inline-flex items-center gap-1.5 min-h-[28px] px-1.5 text-[11px] text-zinc-400 rounded-md transition-colors hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+      {done
+        ? <><Check size={12} style={{color:POS}}/> <span style={{color:POS}}>Copied</span></>
+        : <><Copy size={12}/> Copy</>}
+    </button>
+  );
+}
+
 // Dislike-only feedback under an assistant reply. There is no "like" — only
 // failures are actionable. A bare vote isn't actionable either, so the picker
 // insists on a reason tag and the row we write carries the whole exchange plus
@@ -1617,17 +1666,25 @@ function BadAnswerButton({ m, question, sessionId }) {
     }
   };
 
+  // Copy stays available after reporting — a wrong answer is often still worth
+  // pasting somewhere, and losing the control on report would be a surprise.
   if (done) return (
-    <p className="flex items-center gap-1.5 text-[11px] text-zinc-400 px-1">
-      <CheckCircle2 size={11}/> Thanks — logged for review.
-    </p>
+    <div className="flex items-center flex-wrap gap-1">
+      <CopyButton text={m.text}/>
+      <span className="flex items-center gap-1.5 text-[11px] text-zinc-400 px-1.5">
+        <CheckCircle2 size={11}/> Thanks — logged for review.
+      </span>
+    </div>
   );
 
   if (!open) return (
-    <button type="button" onClick={() => setOpen(true)} title="Report a bad answer"
-      className="inline-flex items-center gap-1.5 min-h-[28px] px-1.5 text-[11px] text-zinc-400 rounded-md transition-colors hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-      <ThumbsDown size={12}/> Bad answer
-    </button>
+    <div className="flex items-center flex-wrap gap-1">
+      <CopyButton text={m.text}/>
+      <button type="button" onClick={() => setOpen(true)} title="Report a bad answer"
+        className="inline-flex items-center gap-1.5 min-h-[28px] px-1.5 text-[11px] text-zinc-400 rounded-md transition-colors hover:text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        <ThumbsDown size={12}/> Bad answer
+      </button>
+    </div>
   );
 
   return (
