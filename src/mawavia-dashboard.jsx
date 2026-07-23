@@ -1357,6 +1357,20 @@ function currentUserId() {
   return jwtPayload()?.sub || null;
 }
 
+// Headers for the chat webhook, carrying the signed-in user's bearer token. The
+// webhook is being moved behind JWT validation (see SECURITY.md) — this is the
+// client half. Best-effort ON PURPOSE: until the workflow enforces the token, a
+// failure here must not break chat, and every dashboard user is signed in anyway.
+// Once the server validates it, an absent/expired token is correctly rejected
+// there, and the workflow can derive Name from the JWT instead of trusting the
+// body — closing the attribution-spoofing gap.
+async function chatWebhookHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  try { const t = await getAccessToken(); if (t) h.Authorization = `Bearer ${t}`; }
+  catch { /* not signed in — the server will reject once validation is live */ }
+  return h;
+}
+
 // Normalize n8n's webhook response → { text, images, from_cache }. The cloned
 // workflow answers with { reply, images }, but we check the other common field
 // names too so a tweak to the "Respond to Webhook" node won't break the UI.
@@ -2077,7 +2091,7 @@ function ChatTab() {
     try {
       const res = await fetch(N8N_CHAT_WEBHOOK, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await chatWebhookHeaders(),
         body: JSON.stringify({ message: text, session_id: sessionId, name: currentUserName() }),
       });
       // The request reached n8n but the workflow errored (e.g. a failing node).
@@ -2214,7 +2228,7 @@ function ChatTab() {
       const audio_base64 = await blobToBase64(wav);
       const res = await fetch(N8N_CHAT_WEBHOOK, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await chatWebhookHeaders(),
         body: JSON.stringify({ audio_base64, mime_type: 'audio/wav', session_id: sessionId, name: currentUserName() }),
       });
       // Same error handling as the typed-message path — mirror it verbatim.
@@ -2273,7 +2287,7 @@ function ChatTab() {
     try {
       const res = await fetch(N8N_CHAT_WEBHOOK, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await chatWebhookHeaders(),
         body: JSON.stringify({ message: text, session_id: sessionId, name: currentUserName() }),
       });
       if (!res.ok) {
