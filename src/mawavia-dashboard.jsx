@@ -13,7 +13,7 @@ import {
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
-import { validateImage, compressImage, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
+import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { useTheme } from './theme';
@@ -2316,9 +2316,10 @@ function ChatTab() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const onPickReceipt = useCallback(async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  // One path for every way a receipt image can arrive — the file picker and a
+  // clipboard paste both land here, so the OCR/dedup/confirm flow can't drift
+  // between them.
+  const startReceipt = useCallback(async (file) => {
     if (!file) return;
     const bad = validateImage(file);
     if (bad) { setMessages(m => [...m, { role:'assistant', error:true, text:bad, ts:Date.now() }]); return; }
@@ -2349,6 +2350,35 @@ function ChatTab() {
                   text: ex.message || 'Couldn’t read that receipt — try a sharper photo.' }));
     }
   }, []);
+
+  const onPickReceipt = useCallback((e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';   // same file twice in a row must still fire onChange
+    startReceipt(file);
+  }, [startReceipt]);
+
+  // Paste a screenshot straight into the chat (Ctrl/Cmd+V). Bound to the document
+  // rather than the textarea so it works wherever the caret is in this tab — a
+  // screenshot is usually taken, then pasted, with nothing focused.
+  useEffect(() => {
+    if (!receiptEnabled) return;
+    const onPaste = (e) => {
+      // Don't hijack a paste into some other input (the rename field, a search box).
+      const t = e.target;
+      const tag = t?.tagName;
+      if (t?.isContentEditable || ((tag === 'INPUT' || tag === 'TEXTAREA') && t !== taRef.current)) return;
+      // Mid-recording or mid-send, a receipt would race the composer's state machine.
+      if (sending || voicePhase !== 'idle') return;
+
+      const file = imageFromClipboard(e.clipboardData);
+      if (!file) return;   // plain text paste — leave it alone
+
+      e.preventDefault();  // otherwise the image can also drop into the textarea
+      startReceipt(file);
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [receiptEnabled, sending, voicePhase, startReceipt]);
 
   const acceptReceipt = useCallback(async (cid) => {
     const card = messages.find(m => m.cid===cid)?.card;
@@ -2427,7 +2457,7 @@ function ChatTab() {
                   <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5">
                     <Receipt size={15} className="text-zinc-500 shrink-0 mt-0.5"/>
                     <p className="text-[12.5px] text-zinc-600 leading-relaxed">
-                      <span className="font-semibold text-zinc-800">Log an expense:</span> tap the receipt icon below and pick a photo — I’ll read the vendor, total and category, and you just confirm before it’s saved.
+                      <span className="font-semibold text-zinc-800">Log an expense:</span> tap the receipt icon below, or just paste a screenshot — I’ll read the vendor, total and category, and you just confirm before it’s saved.
                     </p>
                   </div>
                 )}

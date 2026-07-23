@@ -28,6 +28,22 @@ export function validateImage(file) {
   return null;
 }
 
+// Pull an image out of a paste/drop DataTransfer, or null if there isn't one.
+// items[] carries screenshots (Windows Snip, macOS Cmd+Shift+4, Android); files[]
+// carries a file copied in the OS file manager. Neither alone covers every
+// platform, so both are checked. Returns null for a plain-text paste, which the
+// caller must treat as "not mine" and let through untouched.
+export function imageFromClipboard(dt) {
+  if (!dt) return null;
+  for (const it of dt.items || []) {
+    if (it.kind === 'file' && String(it.type || '').startsWith('image/')) {
+      const f = it.getAsFile?.();
+      if (f) return f;
+    }
+  }
+  return Array.from(dt.files || []).find(f => String(f.type || '').startsWith('image/')) || null;
+}
+
 const canvasToBlob = (canvas, quality) =>
   new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
 
