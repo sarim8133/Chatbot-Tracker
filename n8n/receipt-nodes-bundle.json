@@ -1,0 +1,1326 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const msg = $('WhatsApp Trigger').first().json.messages?.[0] || {};\nconst from = msg.from || '';\nconst img = msg.image || {};\nconst mime = img.mime_type || '';\nconst size = img.file_size || 0;\nconst OK_MIME = ['image/jpeg', 'image/png', 'image/webp'];\n\n// WhatsApp itself rejects images over 5 MB, so the size check is a floor in\n// case Meta raises the cap - not the thing doing the real work.\nif (!img.id) {\n  return [{ json: { ok: false, from, reason: 'NO_IMAGE',\n    reply: \"\\u274c I couldn't read that image. Please send the receipt photo again.\" } }];\n}\nif (!OK_MIME.includes(mime)) {\n  return [{ json: { ok: false, from, reason: 'BAD_MIME',\n    reply: '\\u274c Unsupported file type. Send a JPG, PNG or WebP photo.' } }];\n}\nif (size > 10 * 1024 * 1024) {\n  return [{ json: { ok: false, from, reason: 'TOO_LARGE',\n    reply: '\\u274c That image is too large. Max 10 MB.' } }];\n}\n\nreturn [{ json: {\n  ok: true,\n  from,\n  image_id: img.id,\n  mime_type: mime,\n  caption: img.caption || '',\n} }];"
+      },
+      "name": "Receipt Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Receipt OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "name": "Send Receipt Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1408,
+        4608
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_allowed_senders?active=is.true&select=phone,employee_name,department&phone=eq.' + $json.from }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Look Up Sender",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1408,
+        4400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/app_users?select=user_id,full_name,department,role&phone=eq.' + $('Receipt Guard').first().json.from }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Look Up App User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1184,
+        4400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const g = $('Receipt Guard').first().json;\n\n// Both lookups are best-effort (onError: continue), so they can hand back an\n// error object, an empty array, or a single row. Flatten all three shapes.\nconst firstRow = (nodeName) => {\n  const items = $(nodeName).all();\n  if (!items.length) return {};\n  const j = items[0].json;\n  const row = Array.isArray(j) ? (j[0] || {}) : (j || {});\n  return (row && !row.error && !row.message) ? row : {};\n};\n\nconst wl = firstRow('Look Up Sender');   // wap_allowed_senders - the WhatsApp whitelist\nconst au = firstRow('Look Up App User'); // app_users - only if they also have a dashboard login\n\nconst uid = au.user_id || null;\n\nreturn [{ json: {\n  authorized: !!wl.phone,\n  from: g.from,\n  image_id: g.image_id,\n  mime_type: g.mime_type,\n  uid,\n  employee_name: wl.employee_name || au.full_name || null,\n  department: wl.department || au.department || null,\n\n  // Storage RLS scopes reads to the folder named after the viewer's auth uid.\n  // A sender with no dashboard login gets a phone-named folder, readable only\n  // by accountants/admins - and it starts resolving to their own uid the day\n  // their phone lands in app_users.\n  storage_prefix: uid || ('whatsapp/' + g.from),\n} }];"
+      },
+      "name": "Sender Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -736,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=⛔ You aren't set up to submit expenses yet. Ask your admin to add your number.",
+        "additionalFields": {}
+      },
+      "name": "Send Not Authorized",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        4608
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $('Sender Gate').first().json.image_id }}"
+      },
+      "name": "Get Media URL",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        4400
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -288,
+        4400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GKWpewmFovqBnoK6",
+          "name": "Mawavia Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const keys = Object.keys(item.binary || {});\n  const key = item.binary && item.binary.data ? 'data' : keys[0];\n\n  if (!key) {\n    item.json.base64Image = '';\n    item.json.mimeType = 'image/jpeg';\n    continue;\n  }\n\n  const buffer = await this.helpers.getBinaryDataBuffer(i, key);\n  item.json.base64Image = buffer.toString('base64');\n  item.json.mimeType = item.binary[key].mimeType || 'image/jpeg';\n}\n\nreturn items;"
+      },
+      "name": "Image to Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.base64Image }}",
+        "dataPropertyName": "image_hash"
+      },
+      "name": "Hash Image",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        160,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"contents\": [ { \"parts\": [ { \"text\": \"Extract the data from this receipt and return ONLY a valid JSON object. Do not include any markdown formatting, conversational text, or explanations. You must strictly use this EXACT JSON structure. If a value cannot be found, use null for strings or 0 for numbers. Most receipts are from businesses in Pakistan: if no currency is explicitly shown, or the symbol is Rs or ₨, use PKR. The category field MUST be EXACTLY one of these seven values: Food, Fuel, Travel, Supplies, Utilities, Repairs, Other. Choose the single closest match, and use Other if unsure. Structure: { \\\"is_receipt\\\": true, \\\"vendor_name\\\": \\\"Merchant Name\\\", \\\"date\\\": \\\"YYYY-MM-DD\\\", \\\"receipt_number\\\": \\\"Invoice or Receipt Number\\\", \\\"payment_method\\\": \\\"Cash, Visa, etc.\\\", \\\"tax_id\\\": \\\"Vendor Tax ID or VAT\\\", \\\"category\\\": \\\"Food\\\", \\\"currency\\\": \\\"PKR\\\", \\\"subtotal\\\": 0.00, \\\"tax\\\": 0.00, \\\"total\\\": 0.00, \\\"ai_confidence\\\": 0.95, \\\"ai_flag\\\": \\\"Notes on blurriness or missing data (or null if perfect)\\\", \\\"items\\\": [ { \\\"description\\\": \\\"Item name\\\", \\\"qty\\\": 1, \\\"unit_price\\\": 0.00, \\\"amount\\\": 0.00 } ] }. If the image is NOT a receipt, return exactly this JSON and nothing else: { \\\"is_receipt\\\": false }\" }, { \"inlineData\": { \"mimeType\": \"{{ $('Image to Base64').first().json.mimeType }}\", \"data\": \"{{ $('Image to Base64').first().json.base64Image }}\" } } ] } ], \"generationConfig\": { \"responseMimeType\": \"application/json\" } }",
+        "options": {}
+      },
+      "name": "Gemini OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        384,
+        4400
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "KNzOeURXJScWzKuu",
+          "name": "Mawavia Gemini Query Auth"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $input.item.json;\n\nlet rawText = '';\nif (response.candidates?.[0]?.content?.parts) {\n  rawText = response.candidates[0].content.parts\n    .filter(p => p.text !== undefined).map(p => p.text).join('\\n');\n} else {\n  rawText = response.text || response.message?.content || response.output || '';\n}\n\nconst fence = String.fromCharCode(96);\nconst clean = rawText\n  .replace(new RegExp(fence + '{3}json', 'gi'), '')\n  .replace(new RegExp(fence + '{3}', 'gi'), '')\n  .trim();\n\nlet receipt = null;\ntry {\n  receipt = JSON.parse(clean);\n} catch (e) {\n  const match = clean.match(/[\\{\\[][\\s\\S]*[\\}\\]]/);\n  if (match) {\n    try { receipt = JSON.parse(match[0]); } catch (innerE) {}\n  }\n}\n\nfunction normalizeCategory(raw) {\n  const s = String(raw || '').toLowerCase().trim();\n  const CANON = ['Food', 'Fuel', 'Travel', 'Supplies', 'Utilities', 'Repairs', 'Other'];\n  if (/food|meal|restaurant|grocer|cafe|snack|lunch|dinner|breakfast|bakery|\\btea\\b|eat/.test(s)) return 'Food';\n  if (/fuel|petrol|diesel|\\bcng\\b|gasol|filling station|gas station|\\bpump\\b/.test(s)) return 'Fuel';\n  if (/travel|taxi|uber|careem|indrive|flight|\\bair\\b|hotel|\\bfare\\b|\\bbus\\b|train|toll|rickshaw|transport/.test(s)) return 'Travel';\n  if (/suppl|stationer|office|hardware|\\bpart\\b|\\btool|material|equipment/.test(s)) return 'Supplies';\n  if (/utilit|electric|internet|wifi|\\bphone\\b|mobile|\\bbill\\b|water/.test(s)) return 'Utilities';\n  if (/repair|mainten|service|\\bfix\\b|spare/.test(s)) return 'Repairs';\n  const hit = CANON.find(x => x.toLowerCase() === s);\n  return hit || 'Other';\n}\n\nconst sd = $('Sender Gate').first().json;\nconst receiptHash = $('Hash Image').first().json.image_hash || null;\nconst expenseId = 'EXP-' + new Date().getFullYear() + '-'\n  + Date.now().toString(36).toUpperCase()\n  + Math.random().toString(36).slice(2, 6).toUpperCase();\n\nconst base = {\n  expense_id: expenseId,\n  receipt_hash: receiptHash,\n  sender_phone: sd?.from || null,\n  employee_name: sd?.employee_name || null,\n  department: sd?.department || null,\n  currency: 'PKR',\n  processed_at: new Date().toISOString(),\n};\n\nif (!receipt || typeof receipt !== 'object' || receipt.is_receipt === false) {\n  return { json: { ...base,\n    status: 'rejected', ai_flag: 'REJECTED_NOT_RECEIPT', is_receipt: false,\n    total: 0, subtotal: 0, tax: 0, items: [],\n  } };\n}\n\nreceipt.total = parseFloat(receipt.total) || 0;\nreceipt.subtotal = parseFloat(receipt.subtotal) || 0;\nreceipt.tax = parseFloat(receipt.tax) || 0;\n\nif (receipt.subtotal === 0 && receipt.total > 0) {\n  receipt.subtotal = parseFloat((receipt.total - receipt.tax).toFixed(2));\n}\n\nif (!Array.isArray(receipt.items)) receipt.items = [];\nreceipt.items = receipt.items.map(i => ({\n  description: i.description || 'Item',\n  qty: parseFloat(i.qty) || 1,\n  unit_price: parseFloat(i.unit_price) || 0,\n  amount: parseFloat(i.amount) || 0,\n}));\n\nreturn { json: { ...base,\n  vendor_name: receipt.vendor_name || null,\n  date: receipt.date || null,\n  receipt_number: receipt.receipt_number || null,\n  payment_method: receipt.payment_method || null,\n  tax_id: receipt.tax_id || null,\n  category: normalizeCategory(receipt.category),\n  subtotal: receipt.subtotal,\n  tax: receipt.tax,\n  total: receipt.total,\n  items: receipt.items,\n  is_receipt: true,\n  ai_confidence: parseFloat(receipt.ai_confidence) || 0.85,\n  ai_flag: receipt.ai_flag || null,\n  status: 'logged',\n} };"
+      },
+      "name": "Parse OCR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_receipt }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Is Receipt?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=❌ I couldn't find a receipt in that photo.\n\nPlease send a clear, well-lit shot of the whole receipt and try again.",
+        "additionalFields": {}
+      },
+      "name": "Send Not A Receipt",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1056,
+        4608
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "vendor_name",
+              "value": "=eq.{{ $('Parse OCR').first().json.vendor_name }}"
+            },
+            {
+              "name": "total",
+              "value": "=eq.{{ $('Parse OCR').first().json.total }}"
+            },
+            {
+              "name": "date",
+              "value": "=eq.{{ $('Parse OCR').first().json.date }}"
+            },
+            {
+              "name": "status",
+              "value": "neq.rejected"
+            },
+            {
+              "name": "select",
+              "value": "expense_id,receipt_number,employee_name,receipt_hash"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Check Content Dup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1056,
+        4400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const f    = $('Parse OCR').first().json;\nconst me   = ($('Sender Gate').first().json.employee_name || '').trim().toLowerCase();\nconst hash = $('Hash Image').first().json.image_hash || null;\nconst norm = v => String(v ?? '').replace(/[\\s\\-\\/]/g, '').toUpperCase();\nconst mine = norm(f.receipt_number);\n\nconst rows = $('Check Content Dup').all()\n  .map(i => i.json).flatMap(j => Array.isArray(j) ? j : [j])\n  .filter(r => r && r.expense_id);\n\nlet hard = null, soft = null;\nfor (const r of rows) {\n  const theirs   = norm(r.receipt_number);\n  const sameUser = (r.employee_name || '').trim().toLowerCase() === me;\n\n  if (hash && r.receipt_hash && r.receipt_hash === hash) { hard = r; break; }  // 1\n  if (mine && theirs) {                                                        // 2 & 3\n    if (mine === theirs) { hard = r; break; }\n    continue;                        // different receipt numbers = different receipts\n  }\n  if (sameUser) { hard = r; break; }                                           // 4\n  soft = soft || r;                                                            // 5\n}\n\nreturn [{ json: {\n  is_dup:      !!hard,\n  dup_id:      hard ? hard.expense_id : null,\n  image_hash:  hash,\n  soft_dup_id: soft ? soft.expense_id : null,\n  soft_dup_by: soft ? soft.employee_name : null,\n}}];"
+      },
+      "name": "Is Content Dup?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_dup }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Dup?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1504,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=⚠️ *Already logged*\n\nThis receipt is already on file as *{{ $json.dup_id }}*, so it wasn't logged again.\n\nIf this really is a different receipt, send it to accounts.",
+        "additionalFields": {}
+      },
+      "name": "Send Duplicate",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1728,
+        4192
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('Parse OCR').first().json;\nconst g = $('Sender Gate').first().json;\nconst b64 = $('Image to Base64').first().json.base64Image || '';\nconst mime = $('Image to Base64').first().json.mimeType || 'image/jpeg';\n\nconst path = g.storage_prefix + '/' + f.expense_id + '.jpg';\nconst buffer = Buffer.from(b64, 'base64');\n\n// Rebuilt from the base64 rather than passed through as binary, so this node\n// depends only on values that are already on the run - the same trick the web\n// workflow uses in its Prep Save.\nreturn {\n  json: { uid: g.uid, expense_id: f.expense_id, path, mime },\n  binary: { data: await this.helpers.prepareBinaryData(buffer, f.expense_id + '.jpg', mime) },\n};"
+      },
+      "name": "Prep Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/storage/v1/object/receipts/' + $('Prep Save').item.json.path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "={{ $('Prep Save').item.json.mime }}"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "name": "Upload to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1952,
+        4400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('Parse OCR').first().json;\nconst g = $('Sender Gate').first().json;\nconst prep = $('Prep Save').first().json;\nconst dup = $('Is Content Dup?').first().json || {};\n\nconst uploaded = $('Upload to Storage').first();\nconst okUpload = uploaded && !uploaded.json?.error;\n\nconst num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };\nconst CATS = ['Food','Fuel','Travel','Supplies','Utilities','Repairs','Other'];\n\nreturn { json: {\n  expense_id: prep.expense_id,\n  vendor_name: f.vendor_name || null,\n  date: f.date || null,\n  receipt_number: f.receipt_number || null,\n  payment_method: f.payment_method || null,\n  tax_id: f.tax_id || null,\n  category: CATS.includes(f.category) ? f.category : 'Other',\n  currency: 'PKR',\n  subtotal: num(f.subtotal),\n  tax: num(f.tax),\n  total: num(f.total),\n  items: Array.isArray(f.items) ? f.items : [],\n  is_receipt: true,\n  ai_confidence: num(f.ai_confidence),\n\n  // Persisted so the NEXT upload can be matched against it. Without this the\n  // hash layer of the dedupe never fires, because nothing writes a hash.\n  receipt_hash: dup.image_hash || null,\n\n  // Same vendor/date/total as someone else's receipt, with no receipt number to\n  // tell them apart. Not blocked - flagged for the accountant.\n  ai_flag: dup.soft_dup_id\n    ? 'POSSIBLE_DUPLICATE of ' + dup.soft_dup_id + ' (' + (dup.soft_dup_by || 'another employee') + ')'\n    : (f.ai_flag || null),\n\n  sender_phone: g.from || null,\n  employee_name: g.employee_name || null,\n  department: g.department || null,\n  status: 'logged',\n  processed_at: new Date().toISOString(),\n  image_path: okUpload ? prep.path : null,\n} };"
+      },
+      "name": "Build Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2176,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Insert Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2400,
+        4400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=❌ Something went wrong saving that receipt. Please try again in a minute.",
+        "additionalFields": {}
+      },
+      "name": "Send Save Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2624,
+        4608
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Build Row').first().json;\nconst num = v => parseFloat(v) || 0;\nconst fmt = n => 'PKR ' + num(n).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });\n\nconst items = Array.isArray(d.items) ? d.items : [];\nconst cP = Math.round(num(d.ai_confidence) * 100);\nconst cE = cP >= 85 ? '\\u{1F7E2}' : cP >= 70 ? '\\u{1F7E1}' : '\\u{1F534}';\n\nconst itemLines = items.slice(0, 5)\n  .map((it, i) => '  ' + (i + 1) + '. ' + it.description + ': ' + fmt(it.amount)).join('\\n');\nconst more = items.length > 5 ? '\\n  _...and ' + (items.length - 5) + ' more_' : '';\n\nconst msg = '\\u2705 *Receipt Logged \\u2014 Hi Tech Machinery*\\n'\n  + '\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n'\n  + '\\u{1F3EA} *Vendor:* ' + (d.vendor_name || 'Unknown') + '\\n'\n  + '\\u{1F4C5} *Date:* ' + (d.date || 'Unknown') + '\\n'\n  + '\\u{1F4B5} *Subtotal:* ' + fmt(d.subtotal) + '\\n'\n  + (num(d.tax) > 0 ? '\\u{1F9FE} *Tax:* ' + fmt(d.tax) + '\\n' : '')\n  + '\\u{1F4B0} *Total:* *' + fmt(d.total) + '*\\n'\n  + '\\u{1F3F7}\\uFE0F *Category:* ' + (d.category || 'Other') + '\\n'\n  + '\\u{1F4B3} *Payment:* ' + (d.payment_method || 'Unknown') + '\\n'\n  + (items.length ? '\\n\\u{1F4CB} *Items (' + items.length + '):*\\n' + itemLines + more + '\\n' : '')\n  + '\\n' + cE + ' *AI confidence:* ' + cP + '%\\n'\n  + '\\u{1F194} *Expense ID:* ' + d.expense_id + '\\n\\n'\n  // States the whole rule - which emoji, on which message, for how long -\n  // because this is the only place the rep will ever read it.\n  + '_Something wrong? React \\u{1F44E} to *this* message within 24 hours and '\n  + \"I'll remove it. Then send the corrected photo._\";\n\nreturn [{ json: { message: msg, expense_id: d.expense_id } }];"
+      },
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2624,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "name": "Send Summary",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2848,
+        4400
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses?expense_id=eq.' + $('Build Summary').first().json.expense_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ wa_message_id: ($json.messages && $json.messages[0] && $json.messages[0].id) || $json.id || null }) }}",
+        "options": {}
+      },
+      "name": "Link Reaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3072,
+        4400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $('WhatsApp Trigger').first().json.messages?.[0] || {};\nconst r = m.reaction || {};\nconst emoji = String(r.emoji || '');\nconst messageId = r.message_id || '';\n\n// Removing a reaction arrives as an empty emoji. That is not a signal, and\n// must not be read as one.\nreturn [{ json: {\n  proceed: !!messageId && emoji !== '',\n  from: m.from || '',\n  message_id: messageId,\n  emoji,\n} }];"
+      },
+      "name": "Reaction Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.proceed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Is Reaction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wa_message_id",
+              "value": "=eq.{{ $('Reaction Router').first().json.message_id }}"
+            },
+            {
+              "name": "sender_phone",
+              "value": "=eq.{{ $('Reaction Router').first().json.from }}"
+            },
+            {
+              "name": "select",
+              "value": "expense_id,vendor_name,total,status,processed_at,image_path"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Find Expense",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1408,
+        5100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = $('Reaction Router').first().json;\n\nconst rows = $('Find Expense').all()\n  .map(i => i.json).flatMap(j => Array.isArray(j) ? j : [j])\n  .filter(r => r && r.expense_id);\n\nconst row = rows[0] || null;\n\n// A reaction on anything else - a chatbot answer, someone else's summary -\n// lands here too. Silence is the right answer to those, and the only case\n// where silence is right.\n// The undo deletes the row outright, so a second reaction on the same message\n// finds nothing and lands here too - the rep has already been told it was\n// removed, so there is nothing left to say.\nif (!row) return [{ json: { action: 'ignore', expense_id: null, image_path: null, reply: '' } }];\n\nconst UNDO = ['\\u{1F44E}', '\\u274C', '\\u2716', '\\u274E', '\\u{1F6AB}', '\\u{1F645}', '\\u{1F5D1}', '\\u26D4'];\nconst isUndo = UNDO.some(e => q.emoji.includes(e));\nconst id = row.expense_id;\n\n// They reacted to their own receipt with something that does not mean undo.\n// Saying so beats staying quiet, which reads as \"done\" and leaves a receipt\n// logged that they believe they cancelled.\nif (!isUndo) {\n  return [{ json: { action: 'note', expense_id: id,\n    reply: '\\u2139\\uFE0F *' + id + '* is still logged.\\n\\n'\n      + 'To remove it, react \\u{1F44E} to that receipt message.' } }];\n}\n\nconst WINDOW_MS = 24 * 60 * 60 * 1000;\nif (Date.now() - new Date(row.processed_at).getTime() > WINDOW_MS) {\n  return [{ json: { action: 'note', expense_id: id,\n    reply: '\\u23F3 *' + id + \"* is more than 24 hours old, so I can't remove it now. \"\n      + 'Ask accounts to take it off.' } }];\n}\n\nreturn [{ json: { action: 'void', expense_id: id, image_path: row.image_path || null, reply: '' } }];"
+      },
+      "name": "Classify Reaction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "void",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Undo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -960,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.reply }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Needs Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1184,
+        5308
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "name": "Send Reaction Note",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -960,
+        5308
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses?expense_id=eq.' + $json.expense_id + '&sender_phone=eq.' + $('Reaction Router').first().json.from }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Delete Expense",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -736,
+        5100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Classify Reaction').first().json.image_path }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Has Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -512,
+        5100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/storage/v1/object/receipts/' + $('Classify Reaction').first().json.image_path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Delete Receipt Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -288,
+        5100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=🗑️ Removed — *{{ $('Classify Reaction').first().json.expense_id }}* and its photo are deleted.\n\nSend the corrected photo whenever you're ready.",
+        "additionalFields": {}
+      },
+      "name": "Send Undone",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -64,
+        5100
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receipt Guard": {
+      "main": [
+        [
+          {
+            "node": "Receipt OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receipt OK?": {
+      "main": [
+        [
+          {
+            "node": "Look Up Sender",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Receipt Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up Sender": {
+      "main": [
+        [
+          {
+            "node": "Look Up App User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up App User": {
+      "main": [
+        [
+          {
+            "node": "Sender Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sender Gate": {
+      "main": [
+        [
+          {
+            "node": "Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          {
+            "node": "Get Media URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Not Authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Media URL": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Image to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image to Base64": {
+      "main": [
+        [
+          {
+            "node": "Hash Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Image": {
+      "main": [
+        [
+          {
+            "node": "Gemini OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini OCR": {
+      "main": [
+        [
+          {
+            "node": "Parse OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OCR": {
+      "main": [
+        [
+          {
+            "node": "Is Receipt?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Receipt?": {
+      "main": [
+        [
+          {
+            "node": "Check Content Dup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Not A Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Content Dup": {
+      "main": [
+        [
+          {
+            "node": "Is Content Dup?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Content Dup?": {
+      "main": [
+        [
+          {
+            "node": "Dup?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dup?": {
+      "main": [
+        [
+          {
+            "node": "Send Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prep Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Save": {
+      "main": [
+        [
+          {
+            "node": "Upload to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Storage": {
+      "main": [
+        [
+          {
+            "node": "Build Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row": {
+      "main": [
+        [
+          {
+            "node": "Insert Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Row": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Send Save Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Summary": {
+      "main": [
+        [
+          {
+            "node": "Link Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reaction Router": {
+      "main": [
+        [
+          {
+            "node": "Is Reaction?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Reaction?": {
+      "main": [
+        [
+          {
+            "node": "Find Expense",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Expense": {
+      "main": [
+        [
+          {
+            "node": "Classify Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Reaction": {
+      "main": [
+        [
+          {
+            "node": "Undo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Undo?": {
+      "main": [
+        [
+          {
+            "node": "Delete Expense",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Expense": {
+      "main": [
+        [
+          {
+            "node": "Has Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image?": {
+      "main": [
+        [
+          {
+            "node": "Delete Receipt Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Undone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Receipt Image": {
+      "main": [
+        [
+          {
+            "node": "Send Undone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Reply?": {
+      "main": [
+        [
+          {
+            "node": "Send Reaction Note",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}
