@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -1984,6 +1984,7 @@ function ChatTab() {
   const [messages, setMessages] = useState(() => loadThread(sessionId));
   const [input,    setInput]    = useState('');
   const [sending,  setSending]  = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const scrollRef = useRef(null);
   const taRef     = useRef(null);
   const fileRef   = useRef(null);
@@ -2069,11 +2070,13 @@ function ChatTab() {
     recorderRef.current?.cancel();
   }, []);
 
-  // Keep the thread pinned to the newest message.
+  // Keep the thread pinned to the newest message. `expanded` is a dependency
+  // because enlarging changes the container's height without changing its
+  // scrollTop, which would otherwise strand the newest message off-screen.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: reduce ? 'auto' : 'smooth' });
-  }, [messages, sending, reduce]);
+  }, [messages, sending, reduce, expanded]);
 
   const grow = useCallback(() => {
     const ta = taRef.current; if (!ta) return;
@@ -2431,9 +2434,49 @@ function ChatTab() {
     setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'rejected' } } : msg));
   }, []);
 
+  // Same contract as ContentModal: Escape closes, and the page behind stops
+  // scrolling while the chat owns the viewport.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = e => { if (e.key === 'Escape') setExpanded(false); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [expanded]);
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="show">
-      <Panel className="flex flex-col overflow-hidden" style={{height:'calc(100vh - 260px)', minHeight:'440px'}}>
+      {/* Backdrop only — the panel itself is NOT moved into a portal. Keeping it
+          in place means the same DOM nodes are reused, so the thread's scroll
+          position and the caret in the composer survive the toggle. */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+            transition={{duration:reduce?0:0.18}}
+            className="fixed inset-0 z-40"
+            style={{background:'rgba(15,23,42,0.65)', backdropFilter:'blur(4px)'}}
+            onClick={()=>setExpanded(false)}
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Full-bleed on a phone, inset with the page showing through on a larger
+          screen. The height is dvh rather than the inset on mobile: a fixed
+          element is sized against the LAYOUT viewport, so the soft keyboard
+          would sit on top of the composer instead of shortening the panel.
+          Above sm there is no soft keyboard to fight, so the insets size it. */}
+      <Panel
+        className={`flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 h-[100dvh] sm:inset-4 sm:h-auto lg:inset-6 z-50 rounded-none sm:rounded-xl' : ''}`}
+        style={expanded
+          ? {minHeight:0}
+          : {height:'calc(100vh - 260px)', minHeight:'440px'}}
+        {...(expanded ? {role:'dialog', 'aria-modal':true, 'aria-label':'Chat, enlarged'} : {})}>
 
         {/* Header — bot identity + new-chat reset */}
         <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-zinc-200">
@@ -2449,11 +2492,22 @@ function ChatTab() {
               </span>
             </div>
           </div>
-          <button onClick={newChat}
-            aria-label="Start a new chat"
-            className="flex items-center gap-1.5 px-3 min-h-[40px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 text-[12px] font-semibold transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-            <RefreshCw size={13}/><span className="hidden sm:inline">New chat</span>
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <button onClick={newChat}
+              aria-label="Start a new chat"
+              className="flex items-center gap-1.5 px-3 min-h-[40px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 text-[12px] font-semibold transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+              <RefreshCw size={13}/><span className="hidden sm:inline">New chat</span>
+            </button>
+            {/* Square 40px so it stays a comfortable touch target once the label
+                is dropped on narrow screens. */}
+            <button onClick={()=>setExpanded(v=>!v)}
+              aria-label={expanded ? 'Exit full screen' : 'Enlarge chat'}
+              aria-pressed={expanded}
+              title={expanded ? 'Exit full screen (Esc)' : 'Enlarge chat'}
+              className="flex items-center justify-center w-10 min-h-[40px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+              {expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}
+            </button>
+          </div>
         </div>
 
         {/* Thread */}
