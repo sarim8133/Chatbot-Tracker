@@ -2840,8 +2840,8 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
                   {error && <p role="alert" className="text-[12px] mt-2" style={{ color: NEG }}>{error}</p>}
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <button type="button" onClick={doDelete} disabled={busy}
-                      className="text-[12px] font-medium px-3 py-1.5 rounded-md text-white disabled:opacity-40 transition-opacity hover:opacity-90"
-                      style={{ background: NEG }}>
+                      className="text-[12px] font-semibold px-3 py-1.5 rounded-md text-white disabled:opacity-40 transition-opacity hover:opacity-90"
+                      style={{ background: 'var(--neg-solid)' }}>
                       {busy ? 'Deleting…' : 'Delete permanently'}
                     </button>
                     <button type="button" onClick={() => { setMode(null); setError(''); }} disabled={busy}
@@ -2998,7 +2998,7 @@ function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
 
       <div className="flex flex-wrap items-center gap-2 mt-3">
         <button type="button" onClick={save} disabled={!canSave}
-          className="text-[12px] font-medium px-3 py-1.5 rounded-md bg-zinc-900 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700 transition-colors">
+          className="text-[12px] font-semibold px-3 py-1.5 rounded-md text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           {busy ? 'Saving…' : 'Save split'}
         </button>
         <button type="button" onClick={onClose}
@@ -3111,7 +3111,7 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
                     className="mono w-32 text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2 py-1.5 text-right outline-none focus:border-zinc-900"
                   />
                   <button type="button" onClick={() => save(p.phone)} disabled={busy}
-                    className="text-[12px] font-medium px-3 py-1.5 rounded-md bg-zinc-900 text-white disabled:opacity-40 hover:bg-zinc-700 transition-colors">
+                    className="text-[12px] font-semibold px-3 py-1.5 rounded-md text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                     {busy ? 'Saving…' : 'Save'}
                   </button>
                   <button type="button" onClick={cancel} disabled={busy}
@@ -3263,16 +3263,36 @@ function ExpensesTab({ role, onAuthError }) {
   // Budgets are per-person and per-month, so they key on phone (the identity
   // everything else uses) and ignore the department/employee filters — a cap is
   // a property of the person, not of the current view.
+  // Receipts submitted before admins could have a phone carry sender_phone =
+  // null — every existing one does. Keying budgets on the phone alone therefore
+  // dropped them and counted only split rows, which always carry one. Fall back
+  // to the name the receipt was stamped with, resolved against the team.
+  //
+  // Only when exactly one team member bears that name: two people can share a
+  // name, and guessing would charge the wrong person's budget.
+  const phoneByName = useMemo(() => {
+    const counts = new Map();
+    for (const p of team) {
+      const k = (p.full_name || '').trim().toLowerCase();
+      if (!k) continue;
+      counts.set(k, counts.has(k) ? null : p.phone);   // null marks "ambiguous"
+    }
+    return counts;
+  }, [team]);
+
   const spendByPhone = useMemo(() => {
     if (!rows) return new Map();
     const monthRows = rows.filter(r => (r.processed_at || '').slice(0, 7) === month);
     const m = new Map();
     for (const s of toShareRows(monthRows, splitsByExpense)) {
-      if (!s.sender_phone) continue;
-      m.set(s.sender_phone, (m.get(s.sender_phone) || 0) + s.amount);
+      const phone = s.sender_phone
+        || phoneByName.get((s.employee_name || '').trim().toLowerCase())
+        || null;
+      if (!phone) continue;
+      m.set(phone, (m.get(phone) || 0) + s.amount);
     }
     return m;
-  }, [rows, month, splitsByExpense]);
+  }, [rows, month, splitsByExpense, phoneByName]);
 
   // Search narrows the bars + list to matching employees (accountant, many staff).
   const empQuery = empSearch.trim().toLowerCase();
