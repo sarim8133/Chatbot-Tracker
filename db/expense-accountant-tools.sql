@@ -363,6 +363,55 @@ revoke all on function public.admin_set_role(uuid,text,text,text,text) from publ
 grant execute on function public.admin_set_role(uuid,text,text,text,text) to authenticated;
 
 
+-- ── 9. People come from the Team section, not the WhatsApp roster ──────────
+-- BUG FIX (2026-07-24). §5 and §6 above were built against wap_allowed_senders,
+-- which is the WhatsApp SUBMIT roster, not the team. Three consequences:
+--   • it listed people who have no account at all (mawavia2, test rows);
+--   • it showed roster labels rather than real names ("sarim" vs "Sarim");
+--   • it OMITTED a real employee with no roster row (Asad), and rejected any
+--     split to him as "not on the employee roster".
+--
+-- app_users is the source of truth for who a person is, and it is the only one
+-- that makes a share visible: employee RLS matches sender_phone against
+-- private.my_phone(), which reads app_users. A share assigned to a roster-only
+-- phone is invisible to everyone but the accountant, permanently.
+--
+-- Applied via migration `split_picker_uses_team_members_not_roster`, which
+-- redefines expense_team_members(), admin_set_expense_split() (validates
+-- against app_users, and takes the stored name from there) and
+-- admin_set_spending_limit() (creates the roster row on demand, so a team
+-- member who has never used WhatsApp can still be given a cap).
+--
+-- The roster keeps its two real jobs: gating who may submit over WhatsApp, and
+-- holding spending_limit.
+create or replace function public.expense_team_members()
+returns table(phone text, full_name text, department text, role text,
+              spending_limit numeric, banned boolean)
+language plpgsql security definer set search_path = '' as $$
+begin
+  -- No explicit role gate: the WHERE clause is the gate. An accountant/admin
+  -- gets everyone, anyone else gets only their own row, so the employee's
+  -- budget panel and the accountant's split picker share one call.
+  return query
+    select a.phone,
+           coalesce(nullif(btrim(a.full_name), ''), w.employee_name, a.phone) as full_name,
+           coalesce(nullif(btrim(a.department), ''), w.department)            as department,
+           a.role,
+           w.spending_limit,   -- null when they have no roster row yet
+           (u.banned_until is not null and u.banned_until > now())            as banned
+      from public.app_users a
+      join auth.users u on u.id = a.user_id
+      left join public.wap_allowed_senders w on w.phone = a.phone
+     where a.phone is not null
+       and (private.can_view_all_expenses() or a.user_id = (select auth.uid()))
+     order by 2;
+end; $$;
+revoke all on function public.expense_team_members() from public, anon;
+grant execute on function public.expense_team_members() to authenticated;
+-- (the redefined admin_set_expense_split / admin_set_spending_limit bodies live
+--  in the migration; §5 and §6 above show the original shape for context)
+
+
 -- ============================================================================
 -- Verified 2026-07-24 by impersonating each role (set role authenticated +
 -- injected request.jwt.claims — the same enforcement path a REST call takes):
@@ -388,4 +437,14 @@ grant execute on function public.admin_set_role(uuid,text,text,text,text) to aut
 --   • re-saving a profile whose phone is ALREADY rostered      → roster row's
 --     name / department / spending_limit left untouched
 -- All probe data reverted; production is back to 11 expenses, 8 roster rows.
+--
+-- Team-members fix (§9), re-verified after the change:
+--   • accountant (Mawavia) sees 6 team members; mawavia2 gone; "Sarim" not
+--     "sarim"; Asad present with no limit yet; Habib absent (no phone)
+--   • employee sees exactly 1 row — themselves
+--   • split to Asad (a team member with NO roster row) → now accepted
+--   • split to mawavia2 (roster row, no account)       → refused, 22023
+--   • stored employee_name now reads from app_users
+--   • setting Asad's limit creates his roster row on demand → 12000
+-- All reverted again; 11 expenses, 0 splits, 8 roster rows.
 -- ============================================================================

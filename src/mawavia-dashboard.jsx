@@ -2653,7 +2653,7 @@ const parseItems = (v) => {
 };
 
 // One receipt row → expands into the "digital receipt" card built from OCR data.
-function ReceiptRow({ r, open, onToggle, showEmployee, canManage, roster, splitRows, onChanged }) {
+function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRows, onChanged }) {
   const items = parseItems(r.items);
   const conf  = Math.round((Number(r.ai_confidence) || 0) * 100);
   const confColor = conf >= 85 ? POS : conf >= 70 ? 'var(--warn)' : NEG;
@@ -2819,7 +2819,7 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, roster, splitR
 
               {canManage && mode === 'split' && (
                 <SplitEditor
-                  receipt={r} roster={roster} existing={shares}
+                  receipt={r} team={team} existing={shares}
                   onClose={() => setMode(null)}
                   onSaved={() => { setMode(null); onChanged(); }}
                 />
@@ -2866,15 +2866,20 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, roster, splitR
 // quietly absorbed.
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-function SplitEditor({ receipt, roster, existing, onClose, onSaved }) {
+function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
   // Seed from the existing split, else from the payer alone so the first click
   // starts from "everything is theirs" and the accountant peels people in.
   const [lines, setLines] = useState(() => {
     if (existing && existing.length) {
       return existing.map(s => ({ phone: s.sender_phone, amount: String(round2(s.share)) }));
     }
+    // Seed line 1 with the payer only if they're a team member. Older receipts
+    // were submitted by WhatsApp-roster numbers that belong to no account, and
+    // seeding one of those puts a value in the <select> that has no <option> —
+    // which renders as blank and silently fails validation on save.
+    const payerIsOnTeam = team.some(p => p.phone === receipt.sender_phone);
     return [
-      { phone: receipt.sender_phone || '', amount: String(round2(receipt.total)) },
+      { phone: payerIsOnTeam ? receipt.sender_phone : '', amount: String(round2(receipt.total)) },
       { phone: '', amount: '' },
     ];
   });
@@ -2945,9 +2950,9 @@ function SplitEditor({ receipt, roster, existing, onClose, onSaved }) {
               value={l.phone} onChange={e => setLine(i, { phone: e.target.value })}
               aria-label={`Employee ${i + 1}`}
               className="flex-1 min-w-0 text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2 py-1.5 outline-none focus:border-zinc-900">
-              <option value="">Choose employee…</option>
-              {roster.map(p => (
-                <option key={p.phone} value={p.phone}>{p.employee_name}</option>
+              <option value="">Choose team member…</option>
+              {team.map(p => (
+                <option key={p.phone} value={p.phone}>{p.full_name}</option>
               ))}
             </select>
             <input
@@ -3015,7 +3020,7 @@ function SplitEditor({ receipt, roster, existing, onClose, onSaved }) {
 // wap_allowed_senders.spending_limit is the monthly cap. This panel is the only
 // place it can be set, and it sits next to the actual spend so the number is
 // chosen against evidence rather than from memory. 0 means no cap.
-function BudgetPanel({ roster, spendByPhone, month, canManage, onSaved }) {
+function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
   const [editing, setEditing] = useState(null);   // phone being edited
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -3037,7 +3042,7 @@ function BudgetPanel({ roster, spendByPhone, month, canManage, onSaved }) {
     finally { setBusy(false); }
   };
 
-  const people = roster
+  const people = team
     .map(p => {
       const spent = spendByPhone.get(p.phone) || 0;
       const limit = Number(p.spending_limit) || 0;
@@ -3067,7 +3072,7 @@ function BudgetPanel({ roster, spendByPhone, month, canManage, onSaved }) {
           return (
             <div key={p.phone}>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[13px] text-zinc-800 truncate min-w-0">{p.employee_name}</span>
+                <span className="text-[13px] text-zinc-800 truncate min-w-0">{p.full_name}</span>
                 <span className="mono text-[12px] tabular-nums shrink-0 text-zinc-600">
                   {fmtPKR(p.spent)}
                   <span className="text-zinc-400"> / {p.limit > 0 ? fmtPKR(p.limit) : 'no limit'}</span>
@@ -3102,7 +3107,7 @@ function BudgetPanel({ roster, spendByPhone, month, canManage, onSaved }) {
                     type="number" inputMode="decimal" min="0" step="1" autoFocus
                     value={draft} onChange={e => setDraft(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') save(p.phone); if (e.key === 'Escape') cancel(); }}
-                    aria-label={`Monthly limit for ${p.employee_name}`}
+                    aria-label={`Monthly limit for ${p.full_name}`}
                     className="mono w-32 text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2 py-1.5 text-right outline-none focus:border-zinc-900"
                   />
                   <button type="button" onClick={() => save(p.phone)} disabled={busy}
@@ -3158,7 +3163,7 @@ function ExpensesTab({ role, onAuthError }) {
   const isEmployee = role === 'employee';
   const [rows,   setRows]   = useState(null);
   const [splits, setSplits] = useState([]);
-  const [roster, setRoster] = useState([]);
+  const [team,   setTeam]   = useState([]);
   const [err,    setErr]    = useState(false);
   const [monthSel, setMonthSel] = useState(null);
   const [dept,   setDept]   = useState('all');
@@ -3188,28 +3193,31 @@ function ExpensesTab({ role, onAuthError }) {
       try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
       try {
         // All three are RLS-scoped, so an employee gets their own receipts, their
-        // own shares, and their own roster row — the same code serves both roles.
-        const [ex, sp, ro] = await Promise.all([
+        // own shares, and only themselves as a team member — one path, both roles.
+        // People come from expense_team_members() — the Team section — NOT from
+        // the WhatsApp roster. The roster is "who may submit by WhatsApp": it
+        // contains entries that are nobody's account, and misses team members
+        // who have never submitted. Both are wrong for charging money to.
+        const [ex, sp, team] = await Promise.all([
           sbFetch(token, 'wap_expenses',
             'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status,sender_phone&status=neq.rejected&order=processed_at.desc&limit=2000'),
           sbFetch(token, 'wap_expense_splits',
             'select=expense_id,sender_phone,employee_name,share&limit=5000'),
-          sbFetch(token, 'wap_allowed_senders',
-            'select=phone,employee_name,department,spending_limit,active&order=employee_name'),
+          sbRpc(token, 'expense_team_members'),
         ]);
         if (cancelled) return;
         setRows(ex.data);
         setSplits(sp.data);
-        setRoster(ro.data);
+        setTeam(Array.isArray(team) ? team : []);
         setErr(false);
       } catch { if (!cancelled) { setErr(true); setRows([]); } }
     })();
     return () => { cancelled = true; };
   }, [onAuthError, reloadKey]);
 
-  // Only active staff can be put on a new split — a deactivated roster entry
-  // still has to render on existing ones, which the split rows carry themselves.
-  const activeRoster = useMemo(() => roster.filter(p => p.active), [roster]);
+  // Deactivated logins can't be charged on a NEW split. An existing split still
+  // renders them, because the split rows carry their own names.
+  const selectableTeam = useMemo(() => team.filter(p => !p.banned), [team]);
 
   // expense_id → its shares. Built once; every derived figure below reads it.
   const splitsByExpense = useMemo(() => {
@@ -3484,9 +3492,9 @@ function ExpensesTab({ role, onAuthError }) {
           </Suspense>
 
           {/* Monthly limits — the accountant sets them, an employee sees only
-              their own row (the roster fetch is RLS-scoped to their phone). */}
+              their own row (expense_team_members returns only them). */}
           <BudgetPanel
-            roster={isEmployee ? roster : activeRoster}
+            team={team}
             spendByPhone={spendByPhone}
             month={month}
             canManage={!isEmployee}
@@ -3511,7 +3519,7 @@ function ExpensesTab({ role, onAuthError }) {
                       onToggle={() => setOpenId(id => id === r.expense_id ? null : r.expense_id)}
                       showEmployee={!isEmployee && !selEmp}
                       canManage={!isEmployee}
-                      roster={activeRoster}
+                      team={selectableTeam}
                       splitRows={splitsByExpense.get(r.expense_id)}
                       onChanged={reload}
                     />
