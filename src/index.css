@@ -41,7 +41,7 @@
   --text:          #18181B;
   --muted:         #71717A;
 
-  --scroll-thumb:       #C9CBD1;   /* slim in-panel scrollbar (see .slim-scroll) */
+  --scroll-thumb:       #C9CBD1;   /* app-wide slim scrollbar — see the Scrollbars block */
   --scroll-thumb-hover: #A5A8B0;
 
   --ink:           #1E293B;   /* the color that "owns" the page; the user's chat bubble */
@@ -175,27 +175,29 @@ body, .theme-fade {
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
-/* Hide scrollbar but keep scrollability — used by the tab strip when there are
-   more tabs than fit (e.g. admin sees Expenses + Team on top of the sales tabs). */
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+/* ── Scrollbars ───────────────────────────────────────────────────────────────
+   Applied to EVERYTHING — the page, every tab, every panel, every dropdown and
+   textarea — so one scroll area never looks like a different application from
+   the one beside it.
 
-/* Slim, themed scrollbar for scroll areas INSIDE a panel (the chat thread, the
-   employee dropdown). color-scheme alone only picks the OS's dark variant —
-   on Windows that is still the chunky classic bar with stepper arrows sitting
-   on a light track, which looks broken against a dark panel.
-   The page's own scrollbar is deliberately left native: it belongs to the
-   browser chrome, not to a card. */
-.slim-scroll {
+   color-scheme (above) was already set and is as far as it goes: it picks the
+   OS's dark variant, it does not make the bar slim or remove the stepper arrows.
+   On Windows that leaves a ~17px classic bar with arrows sitting inside a dark
+   panel, which reads as raw browser chrome that leaked into the UI.
+
+   Universal selector on purpose: an opt-in class only styles what someone
+   remembered to tag, and the one that gets forgotten is the one that looks
+   broken. `*` has zero specificity, so any class below still overrides it. */
+*, ::before, ::after {
   scrollbar-width: thin;                                  /* Firefox */
   scrollbar-color: var(--scroll-thumb) transparent;
 }
-.slim-scroll::-webkit-scrollbar        { width: 10px; height: 10px; }
-.slim-scroll::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar        { width: 10px; height: 10px; }
+::-webkit-scrollbar-track  { background: transparent; }
 /* Kill the stepper arrows — they are the ugliest part and nobody uses them. */
-.slim-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
-.slim-scroll::-webkit-scrollbar-corner { background: transparent; }
-.slim-scroll::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
   background-color: var(--scroll-thumb);
   border-radius: 999px;
   /* Transparent border + background-clip insets the thumb, so it reads as a
@@ -205,8 +207,13 @@ body, .theme-fade {
   border: 2px solid transparent;
   background-clip: content-box;
 }
-.slim-scroll:hover::-webkit-scrollbar-thumb { background-color: var(--scroll-thumb-hover); }
-.slim-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-hover); }
+::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-hover); }
+
+/* Hide scrollbar but keep scrollability — used by the tab strip when there are
+   more tabs than fit (e.g. admin sees Expenses + Team on top of the sales tabs).
+   Declared AFTER the rules above so it wins on both specificity and order. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* Reduced-motion: neutralize CSS animations (pulse) and transitions.
    Framer transforms are handled separately via <MotionConfig reducedMotion="user">. */
