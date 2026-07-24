@@ -420,7 +420,7 @@ function ContentModal({ title, sub, open, onClose, children }) {
                 <X size={16}/>
               </button>
             </div>
-            <div className="p-7 overflow-auto max-h-[72vh]">
+            <div className="p-7 overflow-auto slim-scroll max-h-[72vh]">
               {children}
             </div>
           </motion.div>
@@ -1118,7 +1118,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                               {m.from_cache ? 'From cache' : 'AI call'}
                             </span>
                           </div>
-                          <div className="rounded-lg p-3.5 bg-surface border border-zinc-300 max-h-36 overflow-y-auto">
+                          <div className="rounded-lg p-3.5 bg-surface border border-zinc-300 max-h-36 overflow-y-auto slim-scroll">
                             <p className="text-[14px] text-zinc-600 leading-relaxed whitespace-pre-wrap">{m.AI_Response}</p>
                           </div>
                         </div>
@@ -2516,7 +2516,7 @@ function ChatTab() {
         </div>
 
         {/* Thread */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" style={{background:'var(--surface-2)'}}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto slim-scroll px-4 sm:px-6 py-5 space-y-4" style={{background:'var(--surface-2)'}}>
           {!configured ? (
             <div className="h-full flex items-center justify-center text-center px-6">
               <div className="max-w-sm">
@@ -3481,7 +3481,7 @@ function ExpensesTab({ role, onAuthError }) {
                   </button>
                 )}
                 {suggestOpen && empQuery && (
-                  <ul role="listbox" className="absolute top-full left-0 mt-1.5 w-64 max-h-64 overflow-auto rounded-lg border border-zinc-200 bg-surface shadow-lg z-30 py-1">
+                  <ul role="listbox" className="absolute top-full left-0 mt-1.5 w-64 max-h-64 overflow-auto slim-scroll rounded-lg border border-zinc-200 bg-surface shadow-lg z-30 py-1">
                     {byEmployeeShown.length === 0 ? (
                       <li className="px-3 py-2.5 text-[12px] text-zinc-400">No employee matches “{empSearch}”.</li>
                     ) : byEmployeeShown.slice(0, 8).map(e => (
@@ -3695,7 +3695,7 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
       {showPanel && createPortal(
         <ul ref={menuRef} role="listbox"
           style={{ position: 'fixed', top: rect.bottom + 6, left: rect.left, width: Math.max(rect.width, 176), zIndex: 60 }}
-          className="max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-surface shadow-lg py-1">
+          className="max-h-56 overflow-auto slim-scroll rounded-lg border border-zinc-200 bg-surface shadow-lg py-1">
           {list.map(o => (
             <li key={o} role="option" aria-selected={o.toLowerCase() === q}>
               <button type="button"

@@ -41,6 +41,9 @@
   --text:          #18181B;
   --muted:         #71717A;
 
+  --scroll-thumb:       #C9CBD1;   /* slim in-panel scrollbar (see .slim-scroll) */
+  --scroll-thumb-hover: #A5A8B0;
+
   --ink:           #1E293B;   /* the color that "owns" the page; the user's chat bubble */
   --on-ink:        #FFFFFF;   /* text on ink / on a bg-zinc-900 button */
 
@@ -76,6 +79,9 @@
   --line:          #2A3038;
   --text:          #E7EAEE;
   --muted:         #98A1AD;
+
+  --scroll-thumb:       #3C4552;   /* light enough to find on --surface-2, dim enough not to shout */
+  --scroll-thumb-hover: #505C6D;
 
   /* The user's chat bubble INVERTS. #1E293B is invisible on a dark page, so "my
      message is the dark one" cannot hold — in dark it becomes the LIGHTER surface. */
@@ -173,6 +179,34 @@ body, .theme-fade {
    more tabs than fit (e.g. admin sees Expenses + Team on top of the sales tabs). */
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Slim, themed scrollbar for scroll areas INSIDE a panel (the chat thread, the
+   employee dropdown). color-scheme alone only picks the OS's dark variant —
+   on Windows that is still the chunky classic bar with stepper arrows sitting
+   on a light track, which looks broken against a dark panel.
+   The page's own scrollbar is deliberately left native: it belongs to the
+   browser chrome, not to a card. */
+.slim-scroll {
+  scrollbar-width: thin;                                  /* Firefox */
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+.slim-scroll::-webkit-scrollbar        { width: 10px; height: 10px; }
+.slim-scroll::-webkit-scrollbar-track  { background: transparent; }
+/* Kill the stepper arrows — they are the ugliest part and nobody uses them. */
+.slim-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+.slim-scroll::-webkit-scrollbar-corner { background: transparent; }
+.slim-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  border-radius: 999px;
+  /* Transparent border + background-clip insets the thumb, so it reads as a
+     floating pill rather than a bar welded to the panel edge. 2px each side of
+     a 10px bar leaves a 6px pill — visible, while the full 10px stays grabbable
+     because the border belongs to the thumb, not the track. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.slim-scroll:hover::-webkit-scrollbar-thumb { background-color: var(--scroll-thumb-hover); }
+.slim-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-hover); }
 
 /* Reduced-motion: neutralize CSS animations (pulse) and transitions.
    Framer transforms are handled separately via <MotionConfig reducedMotion="user">. */
