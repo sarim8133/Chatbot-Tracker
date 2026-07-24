@@ -3,7 +3,7 @@
 // Identity: "The Control Room" — a precision operations console for industrial sales.
 // Ink + one hot signal-orange accent, concrete-paper blueprint grid, hairline panels.
 
-import React, { useState, useEffect, useCallback, useMemo, useRef, useContext, createContext, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, useContext, createContext, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
@@ -1984,7 +1984,11 @@ function ChatTab() {
   const [messages, setMessages] = useState(() => loadThread(sessionId));
   const [input,    setInput]    = useState('');
   const [sending,  setSending]  = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  // Enlarged is the normal way to read a long, spec-heavy answer, so it is the
+  // default. Minimising is remembered — someone who wants the chat as one card
+  // among others shouldn't have to say so on every visit.
+  const [expanded, setExpanded] = useState(
+    () => localStorage.getItem('ht_chat_minimized') !== '1');
   const scrollRef = useRef(null);
   const taRef     = useRef(null);
   const fileRef   = useRef(null);
@@ -2434,49 +2438,50 @@ function ChatTab() {
     setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'rejected' } } : msg));
   }, []);
 
-  // Same contract as ContentModal: Escape closes, and the page behind stops
-  // scrolling while the chat owns the viewport.
+  const toggleSize = useCallback(() => {
+    setExpanded(v => {
+      const next = !v;
+      try { localStorage.setItem('ht_chat_minimized', next ? '0' : '1'); } catch { /* private mode */ }
+      return next;
+    });
+  }, []);
+
+  // No body-scroll lock and no aria-modal here, unlike ContentModal: enlarged is
+  // the resting state, not a temporary overlay, and it deliberately stops below
+  // the header so the nav stays reachable. Calling it a modal would be a lie to
+  // a screen reader, and locking scroll would be locking the page you're on.
   useEffect(() => {
     if (!expanded) return;
-    const onKey = e => { if (e.key === 'Escape') setExpanded(false); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+    const onKey = e => {
+      if (e.key !== 'Escape') return;
+      const t = e.target;
+      // Escape in the composer belongs to the composer, not to the layout.
+      if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return;
+      toggleSize();
     };
-  }, [expanded]);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [expanded, toggleSize]);
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show">
-      {/* Backdrop only — the panel itself is NOT moved into a portal. Keeping it
-          in place means the same DOM nodes are reused, so the thread's scroll
-          position and the caret in the composer survive the toggle. */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-            transition={{duration:reduce?0:0.18}}
-            className="fixed inset-0 z-40"
-            style={{background:'rgba(15,23,42,0.65)', backdropFilter:'blur(4px)'}}
-            onClick={()=>setExpanded(false)}
-            aria-hidden="true"
-          />
-        )}
-      </AnimatePresence>
+      {/* Enlarged fills everything BELOW the sticky header, never over it — the
+          header is the navigation, so covering it would strand you on this tab.
+          The panel is toggled in place rather than portalled: rendering it
+          elsewhere would rebuild the DOM nodes and lose the thread's scroll
+          position and the caret in the composer.
 
-      {/* Full-bleed on a phone, inset with the page showing through on a larger
-          screen. The height is dvh rather than the inset on mobile: a fixed
-          element is sized against the LAYOUT viewport, so the soft keyboard
-          would sit on top of the composer instead of shortening the panel.
-          Above sm there is no soft keyboard to fight, so the insets size it. */}
+          Height is dvh-derived rather than driven by `bottom`, because a fixed
+          element is sized against the LAYOUT viewport — on a phone `bottom: 0`
+          alone lets the soft keyboard cover the composer instead of shortening
+          the panel. */}
       <Panel
-        className={`flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 h-[100dvh] sm:inset-4 sm:h-auto lg:inset-6 z-50 rounded-none sm:rounded-xl' : ''}`}
+        className={`flex flex-col overflow-hidden ${expanded ? 'fixed inset-x-0 bottom-0 z-30 rounded-none border-x-0 border-b-0' : ''}`}
         style={expanded
-          ? {minHeight:0}
-          : {height:'calc(100vh - 260px)', minHeight:'440px'}}
-        {...(expanded ? {role:'dialog', 'aria-modal':true, 'aria-label':'Chat, enlarged'} : {})}>
+          ? {top:'var(--app-header-h, 140px)',
+             height:'calc(100dvh - var(--app-header-h, 140px))',
+             minHeight:0}
+          : {height:'calc(100vh - 260px)', minHeight:'440px'}}>
 
         {/* Header — bot identity + new-chat reset */}
         <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-zinc-200">
@@ -2500,10 +2505,10 @@ function ChatTab() {
             </button>
             {/* Square 40px so it stays a comfortable touch target once the label
                 is dropped on narrow screens. */}
-            <button onClick={()=>setExpanded(v=>!v)}
-              aria-label={expanded ? 'Exit full screen' : 'Enlarge chat'}
+            <button onClick={toggleSize}
+              aria-label={expanded ? 'Minimize chat' : 'Enlarge chat'}
               aria-pressed={expanded}
-              title={expanded ? 'Exit full screen (Esc)' : 'Enlarge chat'}
+              title={expanded ? 'Minimize (Esc)' : 'Enlarge chat'}
               className="flex items-center justify-center w-10 min-h-[40px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
               {expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}
             </button>
@@ -4226,6 +4231,24 @@ export default function Dashboard({ onLogout }) {
     return ()=>window.removeEventListener('keydown', onKey);
   },[goTab, nav]);
 
+  // Publish the sticky header's height as --app-header-h. The enlarged chat is
+  // position:fixed and must start exactly below the nav — hardcoding a number
+  // would break the moment the header wraps, which it does between breakpoints
+  // and when a long name pushes the identity block onto a second line.
+  const headerRef = useRef(null);
+  // Layout effect, not effect: this has to land BEFORE the first paint, or the
+  // enlarged chat renders one frame at the fallback height and visibly jumps.
+  useLayoutEffect(()=>{
+    const el = headerRef.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty('--app-header-h', el.offsetHeight + 'px');
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return ()=>ro.disconnect();
+  },[]);
+
   // Sync tab from browser back/forward.
   useEffect(()=>{
     const onPop = () => {
@@ -4258,7 +4281,7 @@ export default function Dashboard({ onLogout }) {
       <div className="fixed inset-0 -z-10 bg-paper pointer-events-none" aria-hidden="true"/>
 
       {/* ── Top navigation ── */}
-      <header className="sticky top-0 z-20 bg-paper border-b border-slate-200">
+      <header ref={headerRef} className="sticky top-0 z-20 bg-paper border-b border-slate-200">
         {/* signal strip */}
         <div className="h-[3px] w-full" style={{background:BLUE}}/>
         {/* Tighter gutters/gaps on phones: at px-6 + gap-5 the mobile tab-picker was left
