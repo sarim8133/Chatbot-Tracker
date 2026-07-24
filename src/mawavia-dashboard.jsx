@@ -13,7 +13,7 @@ import {
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
-import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl } from './receipts';
+import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl, deleteReceiptImage } from './receipts';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { useTheme } from './theme';
@@ -2653,10 +2653,28 @@ const parseItems = (v) => {
 };
 
 // One receipt row → expands into the "digital receipt" card built from OCR data.
-function ReceiptRow({ r, open, onToggle, showEmployee }) {
+function ReceiptRow({ r, open, onToggle, showEmployee, canManage, roster, splitRows, onChanged }) {
   const items = parseItems(r.items);
   const conf  = Math.round((Number(r.ai_confidence) || 0) * 100);
   const confColor = conf >= 85 ? POS : conf >= 70 ? 'var(--warn)' : NEG;
+  const [mode, setMode] = useState(null);        // null | 'split' | 'confirmDelete'
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const shares = splitRows || [];
+
+  // Deleting a receipt destroys a financial record, so it asks first, in place,
+  // naming what will go. The DB writes an audit row before the delete lands.
+  const doDelete = async () => {
+    setBusy(true); setError('');
+    try {
+      const token = await getAccessToken();
+      const imagePath = await sbRpc(token, 'admin_delete_expense', { p_expense_id: r.expense_id });
+      // Best-effort: the row is already gone, so a storage failure must not be
+      // reported as a failed delete.
+      if (imagePath) { try { await deleteReceiptImage(imagePath); } catch { /* orphaned object */ } }
+      onChanged();
+    } catch (e) { setError(e.message || 'Could not delete this receipt.'); setBusy(false); }
+  };
 
   // Web receipts live in private Storage (image_path) → open via a short-lived signed
   // URL. Legacy WhatsApp receipts only have a Drive link. Open a blank tab first so the
@@ -2683,6 +2701,9 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
             {r.category}
             {showEmployee && <> · {r.employee_name}</>}
             {' · '}{(r.processed_at || '').slice(0, 10)}
+            {shares.length > 0 && (
+              <> · <span className="text-zinc-600 font-medium">split {shares.length} ways</span></>
+            )}
           </p>
         </div>
         <span className="mono text-[13px] font-bold text-zinc-900 tabular-nums shrink-0">{fmtPKR(r.total)}</span>
@@ -2731,6 +2752,33 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
                   <span className="mono text-[16px] font-bold text-zinc-900 tabular-nums">{fmtPKR(r.total)}</span>
                 </div>
               </div>
+
+              {/* Who actually owes what. Shown to everyone who can see the
+                  receipt, including an employee who is only on the split. */}
+              {shares.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-dashed border-zinc-300">
+                  <p className="text-[11px] uppercase tracking-widest text-zinc-400 mb-1.5">Split between</p>
+                  <div className="space-y-1">
+                    {shares.map(s => (
+                      <div key={s.sender_phone} className="flex items-baseline justify-between gap-3 text-[13px]">
+                        <span className="text-zinc-600 truncate">{s.employee_name || s.sender_phone}</span>
+                        <span className="mono text-zinc-800 font-medium tabular-nums shrink-0">{fmtPKR(s.share)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-2">
+                    Paid by {r.employee_name || 'unknown'} · each person’s spend counts only their share
+                  </p>
+                  {/* An employee only ever sees their OWN share row (RLS), so the
+                      lines won't add up to the total on their screen. Say so,
+                      rather than leaving them to wonder where the rest went. */}
+                  {Math.abs(shares.reduce((a, s) => a + (Number(s.share) || 0), 0) - (Number(r.total) || 0)) > 0.01 && (
+                    <p className="text-[11px] text-zinc-400 mt-1">
+                      Other people’s shares of this bill aren’t shown to you.
+                    </p>
+                  )}
+                </div>
+              )}
               {/* meta footer */}
               <div className="mt-3 pt-3 border-t border-zinc-200 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-zinc-500">
                 <span>Paid: <span className="text-zinc-700">{r.payment_method || 'Unknown'}</span></span>
@@ -2752,6 +2800,57 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
                       </a>
                     : <span className="inline-flex items-center gap-1 text-zinc-400 ml-auto"><ImageOff size={11} /> No image</span>}
               </div>
+
+              {/* Accountant tools. Employees never see this block at all — and
+                  the RPCs behind it re-check the role server-side regardless. */}
+              {canManage && mode === null && (
+                <div className="mt-3 pt-3 border-t border-zinc-200 flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={e => { e.stopPropagation(); setMode('split'); }}
+                    className="text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+                    {shares.length ? 'Edit split' : 'Split bill'}
+                  </button>
+                  <button type="button" onClick={e => { e.stopPropagation(); setMode('confirmDelete'); }}
+                    className="text-[12px] px-2.5 py-1.5 rounded-md border bg-surface transition-colors ml-auto hover:opacity-80"
+                    style={{ borderColor: 'var(--danger-border)', color: NEG }}>
+                    Delete
+                  </button>
+                </div>
+              )}
+
+              {canManage && mode === 'split' && (
+                <SplitEditor
+                  receipt={r} roster={roster} existing={shares}
+                  onClose={() => setMode(null)}
+                  onSaved={() => { setMode(null); onChanged(); }}
+                />
+              )}
+
+              {canManage && mode === 'confirmDelete' && (
+                <div className="mt-3 pt-3 border-t border-zinc-200" onClick={e => e.stopPropagation()}>
+                  <p className="text-[13px] font-semibold text-zinc-900">Delete this receipt?</p>
+                  <p className="text-[12.5px] text-zinc-600 mt-1">
+                    {fmtPKR(r.total)} from {r.vendor_name || 'an unknown vendor'}, logged by{' '}
+                    {r.employee_name || 'unknown'}. The receipt image is deleted too, and{' '}
+                    {shares.length > 0 ? 'its split is removed. ' : ''}
+                    this can’t be undone from here.
+                  </p>
+                  <p className="text-[11.5px] text-zinc-400 mt-1.5">
+                    A record of the deletion is kept for the audit trail.
+                  </p>
+                  {error && <p role="alert" className="text-[12px] mt-2" style={{ color: NEG }}>{error}</p>}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <button type="button" onClick={doDelete} disabled={busy}
+                      className="text-[12px] font-medium px-3 py-1.5 rounded-md text-white disabled:opacity-40 transition-opacity hover:opacity-90"
+                      style={{ background: NEG }}>
+                      {busy ? 'Deleting…' : 'Delete permanently'}
+                    </button>
+                    <button type="button" onClick={() => { setMode(null); setError(''); }} disabled={busy}
+                      className="text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -2760,9 +2859,306 @@ function ReceiptRow({ r, open, onToggle, showEmployee }) {
   );
 }
 
+// ── Accountant: split a receipt across employees ──────────────────────────────
+// Money must land exactly, so the editor refuses to save until the shares add up
+// to the receipt total. The remainder is shown live rather than silently
+// corrected — an accountant who mistypes 400 as 40 should see it, not have it
+// quietly absorbed.
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+function SplitEditor({ receipt, roster, existing, onClose, onSaved }) {
+  // Seed from the existing split, else from the payer alone so the first click
+  // starts from "everything is theirs" and the accountant peels people in.
+  const [lines, setLines] = useState(() => {
+    if (existing && existing.length) {
+      return existing.map(s => ({ phone: s.sender_phone, amount: String(round2(s.share)) }));
+    }
+    return [
+      { phone: receipt.sender_phone || '', amount: String(round2(receipt.total)) },
+      { phone: '', amount: '' },
+    ];
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const total = round2(receipt.total);
+  const allocated = round2(lines.reduce((a, l) => a + (parseFloat(l.amount) || 0), 0));
+  const remainder = round2(total - allocated);
+  const filled = lines.filter(l => l.phone && parseFloat(l.amount) > 0);
+  const dupes = new Set(filled.map(l => l.phone)).size !== filled.length;
+  const canSave = filled.length >= 2 && Math.abs(remainder) <= 0.01 && !dupes && !busy;
+
+  const setLine = (i, patch) => setLines(ls => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const addLine = () => setLines(ls => [...ls, { phone: '', amount: '' }]);
+  const dropLine = (i) => setLines(ls => ls.filter((_, j) => j !== i));
+
+  // Even split across whoever is already named. Remainder pennies go to the
+  // first line so the sum is exact rather than a rounded-down near-miss.
+  const splitEvenly = () => {
+    const named = lines.filter(l => l.phone);
+    if (named.length < 2) return;
+    const each = Math.floor((total / named.length) * 100) / 100;
+    const drift = round2(total - each * named.length);
+    let seen = 0;
+    setLines(ls => ls.map(l => {
+      if (!l.phone) return l;
+      const amt = seen === 0 ? round2(each + drift) : each;
+      seen += 1;
+      return { ...l, amount: String(amt) };
+    }));
+  };
+
+  const save = async () => {
+    setBusy(true); setError('');
+    try {
+      const token = await getAccessToken();
+      await sbRpc(token, 'admin_set_expense_split', {
+        p_expense_id: receipt.expense_id,
+        p_shares: filled.map(l => ({ phone: l.phone, share: round2(l.amount) })),
+      });
+      onSaved();
+    } catch (e) { setError(e.message || 'Could not save the split.'); }
+    finally { setBusy(false); }
+  };
+
+  const clear = async () => {
+    setBusy(true); setError('');
+    try {
+      const token = await getAccessToken();
+      await sbRpc(token, 'admin_clear_expense_split', { p_expense_id: receipt.expense_id });
+      onSaved();
+    } catch (e) { setError(e.message || 'Could not clear the split.'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-zinc-200" onClick={e => e.stopPropagation()}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2.5">
+        <p className="text-[13px] font-semibold text-zinc-800">Split this receipt</p>
+        <span className="mono text-[11px] text-zinc-400 tabular-nums">Total {fmtPKR(total)}</span>
+      </div>
+
+      <div className="space-y-2">
+        {lines.map((l, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <select
+              value={l.phone} onChange={e => setLine(i, { phone: e.target.value })}
+              aria-label={`Employee ${i + 1}`}
+              className="flex-1 min-w-0 text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2 py-1.5 outline-none focus:border-zinc-900">
+              <option value="">Choose employee…</option>
+              {roster.map(p => (
+                <option key={p.phone} value={p.phone}>{p.employee_name}</option>
+              ))}
+            </select>
+            <input
+              type="number" inputMode="decimal" min="0" step="0.01"
+              value={l.amount} onChange={e => setLine(i, { amount: e.target.value })}
+              placeholder="0.00" aria-label={`Share ${i + 1}`}
+              className="mono w-20 sm:w-24 shrink-0 text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2 py-1.5 text-right outline-none focus:border-zinc-900"
+            />
+            <button type="button" onClick={() => dropLine(i)} disabled={lines.length <= 2}
+              aria-label={`Remove person ${i + 1}`}
+              className="shrink-0 w-8 h-8 grid place-items-center rounded-md text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 disabled:opacity-30 disabled:hover:bg-transparent">
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mt-2.5">
+        <button type="button" onClick={addLine}
+          className="text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+          + Add person
+        </button>
+        <button type="button" onClick={splitEvenly}
+          className="text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+          Split evenly
+        </button>
+        <span className="mono text-[11.5px] tabular-nums ml-auto"
+          style={{ color: Math.abs(remainder) <= 0.01 ? POS : 'var(--warn)' }}>
+          {Math.abs(remainder) <= 0.01
+            ? 'Balances exactly'
+            : remainder > 0 ? `${fmtPKR(remainder)} unallocated` : `${fmtPKR(-remainder)} over`}
+        </span>
+      </div>
+
+      {dupes && (
+        <p className="text-[12px] mt-2" style={{ color: 'var(--warn)' }}>
+          The same person is listed twice — give them one combined share.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-[12px] mt-2" style={{ color: NEG }}>{error}</p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 mt-3">
+        <button type="button" onClick={save} disabled={!canSave}
+          className="text-[12px] font-medium px-3 py-1.5 rounded-md bg-zinc-900 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700 transition-colors">
+          {busy ? 'Saving…' : 'Save split'}
+        </button>
+        <button type="button" onClick={onClose}
+          className="text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+          Cancel
+        </button>
+        {existing && existing.length > 0 && (
+          <button type="button" onClick={clear} disabled={busy}
+            className="text-[12px] px-3 py-1.5 rounded-md ml-auto hover:underline" style={{ color: NEG }}>
+            Remove split
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Accountant: monthly spending limits ───────────────────────────────────────
+// wap_allowed_senders.spending_limit is the monthly cap. This panel is the only
+// place it can be set, and it sits next to the actual spend so the number is
+// chosen against evidence rather than from memory. 0 means no cap.
+function BudgetPanel({ roster, spendByPhone, month, canManage, onSaved }) {
+  const [editing, setEditing] = useState(null);   // phone being edited
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const start = (p) => { setEditing(p.phone); setDraft(String(round2(p.spending_limit))); setError(''); };
+  const cancel = () => { setEditing(null); setError(''); };
+
+  const save = async (phone) => {
+    const value = parseFloat(draft);
+    if (!(value >= 0)) { setError('Enter a number — 0 for no limit.'); return; }
+    setBusy(true); setError('');
+    try {
+      const token = await getAccessToken();
+      await sbRpc(token, 'admin_set_spending_limit', { p_phone: phone, p_limit: round2(value) });
+      setEditing(null);
+      onSaved();
+    } catch (e) { setError(e.message || 'Could not save the limit.'); }
+    finally { setBusy(false); }
+  };
+
+  const people = roster
+    .map(p => {
+      const spent = spendByPhone.get(p.phone) || 0;
+      const limit = Number(p.spending_limit) || 0;
+      return { ...p, spent, limit, pct: limit > 0 ? Math.min(spent / limit, 1.5) : 0 };
+    })
+    .sort((a, b) => (b.limit > 0 ? b.spent / b.limit : 0) - (a.limit > 0 ? a.spent / a.limit : 0));
+
+  if (people.length === 0) return null;
+
+  return (
+    <Panel className="p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-1">
+        <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Monthly limits</h2>
+        <span className="mono text-[11px] text-zinc-400">{monthLabel(month)}</span>
+      </div>
+      <p className="text-[13px] text-zinc-500 mb-4">
+        {canManage
+          ? 'Spend so far this month against each person’s cap. Their share of a split bill counts, not the whole receipt.'
+          : 'Your spending this month against your monthly cap.'}
+      </p>
+
+      <div className="space-y-3.5">
+        {people.map(p => {
+          const over = p.limit > 0 && p.spent > p.limit;
+          const near = p.limit > 0 && !over && p.spent >= p.limit * 0.8;
+          const barColor = over ? NEG : near ? 'var(--warn)' : POS;
+          return (
+            <div key={p.phone}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[13px] text-zinc-800 truncate min-w-0">{p.employee_name}</span>
+                <span className="mono text-[12px] tabular-nums shrink-0 text-zinc-600">
+                  {fmtPKR(p.spent)}
+                  <span className="text-zinc-400"> / {p.limit > 0 ? fmtPKR(p.limit) : 'no limit'}</span>
+                </span>
+              </div>
+
+              <div className="mt-1.5 h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                <div className="h-full rounded-full transition-[width] duration-500"
+                  style={{ width: `${Math.min(p.pct, 1) * 100}%`, background: barColor }} />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                {p.limit > 0 && (
+                  <span className={`text-[11.5px] ${over || near ? '' : 'text-zinc-400'}`}
+                    style={over ? { color: NEG } : near ? { color: 'var(--warn)' } : undefined}>
+                    {over
+                      ? `${fmtPKR(p.spent - p.limit)} over budget`
+                      : `${fmtPKR(p.limit - p.spent)} left`}
+                  </span>
+                )}
+                {canManage && editing !== p.phone && (
+                  <button type="button" onClick={() => start(p)}
+                    className="text-[11.5px] text-accent hover:underline ml-auto">
+                    {p.limit > 0 ? 'Change limit' : 'Set a limit'}
+                  </button>
+                )}
+              </div>
+
+              {canManage && editing === p.phone && (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <input
+                    type="number" inputMode="decimal" min="0" step="1" autoFocus
+                    value={draft} onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') save(p.phone); if (e.key === 'Escape') cancel(); }}
+                    aria-label={`Monthly limit for ${p.employee_name}`}
+                    className="mono w-32 text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2 py-1.5 text-right outline-none focus:border-zinc-900"
+                  />
+                  <button type="button" onClick={() => save(p.phone)} disabled={busy}
+                    className="text-[12px] font-medium px-3 py-1.5 rounded-md bg-zinc-900 text-white disabled:opacity-40 hover:bg-zinc-700 transition-colors">
+                    {busy ? 'Saving…' : 'Save'}
+                  </button>
+                  <button type="button" onClick={cancel} disabled={busy}
+                    className="text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+                    Cancel
+                  </button>
+                  <span className="text-[11px] text-zinc-400 w-full sm:w-auto">0 = no limit</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {error && <p role="alert" className="text-[12px] mt-3" style={{ color: NEG }}>{error}</p>}
+    </Panel>
+  );
+}
+
+// A receipt with a split no longer belongs to whoever paid — it belongs, in
+// pieces, to the people on the split. Everything downstream (per-employee bars,
+// totals, budgets) has to count those pieces, or one person's card carries the
+// whole table's dinner.
+//
+// Returns one row per person per receipt: the split shares if there are any,
+// otherwise a single row for the payer. `amount` is what that person owes;
+// `total` stays the receipt's face value so the ledger can still show it.
+function toShareRows(rows, splitsByExpense) {
+  const out = [];
+  for (const r of rows) {
+    const parts = splitsByExpense.get(r.expense_id);
+    if (!parts || parts.length === 0) {
+      out.push({ ...r, amount: Number(r.total) || 0, isSplit: false });
+      continue;
+    }
+    for (const p of parts) {
+      out.push({
+        ...r,
+        employee_name: p.employee_name || r.employee_name,
+        sender_phone: p.sender_phone,
+        amount: Number(p.share) || 0,
+        isSplit: true,
+      });
+    }
+  }
+  return out;
+}
+
 function ExpensesTab({ role, onAuthError }) {
   const isEmployee = role === 'employee';
   const [rows,   setRows]   = useState(null);
+  const [splits, setSplits] = useState([]);
+  const [roster, setRoster] = useState([]);
   const [err,    setErr]    = useState(false);
   const [monthSel, setMonthSel] = useState(null);
   const [dept,   setDept]   = useState('all');
@@ -2780,21 +3176,50 @@ function ExpensesTab({ role, onAuthError }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [suggestOpen]);
 
+  // Bumped to force a refetch after a delete/split/limit edit, so the numbers
+  // can never drift from what the database actually holds.
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey(k => k + 1), []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       let token;
       try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
       try {
-        const ex = await sbFetch(token, 'wap_expenses',
-          'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status&status=neq.rejected&order=processed_at.desc&limit=2000');
+        // All three are RLS-scoped, so an employee gets their own receipts, their
+        // own shares, and their own roster row — the same code serves both roles.
+        const [ex, sp, ro] = await Promise.all([
+          sbFetch(token, 'wap_expenses',
+            'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status,sender_phone&status=neq.rejected&order=processed_at.desc&limit=2000'),
+          sbFetch(token, 'wap_expense_splits',
+            'select=expense_id,sender_phone,employee_name,share&limit=5000'),
+          sbFetch(token, 'wap_allowed_senders',
+            'select=phone,employee_name,department,spending_limit,active&order=employee_name'),
+        ]);
         if (cancelled) return;
         setRows(ex.data);
+        setSplits(sp.data);
+        setRoster(ro.data);
         setErr(false);
       } catch { if (!cancelled) { setErr(true); setRows([]); } }
     })();
     return () => { cancelled = true; };
-  }, [onAuthError]);
+  }, [onAuthError, reloadKey]);
+
+  // Only active staff can be put on a new split — a deactivated roster entry
+  // still has to render on existing ones, which the split rows carry themselves.
+  const activeRoster = useMemo(() => roster.filter(p => p.active), [roster]);
+
+  // expense_id → its shares. Built once; every derived figure below reads it.
+  const splitsByExpense = useMemo(() => {
+    const m = new Map();
+    for (const s of splits) {
+      if (!m.has(s.expense_id)) m.set(s.expense_id, []);
+      m.get(s.expense_id).push(s);
+    }
+    return m;
+  }, [splits]);
 
   const months = useMemo(() => {
     if (!rows) return [];
@@ -2817,11 +3242,29 @@ function ExpensesTab({ role, onAuthError }) {
       (dept === 'all' || r.department === dept));
   }, [rows, month, dept]);
 
+  // The same scope exploded per person, so a split lands on each participant.
+  const inScopeShares = useMemo(
+    () => toShareRows(inScope, splitsByExpense), [inScope, splitsByExpense]);
+
   const byEmployee = useMemo(() => {
     const m = {};
-    inScope.forEach(r => { m[r.employee_name] = (m[r.employee_name] || 0) + (Number(r.total) || 0); });
+    inScopeShares.forEach(r => { m[r.employee_name] = (m[r.employee_name] || 0) + r.amount; });
     return Object.entries(m).map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
-  }, [inScope]);
+  }, [inScopeShares]);
+
+  // Budgets are per-person and per-month, so they key on phone (the identity
+  // everything else uses) and ignore the department/employee filters — a cap is
+  // a property of the person, not of the current view.
+  const spendByPhone = useMemo(() => {
+    if (!rows) return new Map();
+    const monthRows = rows.filter(r => (r.processed_at || '').slice(0, 7) === month);
+    const m = new Map();
+    for (const s of toShareRows(monthRows, splitsByExpense)) {
+      if (!s.sender_phone) continue;
+      m.set(s.sender_phone, (m.get(s.sender_phone) || 0) + s.amount);
+    }
+    return m;
+  }, [rows, month, splitsByExpense]);
 
   // Search narrows the bars + list to matching employees (accountant, many staff).
   const empQuery = empSearch.trim().toLowerCase();
@@ -2829,11 +3272,28 @@ function ExpensesTab({ role, onAuthError }) {
     () => (empQuery ? byEmployee.filter(e => (e.name || '').toLowerCase().includes(empQuery)) : byEmployee),
     [byEmployee, empQuery]);
 
+  // Focus is applied to the share rows, so drilling into one employee shows
+  // their portion of a split receipt rather than the whole bill.
+  const focusShares = useMemo(() => {
+    if (selEmp) return inScopeShares.filter(r => r.employee_name === selEmp);
+    if (!isEmployee && empQuery) return inScopeShares.filter(r => (r.employee_name || '').toLowerCase().includes(empQuery));
+    return inScopeShares;
+  }, [inScopeShares, selEmp, empQuery, isEmployee]);
+
+  // The ledger lists receipts, not shares — one card per physical receipt, even
+  // when several people are on it. Deduped by expense_id so a split receipt
+  // doesn't appear once per participant.
   const focusRows = useMemo(() => {
-    if (selEmp) return inScope.filter(r => r.employee_name === selEmp);
-    if (!isEmployee && empQuery) return inScope.filter(r => (r.employee_name || '').toLowerCase().includes(empQuery));
-    return inScope;
-  }, [inScope, selEmp, empQuery, isEmployee]);
+    const seen = new Set();
+    const out = [];
+    for (const s of focusShares) {
+      if (seen.has(s.expense_id)) continue;
+      seen.add(s.expense_id);
+      const original = inScope.find(r => r.expense_id === s.expense_id);
+      out.push(original || s);
+    }
+    return out;
+  }, [focusShares, inScope]);
 
   // Accountant searched a name that matches no one this month → show a clear
   // "not found" state instead of empty charts/KPIs.
@@ -2841,22 +3301,24 @@ function ExpensesTab({ role, onAuthError }) {
 
   const byCategory = useMemo(() => {
     const m = {};
-    focusRows.forEach(r => { const c = CATS.includes(r.category) ? r.category : 'Other'; m[c] = (m[c] || 0) + (Number(r.total) || 0); });
+    focusShares.forEach(r => { const c = CATS.includes(r.category) ? r.category : 'Other'; m[c] = (m[c] || 0) + r.amount; });
     return CATS.filter(c => m[c] > 0).map(c => ({ category: c, total: m[c] }));
-  }, [focusRows]);
+  }, [focusShares]);
 
   const trend = useMemo(() => {
     if (!rows) return [];
-    const scope = rows.filter(r =>
-      (dept === 'all' || r.department === dept) &&
-      (!selEmp || r.employee_name === selEmp));
+    const scope = toShareRows(
+      rows.filter(r => dept === 'all' || r.department === dept),
+      splitsByExpense,
+    ).filter(r => !selEmp || r.employee_name === selEmp);
     const m = {};
-    scope.forEach(r => { const k = (r.processed_at || '').slice(0, 7); if (k) m[k] = (m[k] || 0) + (Number(r.total) || 0); });
+    scope.forEach(r => { const k = (r.processed_at || '').slice(0, 7); if (k) m[k] = (m[k] || 0) + r.amount; });
     return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), total: m[k] }));
-  }, [rows, dept, selEmp]);
+  }, [rows, dept, selEmp, splitsByExpense]);
 
-  // KPIs for the focused scope (month + dept + selEmp)
-  const totalSpend = focusRows.reduce((a, r) => a + (Number(r.total) || 0), 0);
+  // KPIs for the focused scope (month + dept + selEmp). Spend is the sum of
+  // shares; the receipt count is physical receipts, so a split bill is one.
+  const totalSpend = focusShares.reduce((a, r) => a + r.amount, 0);
   const count = focusRows.length;
   const avg = count ? totalSpend / count : 0;
   const heroCount = useCountUp(Math.round(totalSpend));
@@ -3021,6 +3483,16 @@ function ExpensesTab({ role, onAuthError }) {
             />
           </Suspense>
 
+          {/* Monthly limits — the accountant sets them, an employee sees only
+              their own row (the roster fetch is RLS-scoped to their phone). */}
+          <BudgetPanel
+            roster={isEmployee ? roster : activeRoster}
+            spendByPhone={spendByPhone}
+            month={month}
+            canManage={!isEmployee}
+            onSaved={reload}
+          />
+
           {/* Receipt ledger */}
           <Panel className="p-6">
             <div className="flex items-baseline justify-between gap-3 mb-1">
@@ -3038,6 +3510,10 @@ function ExpensesTab({ role, onAuthError }) {
                       open={openId === r.expense_id}
                       onToggle={() => setOpenId(id => id === r.expense_id ? null : r.expense_id)}
                       showEmployee={!isEmployee && !selEmp}
+                      canManage={!isEmployee}
+                      roster={activeRoster}
+                      splitRows={splitsByExpense.get(r.expense_id)}
+                      onChanged={reload}
                     />
                   ))}
                   {listRows.length > 80 && (
@@ -3197,7 +3673,9 @@ function TeamTab({ role, onAuthError }) {
     try {
       await sbRpc(token, 'admin_set_role', {
         p_target: u.user_id, p_role: dr.role,
-        p_phone: dr.role === 'employee' ? dr.phone : null,
+        // Optional for every role now — an admin with a phone can sign in with
+        // it, and their receipts attribute to them instead of to nobody.
+        p_phone: dr.phone || null,
         p_full_name: dr.full_name || null,
         p_department: (dr.department || '').trim() || null,
       });
@@ -3259,8 +3737,9 @@ function TeamTab({ role, onAuthError }) {
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <HelpNote>
         Add a team member and they can log in right away — with their <b>email or their phone number</b>.
-        Employees are identified by <b>phone</b> (unique), so two people can share a name safely; their
-        receipts link automatically. Admins/accountants just need an email.
+        A phone is <b>required for employees</b> (it’s their identity, and it’s unique, so two people can
+        share a name safely) and <b>optional for admins and accountants</b> — give one to anybody who
+        submits receipts, so their spending links to them instead of to nobody.
       </HelpNote>
 
       {/* Add member */}
@@ -3342,7 +3821,7 @@ function TeamTab({ role, onAuthError }) {
               <p className="text-[12px] text-zinc-400 mt-3">
                 {form.role === 'employee'
                   ? `Employee: identified by phone (receipts link to that WhatsApp number). ${useInvite ? 'They’ll set their own password from the invite email.' : 'They log in with phone or email + this password.'}`
-                  : `Admin/accountant: logs in with email. ${useInvite ? 'They’ll set their own password from the invite email.' : 'Uses the password you set here.'}`}
+                  : `Admin/accountant: logs in with email, or with their phone if you give them one. ${useInvite ? 'They’ll set their own password from the invite email.' : 'Uses the password you set here.'}`}
               </p>
 
               {addErr && <div role="alert" className="mt-3 text-[13px]" style={{ color: NEG }}>{addErr}</div>}
@@ -3372,7 +3851,7 @@ function TeamTab({ role, onAuthError }) {
             const st = stored[u.user_id];
             const dirty = dr.role !== st.role || (dr.full_name || '') !== (st.full_name || '')
               || (dr.department || '') !== (st.department || '')
-              || (dr.role === 'employee' && (dr.phone || '') !== (st.phone || ''));
+              || (dr.phone || '') !== (st.phone || '');
             const meta = ROLE_META[dr.role] || ROLE_META.employee;
             return (
               <div key={u.user_id} className={`flex flex-col lg:flex-row lg:items-center gap-3 p-3 ${u.banned ? 'opacity-60' : ''}`}>
@@ -3398,10 +3877,13 @@ function TeamTab({ role, onAuthError }) {
                     placeholder="name" aria-label="Name" className={`${teamInput} w-32`} />
                   <DeptCombo value={dr.department} onChange={v => setDraft(u.user_id, { department: v })}
                     options={departments} placeholder="dept" className="w-28" />
-                  {dr.role === 'employee' && (
-                    <input type="text" value={dr.phone} onChange={e => setDraft(u.user_id, { phone: e.target.value })}
-                      placeholder="phone" aria-label="Phone" inputMode="numeric" className={`${teamInput} w-36`} />
-                  )}
+                  {/* Shown for every role: required for an employee, optional for
+                      the rest. The placeholder is the only cue that it's optional,
+                      so it has to carry that. */}
+                  <input type="text" value={dr.phone} onChange={e => setDraft(u.user_id, { phone: e.target.value })}
+                    placeholder={dr.role === 'employee' ? 'phone' : 'phone (optional)'}
+                    aria-label={dr.role === 'employee' ? 'Phone (required)' : 'Phone (optional)'}
+                    inputMode="numeric" className={`${teamInput} w-36`} />
                   <div className="flex items-center gap-1.5 ml-auto">
                     {savedId === u.user_id && <span className="mono text-[11px]" style={{ color: POS }}>Saved ✓</span>}
                     <button onClick={() => save(u)} disabled={!dirty || saving === u.user_id}

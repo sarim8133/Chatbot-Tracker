@@ -118,6 +118,17 @@ one click in Storage is the clean path.)
 - **`admin_set_role` / `admin_list_users`** — advisor WARNs them as SECURITY
   DEFINER, but both gate on `private.is_admin()` and raise `42501` otherwise.
   Verified: no privilege-escalation path.
+- **Accountant expense tools** (added 2026-07-24) — `admin_delete_expense`,
+  `admin_set_expense_split`, `admin_clear_expense_split`,
+  `admin_set_spending_limit`. Same pattern: advisor WARNs all four as SECURITY
+  DEFINER, all four gate on `private.can_view_all_expenses()` internally and
+  raise `42501` for an employee. Verified by role impersonation — see the
+  results block at the foot of `db/expense-accountant-tools.sql`. Inputs are
+  parsed as `jsonb`/`numeric`, never interpolated, so there is no injection
+  surface. `wap_expense_deletions` holds RLS-enabled-no-policy **and** zero
+  grants on purpose: the audit trail must not be readable — or erasable — from
+  the app, including by the accountant who wrote it. The advisor's INFO notice
+  on that table is the intended state, not a gap.
 - **`catalouge-images` public** — by design; 264 catalogue pages served as
   `image_url` in replies.
 - **`receipts` bucket** — private, 10 MB cap, mime-restricted, read scoped to

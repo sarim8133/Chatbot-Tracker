@@ -145,3 +145,21 @@ export async function signedReceiptUrl(path, expiresIn = 3600) {
   }
   return `${SB_URL}/storage/v1${data.signedURL}`;
 }
+
+// Removes a receipt image from the private bucket. Called after
+// admin_delete_expense() has already destroyed the row and handed back its
+// image_path. Storage RLS (receipts_delete_accountant) is what actually
+// authorises this — an employee gets a 4xx here.
+//
+// Deliberately best-effort: the row is already gone, so a failure leaves an
+// orphaned object nobody can reach, which is far better than blocking the
+// delete or reporting a failure for work that did in fact happen.
+export async function deleteReceiptImage(path) {
+  if (!path) return false;
+  const token = await getAccessToken();
+  const res = await fetch(`${SB_URL}/storage/v1/object/receipts/${path}`, {
+    method: 'DELETE',
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` },
+  });
+  return res.ok;
+}

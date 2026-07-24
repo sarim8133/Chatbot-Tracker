@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
   const { error: mErr } = await admin.from('app_users').insert({
     user_id: newId,
     role,
-    phone: role === 'employee' ? phone : null,
+    // Optional for admins/accountants, required for employees (checked above).
+    // Whoever has one can sign in with it and gets their receipts attributed.
+    phone: phone || null,
     email: realEmail || null,
     full_name: fullName,
     department: department || null,
@@ -96,9 +98,12 @@ Deno.serve(async (req) => {
     return json({ error: dup ? 'That phone number is already assigned to someone.' : ('Failed to save profile: ' + mErr.message) }, 400);
   }
 
-  // --- WhatsApp roster row so employees can submit receipts ---
+  // --- WhatsApp roster row so they can submit receipts ---
+  // Required for ANYONE with a phone, not just employees: wap_expenses.sender_phone
+  // has an FK to this table, so a phone that isn't rostered makes their first
+  // receipt upload fail on a foreign-key violation.
   let warning: string | undefined;
-  if (role === 'employee' && phone) {
+  if (phone) {
     const { error: rErr } = await admin.from('wap_allowed_senders')
       .insert({ phone, employee_name: fullName, department: department || 'General', active: true });
     if (rErr && !/duplicate|unique/i.test(rErr.message)) {
