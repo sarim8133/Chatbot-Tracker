@@ -4148,9 +4148,16 @@ export default function Dashboard({ onLogout }) {
     const hash = window.location.hash.slice(1);
     return ALL_NAV.some(n => n.id === hash) ? hash : 'overview';
   });
+  // Guarded here rather than at each call site: the mobile nav called this
+  // without checking whether you were already on the tab, so re-tapping the
+  // current one pushed a duplicate entry and the phone's Back button popped
+  // straight back to the same tab — looking like Back was broken.
   const goTab = useCallback(id => {
-    history.pushState(null, '', `#${id}`);
-    setTab(id);
+    setTab(prev => {
+      if (prev === id) return prev;
+      history.pushState(null, '', `#${id}`);
+      return id;
+    });
   }, []);
   const [searchFocus, setSearchFocus] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -4188,10 +4195,21 @@ export default function Dashboard({ onLogout }) {
   // login name (email local-part).
   const displayName = profile?.full_name || currentUserName() || 'User';
   const initials = (displayName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase()) || 'U';
+  // Where the logo goes. Overview for anyone who has it; an employee doesn't, so
+  // send them to their first real tab rather than to a tab the next effect would
+  // immediately bounce them off.
+  const homeTab = useMemo(
+    () => (nav.some(n => n.id === 'overview') ? 'overview' : (nav[0]?.id || 'overview')),
+    [nav]);
+
   // If the current tab isn't allowed for this role (e.g. role resolved to
   // 'employee' but the URL hash was #overview), fall back to the first allowed.
+  // replaceState, not pushState: this is a correction, and giving it a history
+  // entry would mean Back lands on the tab they were just bounced off.
   useEffect(() => {
-    if (!nav.some(n => n.id === tab)) setTab(nav[0].id);
+    if (nav.some(n => n.id === tab)) return;
+    history.replaceState(null, '', `#${nav[0].id}`);
+    setTab(nav[0].id);
   }, [nav, tab]);
 
   // Toast notifications
@@ -4254,6 +4272,9 @@ export default function Dashboard({ onLogout }) {
     const onPop = () => {
       const hash = window.location.hash.slice(1);
       setTab(ALL_NAV.some(n => n.id === hash) ? hash : 'overview');
+      // Back while the mobile drawer is open would otherwise switch the tab
+      // behind it and leave the picker sitting there over the new page.
+      setNavOpen(false);
     };
     window.addEventListener('popstate', onPop);
     return ()=>window.removeEventListener('popstate', onPop);
@@ -4289,14 +4310,19 @@ export default function Dashboard({ onLogout }) {
             from the icon with an empty gap between them. */}
         <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center gap-3 sm:gap-5">
 
-          {/* Wordmark */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <img src="/logo-icon.png" alt="Hi Tech Machinery" width="256" height="256" className="h-11 w-auto"/>
-            <div className="leading-none hidden md:block">
+          {/* Wordmark — doubles as the way home, the way a site logo always has.
+              The whole lockup is the target, not just the mark, so it stays an
+              easy tap on a phone where the text is hidden. */}
+          <button type="button"
+            onClick={()=>{ goTab(homeTab); setNavOpen(false); }}
+            aria-label={`Hi Tech Sales Intelligence — go to ${ALL_NAV.find(n=>n.id===homeTab)?.label || 'Overview'}`}
+            className="flex items-center gap-2.5 shrink-0 -m-1 p-1 rounded-lg transition-opacity hover:opacity-80 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+            <img src="/logo-icon.png" alt="" width="256" height="256" className="h-11 w-auto"/>
+            <div className="leading-none hidden md:block text-left">
               <p className="text-[16px] font-bold tracking-tight" style={{color:BLUE}}>Hi Tech</p>
               <p className="text-[12px] text-zinc-400 mt-0.5">Sales Intelligence</p>
             </div>
-          </div>
+          </button>
 
           {/* Identity — who's signed in + their role (left corner, out of the tabs' way) */}
           {role && ROLE_META[role] && (
