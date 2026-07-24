@@ -187,10 +187,20 @@ body, .theme-fade {
 
    Universal selector on purpose: an opt-in class only styles what someone
    remembered to tag, and the one that gets forgotten is the one that looks
-   broken. `*` has zero specificity, so any class below still overrides it. */
-*, ::before, ::after {
-  scrollbar-width: thin;                                  /* Firefox */
-  scrollbar-color: var(--scroll-thumb) transparent;
+   broken. `*` has zero specificity, so any class below still overrides it.
+
+   THE TWO SYNTAXES MUST NOT BOTH APPLY. Chrome 121+ understands the standard
+   `scrollbar-width`/`scrollbar-color`, and where those are set it DISCARDS the
+   ::-webkit-scrollbar rules wholesale — including `scrollbar-button:none`. So
+   setting both, which is the usual copy-paste advice, silently threw away this
+   entire design on Chrome and Edge and left the OS bar with its stepper arrows.
+   Hence the @supports gate: standard properties only where the pseudo-elements
+   do not exist (Firefox), pseudo-elements everywhere else. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+  }
 }
 ::-webkit-scrollbar        { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track  { background: transparent; }
