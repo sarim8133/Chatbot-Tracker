@@ -191,10 +191,12 @@ function demoStats() {
     const hits=Math.round(v.count*rate);
     return {date:v.date, label:v.label, hits, total:v.count, rate: v.count ? hits/v.count : 0};
   });
+  // One row per purge state, so demo mode exercises all three hint variants:
+  // purged, served-from-cache-but-not-purged (a pre-auto-purge report), neither.
   const badResponses = [
-    {id:'d1', reason:'wrong_machine', user_message:'compare dt 100 and dd 250', ai_response:'DT D100 vs SCR250H-7…', note:'gave me an air compressor', from_cache:false, user_name:'ahsan',  created_at:new Date(now-3600000*2).toISOString()},
-    {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', from_cache:true,  user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
-    {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', from_cache:false, user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
+    {id:'d1', reason:'wrong_machine', user_message:'compare dt 100 and dd 250', ai_response:'DT D100 vs SCR250H-7…', note:'gave me an air compressor', from_cache:false, cache_purged:1, user_name:'ahsan',  created_at:new Date(now-3600000*2).toISOString()},
+    {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', from_cache:true,  cache_purged:0, user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
+    {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', from_cache:false, cache_purged:0, user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
   ];
   return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate};
 }
@@ -265,7 +267,7 @@ function useData(onAuthError) {
         sbRpc(token, 'dashboard_stats', chanArg),
         sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
-        sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,user_name&order=created_at.desc&limit=100'),
+        sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,cache_purged,user_name&order=created_at.desc&limit=100'),
       ]);
       const msgs=m.data, cache=c.data;
       // Web chats have no phone. Use the display name as the rep identity so the whole
@@ -690,7 +692,14 @@ function BadResponseRow({ r }) {
           <p className="text-[12.5px] text-zinc-500 whitespace-pre-wrap break-words">{trunc(r.ai_response || '(no reply captured)', 600)}</p>
           <p className="text-[11px] text-zinc-400">
             {r.user_name || 'unknown'}
-            {r.from_cache && ' · served from cache — delete the semantic_cache row, or a prompt fix will look like it did nothing'}
+            {/* Three distinct states, and the difference is what to do next.
+                Reports filed before auto-purge shipped default to 0, so they
+                correctly keep the old do-it-by-hand warning. */}
+            {r.cache_purged > 0
+              ? ` · ${r.cache_purged === 1 ? 'cached copy' : `${r.cache_purged} cached copies`} removed automatically — this reply won't be served again`
+              : r.from_cache
+                ? ' · served from cache and NOT purged — delete the semantic_cache row by hand, or a prompt fix will look like it did nothing'
+                : ''}
           </p>
         </div>
       )}
@@ -837,6 +846,7 @@ function OverviewTab({s, onDrill}) {
                 {label:'Reply',    get:r=>r.ai_response},
                 {label:'Note',     get:r=>r.note},
                 {label:'Cached',   get:r=>r.from_cache ? 'yes' : 'no'},
+                {label:'Purged',   get:r=>r.cache_purged ?? 0},
                 {label:'Rep',      get:r=>r.user_name},
               ], s.badResponses)}
             />
@@ -1633,27 +1643,32 @@ function CopyButton({ text }) {
 
 // Dislike-only feedback under an assistant reply. There is no "like" — only
 // failures are actionable. A bare vote isn't actionable either, so the picker
-// insists on a reason tag and the row we write carries the whole exchange plus
-// from_cache (a disliked CACHED reply needs the semantic_cache row deleted,
-// which is a different fix from a prompt/RAG problem). See src/feedback.js.
+// insists on a reason tag and the row we write carries the whole exchange.
+//
+// Reporting also evicts the reply from the semantic cache, which is why the
+// confirmation distinguishes the two outcomes: a purge means the next rep to
+// ask gets a fresh answer, no purge means the reply was never cached and the
+// fix is a prompt or RAG change. Note this fires for uncached replies too — the
+// workflow writes cacheable answers to the cache on the way out, so a reply
+// tagged "AI call" is usually already sitting in the cache by the time the rep
+// reads it. See src/feedback.js.
 function BadAnswerButton({ m, question, sessionId }) {
   const [open, setOpen]     = useState(false);
   const [reason, setReason] = useState(null);
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
-  const [done, setDone]     = useState(false);
+  const [done, setDone]     = useState(null);   // null = not sent; else { purged }
   const [err, setErr]       = useState('');
 
   const send = async () => {
     if (!reason || busy) return;
     setBusy(true); setErr('');
     try {
-      await submitFeedback({
+      const { purged } = await submitFeedback({
         sessionId, turnTs: m.ts, userMessage: question,
         aiResponse: m.text, fromCache: m.from_cache, reason, note,
-        userName: currentUserName(), userId: currentUserId(),
       });
-      setDone(true);
+      setDone({ purged });
     } catch (ex) {
       setErr(ex?.message || "Couldn't send that.");
       setBusy(false);
@@ -1665,8 +1680,16 @@ function BadAnswerButton({ m, question, sessionId }) {
   if (done) return (
     <div className="flex items-center flex-wrap gap-1">
       <CopyButton text={m.text}/>
-      <span className="flex items-center gap-1.5 text-[11px] text-zinc-400 px-1.5">
-        <CheckCircle2 size={11}/> Thanks — logged for review.
+      {/* min-w-0 + shrink-0: after a one-word reply the bubble column is only
+          ~50px wide, and without these the tick gets squashed and the sentence
+          overflows instead of wrapping. Checked at 320px. */}
+      <span className="flex items-center gap-1.5 min-w-0 text-[11px] text-zinc-400 px-1.5">
+        <CheckCircle2 size={11} className="shrink-0"/>
+        <span className="min-w-0">
+          {done.purged > 0
+            ? 'Thanks — logged, and cleared from cache.'
+            : 'Thanks — logged for review.'}
+        </span>
       </span>
     </div>
   );
