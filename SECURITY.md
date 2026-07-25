@@ -22,7 +22,14 @@ WHERE "session_id" = '{{ $('Webhook').first().json.body.session_id }}'
 other tables (UNION) or, via Postgres stacked statements, modify/drop data with
 whatever privilege the n8n Postgres credential holds.
 
-☐ **Fix (n8n, by hand):** parameterize. Set the query to
+☑ **FIXED 2026-07-25** — verified live: the query now reads `WHERE "session_id" = $1`
+with `{{ $('Webhook').first().json.body.session_id }}` in **Options → Query Parameters**,
+so the value travels out-of-band and can never be parsed as SQL. Nothing else in the
+workflow interpolates request body into a query.
+
+<details><summary>Original instructions</summary>
+
+**Fix (n8n, by hand):** parameterize. Set the query to
 ```sql
 WHERE "session_id" = $1
 ```
@@ -33,11 +40,12 @@ out-of-band and can never be parsed as SQL.
 > Note: `Save to Semantic Cache` already hand-escapes via `escSql()`. Only this
 > node was missed.
 
-> **Re-verified still live 2026-07-25** by reading the workflow (`JOBpBMBz05ZVmQ79`).
-> The node immediately upstream of it, `Check Semantic Cache`, already does exactly
+> The node immediately upstream of it, `Check Semantic Cache`, already did exactly
 > what this fix asks for — `… 1 - (query_embedding <=> $1::vector) …` with the value
-> in **Options → Query Parameters**. So the pattern is already in this workflow and
-> already working; C1 is applying it one node later, not introducing anything new.
+> in **Options → Query Parameters**. The pattern was already in this workflow and
+> already working; the fix was applying it one node later.
+
+</details>
 
 ---
 
