@@ -46,8 +46,33 @@ either the same machine listed twice or the same URL emitted twice.
 
 **Add to §6:**
 
+> ⚠️ **Corrected 2026-07-25.** The first version of this bullet cost images and
+> caused invented URLs. It said equipment records "share a model_name and an
+> image_url" without saying how to DECIDE two results are the same machine, so the
+> agent merged aggressively — `D210Db Type 1` with `D210Db Type 2`, `NEO-T90` with
+> `NEO-T90II` — and every wrong merge dropped an image. Use the wording below,
+> which makes the test an exact string match, and apply the §7 patch with it.
+
 ```
-- De-duplicate by model: results may contain more than one record for the same machine — a specification record and a standard/optional equipment record share a model_name and an image_url. Treat them as ONE machine. Merge their content into a single entry, and include that machine's image_url exactly ONCE. The image count in §7 counts machines, never records.
+- De-duplicate by model: two results are the SAME machine ONLY when their model_name strings are identical, character for character. This happens because one machine can have both a specification record and a standard/optional equipment record; those carry the same model_name and the same image_url. Merge those into a single entry and use that image_url once. NEVER merge results whose model_name differs in any way — NEO-T90 and NEO-T90II are different machines, and so are D210Db Type 1 (m150) and D210Db Type 2 (m150). When in doubt, treat them as separate.
+```
+
+---
+
+## 2b. §7 — images must be copied, never constructed
+
+**Why.** §7 says *"Image count must match: if 3 machines are discussed, images MUST
+contain 3 URLs."* That is a hard count mandate with no escape hatch. The moment the
+agent has fewer URLs than machines — because a record genuinely has no `image_url`,
+or because it merged two records — the only way to satisfy `MUST` is to fabricate
+one. And nothing in the prompt forbids it: §2 grounds *facts and numbers*, and a URL
+reads like neither.
+
+**Replace the "Image count must match" bullet in §7 with:**
+
+```
+- Images: every URL in the images array must be copied character-for-character from an image_url field in a tool result. NEVER construct, guess, complete, shorten or edit a URL, and never assemble one from a pattern you have seen. If a machine you discuss has no image_url in the results, omit it from images — a shorter images array is always correct, an invented URL never is.
+- Aim for one image per machine discussed, in the same order the machines appear in the reply. This is a target, not a licence to invent: if you can only supply 2 URLs for 3 machines, send 2.
 ```
 
 ---
