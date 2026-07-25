@@ -45,8 +45,17 @@ Use this tool to search HiTech Machinery's published knowledge-base articles and
 
 ## 3. AI Agent -> System Message -> KNOWLEDGE BOUNDARIES
 
-You already replaced this block once (for the General Information guides). Replace it again with
-this version, which adds the articles tool. It is a superset — it keeps the screw-guide routing.
+> ⛔ **SUPERSEDED — do not paste this block.** Sarim rewrote the whole system message
+> (the "HiTech Machinery Lookup Assistant" prompt with numbered rule precedence). That
+> rewrite already carries everything this block did — grounding in §2, tool routing in
+> §4, the General Information guide handling in §4, the source_url-is-not-an-image rule
+> in §4. Pasting this on top would duplicate and contradict it.
+>
+> The live patches that rewrite still needs are in `prompt-updates-search-articles.md`.
+> Section 2 above (the toolDescription) is unaffected and still applies — it lives on the
+> node, not in the system message.
+
+<details><summary>Historical text, kept for reference</summary>
 
 ```
 KNOWLEDGE BOUNDARIES
@@ -56,6 +65,8 @@ KNOWLEDGE BOUNDARIES
 🔹 GENERAL KNOWLEDGE: Only if BOTH tools return nothing relevant may you define a plain term in 1-3 sentences from general engineering knowledge. You must NEVER state a specific number, ratio, dimension, threshold or spec from training data (for example, never assert "L/D is typically 25:1"). Every number you output must come from a tool result.
 RULE OF THUMB: A specific model, its specs, its price or its availability -> search_pinecone, and its numbers are final. Concepts, how-to, why, background, and "which type of machine suits my product" -> search_articles. Open-ended or comparison questions -> call BOTH. Numbers from training data -> never.
 ```
+
+</details>
 
 ---
 
