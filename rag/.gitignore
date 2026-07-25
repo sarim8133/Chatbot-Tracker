@@ -21,3 +21,11 @@ __pycache__/
 # vectors and the original brochure images, so it is large and binary-ish -- it
 # is a local safety net, not something to carry in the repo.
 backups/
+
+# Supplier brochures and the rendered page images from them. Same reasoning as
+# General Knowledge/ above: these are OEM documents we were given, not ours to
+# publish. .render/ is a rebuildable scratch dir (pdftoppm output) and would add
+# hundreds of megabytes. catalogue_manifest.json is just resume state.
+new catalogues/
+.render/
+catalogue_manifest.json
