@@ -46,6 +46,12 @@ Condition, **loose** type validation:
 {{ $('Validate JWT').item.json.id }}   →   String / is not empty
 ```
 
+> ⚠️ **No trailing space after `}}`.** `={{ … }} ` with a space appends that space
+> to the result, so an invalid token — where `id` is undefined — evaluates to `" "`,
+> which is *not empty*. The condition then passes and the gate is open while looking
+> shut. Use **Loose** type validation too; strict on a possibly-undefined value can
+> throw rather than return false.
+
 - **true** → `Has Audio?`  (the existing first node)
 - **false** → new `Respond to Webhook` node, responseCode **401**, body:
 
@@ -70,10 +76,32 @@ Always Output Data: on   |   On Error: Continue (regular output)
 Then replace every `body.name` reference in the AI Agent's prompt with
 `{{ $('Get Profile').first().json[0].full_name }}`.
 
+### Node 4 — repoint the nodes that read `$json.body`  ← **easy to miss, breaks chat**
+
+Inserting anything in front of `Has Audio?` changes what `$json` means for it.
+Two nodes read the webhook body positionally and must be pinned to the webhook by
+name instead, or they silently receive the profile lookup's response:
+
+| node | field | must become |
+|---|---|---|
+| `Has Audio?` | condition left value | `={{ $('Webhook').item.json.body.audio_base64 }}` |
+| `Text` | assignment value | `={{ $('Webhook').item.json.body.message }}` |
+
+Left unfixed, `Has Audio?` is always false so voice notes never run, `Text` sets an
+empty string, and `Guardrails` receives nothing — the chat answers no one while
+every node reports success.
+
 > ⚠️ Order matters. Part B is live and harmless on its own. Apply Part A and test
 > the chat immediately — if the client ever stops sending the header, chat breaks
 > closed, not open.
 
+**Two tests, and the second is the one that matters:**
+
+1. Signed-in chat and a voice note both work.
+2. `curl -X POST <webhook-url> -H 'Content-Type: application/json' -d '{"body":{"message":"hi"}}'`
+   with **no** Authorization header must return "Please sign in" — not an answer.
+   If it answers, the gate is open regardless of what the canvas looks like.
+    
 ---
 
 ## H2 — rate limiting
