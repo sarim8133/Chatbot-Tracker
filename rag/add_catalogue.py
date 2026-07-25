@@ -109,7 +109,9 @@ CATALOGUES = [
      "pdf": "NEO·M Parameters Brochure _20240410_EN.pdf"},
     {"folder": "Tederic_NEO-M_Product", "company": "Tederic", "label": "NEO-M",
      "pdf": "NEO M .pdf"},
-    {"folder": "HiTech_FUDL", "company": "HiTech Machinery", "label": "FUDL",
+    # FUDL is the manufacturer; HiTech resells it. The storage folder keeps its
+    # original name because the image URLs are already live in Pinecone.
+    {"folder": "HiTech_FUDL", "company": "FUDL", "label": "FUDL",
      "pdf": "HiTech FUDL Catalogue.pdf"},
     {"folder": "UWA_YHE_Gen5", "company": "UWA", "label": "YHE Gen 5",
      "pdf": "YHE Generation 5.pdf"},
