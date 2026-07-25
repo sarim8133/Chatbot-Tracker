@@ -1,6 +1,16 @@
 {
   "_comment": "Folder (catalogue id) -> clean {company, catalogue}. Review the entries marked \"review\": true. company = brand/OEM; catalogue = product line/series shown to users.",
 
+  "_retired": {
+    "note": "Brands HiTech no longer sells. Removed 2026-07-25 from Pinecone (245 records), storage (40 page images) and the semantic cache (7 answers). Do NOT re-add these folders: extract_specs.py skips keys starting with _, so listing them here is inert and only serves as a record. Restore point: rag/backups/removed-yijiu-mega-eceng-2026-07-25.json (full vectors) and rag/backups/removed-catalogue-images/.",
+    "folders": {
+      "MEGA_and_HiTech_Machinery": "MEGA Blow Molding - 83 records",
+      "ECENG_and_HiTech_Machinery": "ECENG - 70 records",
+      "YIJIU": "Yijiu - 23 records",
+      "autoandHiTech": "Automation - 69 records, every one a duplicate of an ECENG/MEGA/Yijiu model re-printed under the HiTech Machinery label"
+    }
+  },
+
   "3_NEO-EII_Parameters_Brochure_20241219_EN":      { "company": "Tederic", "catalogue": "NEO-EII" },
   "2-DT_Parameters_Brochure_20241227_EN":           { "company": "Tederic", "catalogue": "DT (Toggle-Clamp)" },
   "4_NEO-HII_Parameters_Brochure__20250102_EN":     { "company": "Tederic", "catalogue": "NEO-HII (Two-Platen)" },
@@ -21,9 +31,7 @@
   "11_Basket_Series_Gen_5":     { "company": "UWA", "catalogue": "Basket Series Gen 5" },
 
   "JOBO_and_HiTech_Machinery":  { "company": "JOBO", "catalogue": "JOBO Cap Machines" },
-  "MEGA_and_HiTech_Machinery":  { "company": "MEGA", "catalogue": "MEGA Blow Molding" },
   "Demaji_and_HiTech_Machinery":{ "company": "Demaji", "catalogue": "Demaji Extruders & Mould Steel" },
-  "ECENG_and_HiTech_Machinery": { "company": "ECENG", "catalogue": "ECENG", "review": true },
   "Huare":                      { "company": "Huare", "catalogue": "Huare Machinery", "review": true },
 
   "JINHU_01": { "company": "JINHU", "catalogue": "JINHU (Booklet 1)", "review": true },
@@ -41,8 +49,6 @@
 
   "YANGSEN_01": { "company": "Yangsen", "catalogue": "Yangsen Robots" },
   "YANGSEN_02": { "company": "Yangsen", "catalogue": "Yangsen Robots" },
-  "YIJIU":      { "company": "Yijiu", "catalogue": "Yijiu", "review": true },
-  "autoandHiTech": { "company": "HiTech Machinery", "catalogue": "Automation", "review": true },
 
   "HiTech-Air-Dryer":            { "company": "HiTech Machinery", "catalogue": "Air Dryer" },
   "HiTech-IBM-ISBM-Machines":    { "company": "HiTech Machinery", "catalogue": "IBM / ISBM" },

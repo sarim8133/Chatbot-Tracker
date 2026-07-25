@@ -16,3 +16,8 @@ general_docs/
 kb_manifest.json
 pdf_manifest.json
 __pycache__/
+
+# Restore point for records deleted from Pinecone/storage. Holds full 3072-dim
+# vectors and the original brochure images, so it is large and binary-ish -- it
+# is a local safety net, not something to carry in the repo.
+backups/
