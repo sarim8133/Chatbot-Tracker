@@ -626,15 +626,25 @@ def main():
 
     if all_rows:
         write_review(all_rows)
-        with open(os.path.join(HERE, "machine_type_review.csv"), "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["catalogue", "page", "model", "machine_type", "source", "evidence", "collides"])
-            for r in all_rows:
-                # Specs and evidence contain newlines; left raw they turn one CSV
-                # record into several and every downstream count is wrong.
-                flat = lambda s: " ".join(str(s or "").split())
-                w.writerow([r["label"], r["page"], r["model"], flat(r["machine_type"]), r["source"],
-                            flat(r["evidence"]), "; ".join(i for i, _ in r["collides_with"])])
+        # The review CSV is a convenience, and it is exactly the file someone
+        # leaves open in Excel while reading the last run. Windows locks it, and
+        # an unguarded write here throws away a completed ingest at the final
+        # step -- the upserts are already done by this point, so the crash costs
+        # the report and misreports the run as failed.
+        csv_path = os.path.join(HERE, "machine_type_review.csv")
+        try:
+            with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["catalogue", "page", "model", "machine_type", "source", "evidence", "collides"])
+                for r in all_rows:
+                    # Specs and evidence contain newlines; left raw they turn one CSV
+                    # record into several and every downstream count is wrong.
+                    flat = lambda s: " ".join(str(s or "").split())
+                    w.writerow([r["label"], r["page"], r["model"], flat(r["machine_type"]), r["source"],
+                                flat(r["evidence"]), "; ".join(i for i, _ in r["collides_with"])])
+        except PermissionError:
+            print(f"  !! could not write {os.path.basename(csv_path)} (file is open elsewhere)."
+                  f"\n     The markdown review table was written and is the same data.")
     if failed:
         print(f"\nFAILED catalogues (re-run by name): {', '.join(failed)}")
     print("\ndone." + ("  (dry run -- nothing was written remotely)" if args.dry_run else ""))
