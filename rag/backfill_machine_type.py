@@ -359,7 +359,44 @@ def rewrite_text(text, new_type):
     return "\n".join(lines)
 
 
-def extract(catalogue, pdfs):
+def read_pages(pages, numbers):
+    """Read a specific set of page numbers concurrently -> [(n, models)]."""
+    out = []
+    with cf.ThreadPoolExecutor(max_workers=PAGE_WORKERS) as pool:
+        futs = {pool.submit(read_page, pages[n - 1]): n for n in numbers}
+        for fut, n in futs.items():
+            try:
+                out.append((n, fut.result()))
+            except Exception as e:
+                print(f"    page {n}: FAILED {str(e)[:110]}")
+    return sorted(out)
+
+
+def harvest(models, pdf, n, buckets):
+    """Filter one page's models into the given dicts. Returns how many were kept."""
+    kept = 0
+    for m in models:
+        name = (m.get("model_name") or "").strip()
+        mt = (m.get("machine_type") or "").strip()
+        src = m.get("machine_type_source") or "unknown"
+        if not name or not mt or src == "unknown":
+            continue
+        key = norm(name)
+        ev = norm(m.get("machine_type_evidence"))
+        if ev and (ev in key or key in ev):
+            continue
+        row = {"model_name": name, "machine_type": mt, "source": src,
+               "evidence": (m.get("machine_type_evidence") or "").strip(),
+               "page": f"{pdf} p{n}"}
+        for b in buckets:
+            prev = b.get(key)
+            if prev is None or len(mt) > len(prev["machine_type"]):
+                b[key] = row
+        kept += 1
+    return kept
+
+
+def extract(catalogue, pdfs, retry_empty=False):
     """Read every page of every source PDF for one catalogue -> {norm_name: row}.
 
     Cached per PDF. The intended workflow is a dry run, read the review table,
@@ -377,8 +414,32 @@ def extract(catalogue, pdfs):
     found = {}
     for pdf in pdfs:
         if pdf in cache:
-            print(f"  {pdf}: cached ({len(cache[pdf])} typed)")
-            for k, v in cache[pdf].items():
+            per_pdf = cache[pdf]
+            if retry_empty:
+                # Re-read ONLY the pages that produced nothing. A page can come
+                # back empty because it is a cover, or because the model judged a
+                # real spec table to be page furniture -- Huare page 31 is a full
+                # HGM180 crusher table and returned nothing, which is why six
+                # HGM180 records stayed blank. Re-reading the whole book to find
+                # those few is wasteful; re-reading just them is cheap.
+                path = os.path.join(PDF_DIR, pdf)
+                if os.path.exists(path):
+                    pages = render_pages(path, os.path.join(RENDER_ROOT, norm(pdf)))
+                    got = {r["page"] for r in per_pdf.values()}
+                    empty = [n for n in range(1, len(pages) + 1) if f"{pdf} p{n}" not in got]
+                    if empty:
+                        print(f"  {pdf}: re-reading {len(empty)} empty page(s): "
+                              f"{', '.join(map(str, empty))}")
+                        recovered = 0
+                        for n, models in read_pages(pages, empty):
+                            recovered += harvest(models, pdf, n, (found, per_pdf))
+                        print(f"     recovered {recovered} model(s)")
+                        cache[pdf] = per_pdf
+                        os.makedirs(RENDER_ROOT, exist_ok=True)
+                        with open(cache_path, "w", encoding="utf-8") as f:
+                            json.dump(cache, f, ensure_ascii=False)
+            print(f"  {pdf}: cached ({len(per_pdf)} typed)")
+            for k, v in per_pdf.items():
                 prev = found.get(k)
                 if prev is None or len(v["machine_type"]) > len(prev["machine_type"]):
                     found[k] = v
@@ -450,6 +511,8 @@ def main():
     ap.add_argument("--only", action="append", help="a live catalogue name; repeatable")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--go", action="store_true", help="write; otherwise dry run")
+    ap.add_argument("--retry-empty", action="store_true",
+                    help="re-read only the cached pages that yielded no models")
     args = ap.parse_args()
 
     index = Pinecone(api_key=PINECONE_KEY).Index(INDEX_NAME)
@@ -489,7 +552,7 @@ def main():
             print(f"=== {cat}: NO SOURCE REGISTERED, skipping ===")
             continue
         print(f"=== {cat}  ({len(rs)} blank records) ===")
-        found = extract(cat, pdfs)
+        found = extract(cat, pdfs, retry_empty=args.retry_empty)
 
         matched, unmatched = 0, []
         for r in rs:
