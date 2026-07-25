@@ -29,3 +29,7 @@ backups/
 new catalogues/
 .render/
 catalogue_manifest.json
+
+# Same again for the backfill: rendered pages of the OEM brochures, plus the
+# cached vision output that lets a --go run reuse what the dry run already read.
+.render_backfill/
