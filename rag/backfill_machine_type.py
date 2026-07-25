@@ -38,6 +38,7 @@ import time
 import base64
 import argparse
 import subprocess
+import concurrent.futures as cf
 import urllib.request
 import urllib.error
 
@@ -52,6 +53,9 @@ EMBED_MODEL = "gemini-embedding-001"
 INDEX_NAME = "hitech-v2"
 NAMESPACE = "hitech"
 RENDER_DPI = 150
+# Concurrent vision calls. 8 keeps well inside the per-minute quota while
+# turning an hour of sequential round-trips into a few minutes.
+PAGE_WORKERS = 8
 
 REVIEW_MD = os.path.join(HERE, "backfill_review.md")
 BACKUP_DIR = os.path.join(HERE, "backups")
@@ -131,6 +135,15 @@ def _load_key(env_name, filename):
 
 PINECONE_KEY = _load_key("PINECONE_API_KEY", ".pinecone_key")
 GEMINI_KEY = _load_key("GEMINI_API_KEY", ".gemini_key")
+
+# These brochures are Chinese-English, and the model names carry middots and the
+# occasional CJK character. On Windows stdout defaults to cp1252, so PRINTING a
+# progress line was enough to kill a run that had already read 60 pages.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 
 # ── the prompt ────────────────────────────────────────────────────────────────
@@ -293,15 +306,21 @@ def read_page(img_path):
     got = _retry(lambda: _post_json(url, payload, {}), f"vision {os.path.basename(img_path)}")
     cands = got.get("candidates") or []
     if not cands:
-        return []
+        raise RuntimeError(f"no candidates (finishReason={got.get('promptFeedback')})")
+    fin = cands[0].get("finishReason")
     parts = cands[0].get("content", {}).get("parts") or []
     raw = "".join(p.get("text", "") for p in parts).strip()
     if not raw:
-        return []
+        # An empty body is NOT the same as "this page has no machines". Page 31 of
+        # the Huare book is a full HGM180 crusher spec table and came back empty,
+        # silently, and the six live HGM180 records kept their blank type as a
+        # result. Anything other than a clean STOP is a failure and must be
+        # retried by _retry, not swallowed as an answer.
+        raise RuntimeError(f"empty response (finishReason={fin})")
     try:
         out = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"unparseable JSON (finishReason={fin}): {str(e)[:80]}") from e
     return out if isinstance(out, list) else []
 
 
@@ -372,12 +391,20 @@ def extract(catalogue, pdfs):
         pages = render_pages(path, out_dir)
         per_pdf = {}
         print(f"  {pdf}: {len(pages)} page(s)")
-        for n, img in enumerate(pages, 1):
-            try:
-                models = read_page(img)
-            except Exception as e:
-                print(f"    page {n}: FAILED {str(e)[:110]}")
-                continue
+        # Pages are independent, so read them concurrently. Sequentially this was
+        # ~11s of pure round-trip per page and roughly an hour for the 250 pages
+        # in these brochures, with the CPU idle throughout. Order is preserved by
+        # submitting into a list and reading results back by index, because the
+        # "page" field in the review table has to name the right page.
+        with cf.ThreadPoolExecutor(max_workers=PAGE_WORKERS) as pool:
+            futures = [pool.submit(read_page, img) for img in pages]
+            results = []
+            for n, fut in enumerate(futures, 1):
+                try:
+                    results.append((n, fut.result()))
+                except Exception as e:
+                    print(f"    page {n}: FAILED {str(e)[:110]}")
+        for n, models in results:
             kept = 0
             for m in models:
                 name = (m.get("model_name") or "").strip()
@@ -400,6 +427,16 @@ def extract(catalogue, pdfs):
                         bucket[key] = row
                 kept += 1
             print(f"    page {n}: {kept} typed" if kept else f"    page {n}: -")
+        # Pages that yielded nothing. Covers and contents pages legitimately do,
+        # but so did page 31 of the Huare book -- a full HGM180 crusher spec
+        # table the model judged to be page furniture, which is why six live
+        # HGM180 records kept their blank type. Printing them is the only way
+        # anyone finds out; a silent [] looks exactly like a cover.
+        got_pages = {r["page"] for r in per_pdf.values()}
+        empty = [n for n in range(1, len(pages) + 1) if f"{pdf} p{n}" not in got_pages]
+        if empty:
+            print(f"    NO MODELS on page(s): {', '.join(map(str, empty))}"
+                  f"  <- check these if records stay blank")
         cache[pdf] = per_pdf
         os.makedirs(RENDER_ROOT, exist_ok=True)
         with open(cache_path, "w", encoding="utf-8") as f:
@@ -456,7 +493,42 @@ def main():
 
         matched, unmatched = 0, []
         for r in rs:
-            hit = found.get(norm(r["metadata"].get("model_name")))
+            live_key = norm(r["metadata"].get("model_name"))
+            hit = found.get(live_key)
+            if not hit:
+                # The live name and the brochure name often describe the same
+                # machine at different lengths. The earlier pipelines wrote the
+                # variant into the name -- "D210Db Type 1 (m150)" where the
+                # brochure page says "D210Db" -- while the CPVC book does the
+                # reverse, printing "(YH158)" for what is stored as
+                # "LIYA YE 5-Series CPVC (YH158)".
+                #
+                # So fall back to containment, and take the LONGEST match. That
+                # is what stops "D280Db with m210 (Type 1, B) Injection Unit"
+                # from being typed as an m210 injection unit: both "d280db" and
+                # "m210" are contained in it, and the longer one is the machine.
+                # Bare injection-unit codes never win a containment match. They
+                # are not machines -- 31 such records were deleted from this
+                # namespace for exactly that reason -- and "m210" sits inside
+                # plenty of machine names that have nothing to do with it.
+                cands = [(k, v) for k, v in found.items()
+                         if len(k) >= 4 and not re.fullmatch(r"[iem]\d{2,6}", k)
+                         and (k in live_key or live_key in k)]
+                if cands:
+                    hit = max(cands, key=lambda kv: len(kv[0]))[1]
+                else:
+                    # Last resort: the base model, cut at the first space or
+                    # bracket. The DD catalogue stores its variants as prose --
+                    # "D280Db with m210 (Type 1, B) Injection Unit" -- so the
+                    # only thing a brochure page can be expected to share with
+                    # it is the D280Db at the front.
+                    base = norm(re.split(r"[\s(]", (r["metadata"].get("model_name") or "").strip())[0])
+                    if len(base) >= 4:
+                        cands = [(k, v) for k, v in found.items()
+                                 if len(k) >= 4 and not re.fullmatch(r"[iem]\d{2,6}", k)
+                                 and (base == k or base in k)]
+                        if cands:
+                            hit = min(cands, key=lambda kv: len(kv[0]))[1]
             if not hit:
                 unmatched.append(r["metadata"].get("model_name", ""))
                 continue
