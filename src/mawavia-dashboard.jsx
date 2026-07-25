@@ -3231,6 +3231,7 @@ function toShareRows(rows, splitsByExpense) {
     for (const p of parts) {
       out.push({
         ...r,
+        user_id: p.user_id || r.user_id,
         employee_name: p.employee_name || r.employee_name,
         sender_phone: p.sender_phone,
         amount: Number(p.share) || 0,
@@ -3240,6 +3241,13 @@ function toShareRows(rows, splitsByExpense) {
   }
   return out;
 }
+
+// One person is one account, not one spelling of a name. The two intake paths
+// used to write the name from two hand-maintained tables, so the same human
+// arrived as "Sarim" from the web and "sarim" from WhatsApp and totalled up as
+// two people. Receipts submitted by a roster number that belongs to no login
+// have no account to key on, so those still fall back to the stamped name.
+const personKey = (r) => r.user_id || `name:${(r.employee_name || '').trim().toLowerCase()}`;
 
 function ExpensesTab({ role, onAuthError }) {
   const isEmployee = role === 'employee';
@@ -3282,9 +3290,9 @@ function ExpensesTab({ role, onAuthError }) {
         // who have never submitted. Both are wrong for charging money to.
         const [ex, sp, team] = await Promise.all([
           sbFetch(token, 'wap_expenses',
-            'select=expense_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status,sender_phone&status=neq.rejected&order=processed_at.desc&limit=2000'),
+            'select=expense_id,user_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status,sender_phone&status=neq.rejected&order=processed_at.desc&limit=2000'),
           sbFetch(token, 'wap_expense_splits',
-            'select=expense_id,sender_phone,employee_name,share&limit=5000'),
+            'select=expense_id,user_id,sender_phone,employee_name,share&limit=5000'),
           sbRpc(token, 'expense_team_members'),
         ]);
         if (cancelled) return;
@@ -3336,19 +3344,41 @@ function ExpensesTab({ role, onAuthError }) {
   const inScopeShares = useMemo(
     () => toShareRows(inScope, splitsByExpense), [inScope, splitsByExpense]);
 
+  // Keyed on the account; the name comes along only to label the bar.
   const byEmployee = useMemo(() => {
-    const m = {};
-    inScopeShares.forEach(r => { m[r.employee_name] = (m[r.employee_name] || 0) + r.amount; });
-    return Object.entries(m).map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
+    const m = new Map();
+    for (const r of inScopeShares) {
+      const pkey = personKey(r);
+      const hit = m.get(pkey);
+      if (hit) hit.total += r.amount;
+      else m.set(pkey, { pkey, name: r.employee_name || '—', total: r.amount });
+    }
+    return [...m.values()].sort((a, b) => b.total - a.total);
   }, [inScopeShares]);
 
-  // Budgets are per-person and per-month, so they key on phone (the identity
-  // everything else uses) and ignore the department/employee filters — a cap is
-  // a property of the person, not of the current view.
-  // Receipts submitted before admins could have a phone carry sender_phone =
-  // null — every existing one does. Keying budgets on the phone alone therefore
-  // dropped them and counted only split rows, which always carry one. Fall back
-  // to the name the receipt was stamped with, resolved against the team.
+  // selEmp holds the person key, which is a uuid for anyone with a login — so
+  // every label that used to print it needs the human name instead.
+  const selEmpName = useMemo(() => {
+    if (!selEmp) return '';
+    const hit = byEmployee.find(e => e.pkey === selEmp);
+    if (hit) return hit.name;
+    const anyRow = (rows || []).find(r => personKey(r) === selEmp);
+    return anyRow?.employee_name || '';
+  }, [selEmp, byEmployee, rows]);
+
+  // Budgets are per-person and per-month, and ignore the department/employee
+  // filters — a cap is a property of the person, not of the current view.
+  //
+  // These still key on PHONE, unlike everything else here, which keys on the
+  // account (see personKey). That is deliberate: the cap itself lives on
+  // wap_allowed_senders.spending_limit, which is a phone-keyed roster, and
+  // expense_team_members() hands back phones rather than account ids. Moving
+  // budgets to user_id means changing both, so it stays a separate job.
+  //
+  // Older receipts carry sender_phone = null (they predate admins having a
+  // phone on app_users). Keying on the phone alone dropped them and counted
+  // only split rows, which always carry one. Fall back to the name the receipt
+  // was stamped with, resolved against the team.
   //
   // Only when exactly one team member bears that name: two people can share a
   // name, and guessing would charge the wrong person's budget.
@@ -3385,7 +3415,7 @@ function ExpensesTab({ role, onAuthError }) {
   // Focus is applied to the share rows, so drilling into one employee shows
   // their portion of a split receipt rather than the whole bill.
   const focusShares = useMemo(() => {
-    if (selEmp) return inScopeShares.filter(r => r.employee_name === selEmp);
+    if (selEmp) return inScopeShares.filter(r => personKey(r) === selEmp);
     if (!isEmployee && empQuery) return inScopeShares.filter(r => (r.employee_name || '').toLowerCase().includes(empQuery));
     return inScopeShares;
   }, [inScopeShares, selEmp, empQuery, isEmployee]);
@@ -3420,7 +3450,7 @@ function ExpensesTab({ role, onAuthError }) {
     const scope = toShareRows(
       rows.filter(r => dept === 'all' || r.department === dept),
       splitsByExpense,
-    ).filter(r => !selEmp || r.employee_name === selEmp);
+    ).filter(r => !selEmp || personKey(r) === selEmp);
     const m = {};
     scope.forEach(r => { const k = (r.processed_at || '').slice(0, 7); if (k) m[k] = (m[k] || 0) + r.amount; });
     return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), total: m[k] }));
@@ -3530,7 +3560,7 @@ function ExpensesTab({ role, onAuthError }) {
               <button onClick={() => setSelEmp(null)}
                 className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
-                {selEmp} <X size={12} className="text-zinc-400" />
+                {selEmpName} <X size={12} className="text-zinc-400" />
               </button>
             )}
           </div>
@@ -3553,8 +3583,8 @@ function ExpensesTab({ role, onAuthError }) {
           <Panel className="grid grid-cols-1 md:grid-cols-[1.6fr_repeat(3,1fr)] divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden">
             <div className="p-6">
               <span className="flex items-center gap-1">
-                <Label>{isEmployee ? 'Your spend' : (selEmp ? `${selEmp}’s spend` : 'Total spend')}</Label>
-                <HintIcon text={`Total logged spend for ${monthLabel(month)}${selEmp ? ` · ${selEmp}` : ''}`} />
+                <Label>{isEmployee ? 'Your spend' : (selEmp ? `${selEmpName}’s spend` : 'Total spend')}</Label>
+                <HintIcon text={`Total logged spend for ${monthLabel(month)}${selEmp ? ` · ${selEmpName}` : ''}`} />
               </span>
               <div className="mt-4 flex items-end gap-2">
                 <span className="mono text-[13px] font-semibold text-zinc-400 mb-1.5">PKR</span>
@@ -3589,6 +3619,7 @@ function ExpensesTab({ role, onAuthError }) {
               byCategory={byCategory}
               trend={trend}
               selectedEmployee={selEmp}
+              selectedEmployeeName={selEmpName}
               onSelectEmployee={setSelEmp}
             />
           </Suspense>
@@ -3609,7 +3640,7 @@ function ExpensesTab({ role, onAuthError }) {
               <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Receipts</h2>
               <span className="mono text-[11px] text-zinc-400 tabular-nums">{listRows.length} in view</span>
             </div>
-            <p className="text-[13px] text-zinc-500 mb-4">{monthLabel(month)}{selEmp ? ` · ${selEmp}` : (empQuery ? ` · “${empSearch}”` : '')} — click a row for the full receipt</p>
+            <p className="text-[13px] text-zinc-500 mb-4">{monthLabel(month)}{selEmp ? ` · ${selEmpName}` : (empQuery ? ` · “${empSearch}”` : '')} — click a row for the full receipt</p>
             {listRows.length === 0
               ? <p className="text-[13px] text-zinc-400 py-6 text-center">No receipts in this view.</p>
               : (

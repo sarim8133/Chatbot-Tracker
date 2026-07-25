@@ -1,17 +1,27 @@
 -- ============================================================================
--- Access control + unified identity   (updated 2026-07-05)
+-- Access control + unified identity   (updated 2026-07-25)
 --
--- IDENTITY IS THE PHONE NUMBER (unique), not the name — two people can share a
--- name safely. One phone appears in all three places:
---   app_users.phone            (login identity)
---   wap_allowed_senders.phone  (WhatsApp roster: may submit)
---   wap_expenses.sender_phone  (stamped on each receipt — written by n8n)
--- The n8n workflow is UNCHANGED; it already writes sender_phone.
+-- IDENTITY IS THE ACCOUNT: wap_expenses.user_id -> app_users.user_id, stamped
+-- on every receipt by both intake workflows. Neither the name nor the phone
+-- survives as a key:
+--   • the name is written from a hand-maintained table and its casing drifts
+--     (the same person arrived as "Sarim" from the web and "sarim" from
+--     WhatsApp, and totalled up as two people)
+--   • the phone is typed by hand in two places in two formats (03… vs 923…),
+--     and web uploads carried sender_phone = null for weeks
+-- Both are still stamped, for display and for senders who have no login.
+--
+-- Where a person appears:
+--   app_users.user_id          (login identity — the key)
+--   app_users.phone            (login by phone; budgets still key on this)
+--   wap_allowed_senders.phone  (WhatsApp roster: may submit + spending_limit)
+--   wap_expenses.user_id       (stamped on each receipt — written by n8n)
 --
 -- Roles (in app_users):
 --   admin      : full site (all tabs) + everyone's expenses + the Team panel
 --   accountant : everyone's expenses + sales tabs
---   employee   : only receipts where sender_phone = their phone
+--   employee   : only receipts that are theirs (user_id, or phone for rows
+--                submitted by a roster number that belongs to no account)
 --
 -- Login: people sign in with EITHER their email OR their phone number
 --   (resolve_login_email turns a phone into the account email; see auth.js).
@@ -64,12 +74,35 @@ grant execute on function private.can_view_all_expenses() to authenticated;
 grant execute on function private.my_phone()              to authenticated;
 grant execute on function private.is_admin()              to authenticated;
 
--- 3) RLS on receipts / roster — matched by PHONE ----------------------------
+-- 3) RLS on receipts / roster — matched by ACCOUNT --------------------------
+-- Applied via migration `key_expense_identity_on_user_id` (2026-07-25). The
+-- phone-only rule made an employee's own web receipts invisible to them, since
+-- every web row carried sender_phone = null. Phone stays as a fallback.
 grant select on public.wap_expenses to authenticated;
 drop policy if exists wap_expenses_self_or_accountant on public.wap_expenses;
 create policy wap_expenses_self_or_accountant on public.wap_expenses
   for select to authenticated
-  using ( private.can_view_all_expenses() or sender_phone = private.my_phone() );
+  using (
+    private.can_view_all_expenses()
+    or user_id = (select auth.uid())
+    or (sender_phone is not null and sender_phone = private.my_phone())
+    or exists (
+      select 1 from public.wap_expense_splits s
+       where s.expense_id = wap_expenses.expense_id
+         and (s.user_id = (select auth.uid())
+              or (s.sender_phone is not null and s.sender_phone = private.my_phone()))
+    )
+  );
+
+grant select on public.wap_expense_splits to authenticated;
+drop policy if exists wap_splits_self_or_accountant on public.wap_expense_splits;
+create policy wap_splits_self_or_accountant on public.wap_expense_splits
+  for select to authenticated
+  using (
+    private.can_view_all_expenses()
+    or user_id = (select auth.uid())
+    or (sender_phone is not null and sender_phone = private.my_phone())
+  );
 
 grant select on public.wap_allowed_senders to authenticated;
 drop policy if exists wap_senders_self_or_accountant on public.wap_allowed_senders;

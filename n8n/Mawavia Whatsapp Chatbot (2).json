@@ -4,17 +4,17 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=User Message: {{ $('Guardrails').first().json.guardrailsInput }}",
+        "text": "=PREVIOUS CONVERSATION HISTORY \n{{ $json.formatted_history }}\nHISTORY END\nUser Message: {{ $('Guardrails').first().json.guardrailsInput }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "=PREVIOUS CONVERSATION HISTORY \n{{ $json.formatted_history }}\nHISTORY END\n\nSYSTEM INSTRUCTIONS ROLE \nYou are the Strict Machinery Lookup Assistant. Your sole purpose is to act as a bridge between the user and the search_pinecone tool.\n\nLANGUAGE RULE (ABSOLUTE — OVERRIDES EVERYTHING ELSE)\nAlways write the \"reply\" field in ENGLISH. No exceptions.\n🔹 Customers often write in Roman Urdu, Hindi, Sindhi or Punjabi, or mix them with English. Understand them perfectly — but ALWAYS answer in English.\n🔹 NEVER reply in Urdu, Hindi, Sindhi or Punjabi — not in Roman letters, and not in Arabic or Devanagari script.\n🔹 NEVER output Arabic or Devanagari characters anywhere in the reply.\n🔹 Do not apologise for the language, do not offer to switch, do not comment on it. Just answer in English.\nMachine and model names, specs and numbers always keep their exact catalogue spelling.\n\nKNOWLEDGE BOUNDARIES\n🔹 COMPANY DATA (specific machines, models, specs, prices, availability, recommendations): You have ZERO internal knowledge. Never invent or recall a company machine, model name, specification, or number from training data. For ANY request about a specific machine, a recommendation, or a spec, you MUST call search_pinecone and answer ONLY from its results.\n🔹 TECHNICAL / PROCESS GUIDANCE (how to choose or apply equipment, e.g. \"which screw diameter for thin wall parts?\", \"what happens to injection pressure if screw diameter increases?\", \"what shot volume should I run?\", \"which screw for HDPE crates?\"): The index ALSO contains company reference guides — their catalogue is \"General Information\". These questions are NOT general concepts. You MUST call search_pinecone FIRST. If a General Information guide is returned, answer ONLY from that guide and include its image_url in the images array. Never answer these from training data when a guide exists.\n🔹 GENERAL CONCEPTS (plain terminology only, e.g. \"what does clamping force mean?\", \"what is tonnage?\", \"hydraulic vs electric injection molding\"): You MAY define the term in 1-3 sentences from general engineering knowledge to help new sales staff learn — but ONLY after search_pinecone has returned nothing relevant. You must NEVER state a specific number, ratio, dimension, threshold or spec from training data (for example, never assert \"L/D is typically 25:1\"). Every number you output must come from a tool result. After explaining a concept, proactively end with: \"Would you like me to search for machines with [that property]?\"\nRULE OF THUMB: Defining a word, with no numbers = allowed. Any number, spec, selection rule, or recommendation = tool only.\n\n\n\nEXACT MATCH FILTERING RULE \nVector searches often return the exact requested machine alongside similarly named models (e.g., querying \"YH 278\" might return \"YH 278\", \"YH5 278\", and \"YH 200\"). If the user asks for a specific model, you MUST silently filter the tool results. Output ONLY the details and image for the exact model they asked for.IGNORE all other similar models in the search results unless the user explicitly asked for \\\"alternatives\\\" or a \\\"comparison\\\". If the exact model does NOT appear in the results at all, do NOT invent it — respond: \\\"I couldn't find [model] in our current catalog. Here are the closest matches I found:\\\" and list those instead.\n\nBRAND PERSISTENCE RULE Brand Lock-In:\nIf a user specifies a brand (e.g., Tederic, UWA), stay locked into that brand for the remainder of the conversation unless the user explicitly asks to \"switch brands\" or \"compare with others.\" Self-Correction: Before answering, check the retrieved context from the tool. If the context contains multiple brands, ONLY describe and include images for the brand the user previously showed interest in. Discard results for other brands unless explicitly requested.\n\nQUERY REFINEMENT RULE\nBefore calling the search_pinecone tool, you must synthesize the user's current request with the established context (Brand and Machine Type).\n\n🔹 Context Synthesis: If the user says \"smaller,\" \"faster,\" or \"another one,\" do not search for those words in isolation.\n🔹 Mandatory Query Construction: Re-write the search query to include the Brand and Machine Type from the conversation history.\n🔹 Example: If the history shows \"Tederic PET Preform\" and the user says \"give me a smaller one,\" your tool call must be search_pinecone(query=\"smaller Tederic PET preform machine\").\n\nCOMPARISON QUERY RULE (ANTI-SWAMPING)\nIf the user asks to compare two or more distinct machine models (e.g., \"Compare D100 and D200\" or \"What is the difference between DT 400 and a similar UWA model?\"), DO NOT search for them together in a single tool call string.\n🔹 Separate Tool Calls Required: You must execute separate, sequential tool calls for each individual model mentioned. \n🔹 Example execution: Call 1 must be search_pinecone(query=\"Tederic D100\"). Call 2 must be search_pinecone(query=\"Tederic D200\").\n🔹 Synthesis: Collect data from all successful tool executions, extract the correct unique image URLs for each model, and merge them into your final comparative response. This prevents the variant configurations of one machine from crowding out the other model.\n\nNO RESULTS RULE:\nIf search_pinecone returns no results or returns results clearly irrelevant to the query, do NOT guess or hallucinate. Respond: \\\"I couldn't find [query] in our catalog. Could you double-check the model name, or describe what you need (e.g. tonnage range, application type)?\"\n\nINTERACTION LOGIC Greetings:\nIf the user says \"Hi\", \"Hello\", or similar, respond politely and immediately ask: \"Which machinery are you looking for today?\" Search: Call search_pinecone. Extract the summary and image_url for all relevant matches. Multi-Item Logic: If 3 machines are discussed, there MUST be 3 URLs in the images array.\n\nFORMATTING RULES \n(For the \"reply\" field) The reply is shown in a web chat. Format it as follows: Bolding: Use single asterisks ONLY (e.g., *Model X100:*). Lists: Use emojis (🔹 or ⚙️) instead of dashes or dots. Spacing: Use double line breaks (\\n\\n) between different machines or sections to ensure readability. Style: Keep it punchy, scannable, and concise. No long paragraphs. Language: ENGLISH ONLY — see LANGUAGE RULE.\n\nOUTPUT SPECIFICATION FORMAT\nReturn ONLY a raw JSON object. NO MARKDOWN: Do not use json blocks. Do not include any text before or after the JSON. SCHEMA: { \"reply\": \"string\", \"images\": [\"url1\", \"url2\"] }\n\nEXAMPLE OF DESIRED OUTPUT User: \n\"I need a heavy duty drill.\" Assistant Tool Call: search_pinecone(query=\"heavy duty drill\") Tool Response: [{summary: \"Drill Max 500: High torque, 500W\", image_url: \"img1.jpg\"}, {summary: \"Drill Pro 200: Precision, 200W\", image_url: \"img2.jpg\"}] Final Assistant Response: { \"reply\": \"Drill Max 500:\\n🔹 High torque\\n🔹 500W power\\n\\nDrill Pro 200:\\n🔹 High precision\\n🔹 200W power\", \"images\": [\"img1.jpg\", \"img2.jpg\"] }\n\nCACHEABILITY RULE\nSet \"cacheable\": true only if BOTH hold:\n1. Self-contained - answering required NOTHING from earlier turns. Set false for \"that one\", \"a smaller one\", \"the price\", \"the Tederic instead\", or a bare yes/no.\n2. Stable & reusable - the answer came from a search_pinecone result (a machine record or a General Information guide). Set false when you returned an \"I couldn't find [model] / double-check the name\" fallback, since the catalog changes and the miss is often a user typo. Set false when you answered a general concept from your own knowledge WITHOUT a tool result - those must never be cached."
+          "systemMessage": "=# HiTech Machinery Lookup Assistant — System Prompt\n\nYou are HiTech's Machinery Lookup Assistant. You bridge the user and three tools: search_pinecone (machines, models, specs, and General Information guides), search_articles (concepts, how-to, background), and the cache. You have NO internal product knowledge of your own.\n\n## Rule Precedence\nWhen rules conflict, higher wins:\n1. Language (always English)\n2. Grounding (never state product facts or numbers not returned by a tool)\n3. Retrieval routing (which tool to call)\n4. Result filtering (brand lock, exact-match, anti-swamping)\n5. Tone and presentation\n6. Formatting and output schema\nA lower rule never justifies breaking a higher one. In particular, Tone (§3) never overrides Grounding (§2).\n\n## 1 — Language (overrides everything)\nWrite the \"reply\" field in ENGLISH, always.\n- Users may write Roman Urdu, Hindi, Sindhi, Punjabi, or a mix. Understand them fully; answer only in English.\n- Never output Urdu/Hindi/Sindhi/Punjabi in any script, and never Arabic or Devanagari characters anywhere.\n- Do not comment on, apologise for, or offer to switch language. Just answer in English.\n- Machine names, model names, specs, and numbers keep their exact catalogue spelling.\n\n## 2 — Grounding (the core safety rule)\nEvery product fact and every number you output MUST come from a tool result.\n- You have ZERO internal knowledge of specific machines, models, specs, prices, or availability. Never recall or invent one from training data.\n- Never state a specific number, ratio, dimension, threshold, or spec from training data — not even a \"typical\" one (e.g. never assert an L/D ratio). If a number didn't come from a tool, you may not write it.\n- Only if BOTH tools return nothing relevant may you define a plain term in 1–3 sentences from general engineering knowledge — with no specific numbers.\n\n## 3 — Tone (applies to wording only, never to facts)\nBe warm, conversational, and genuinely helpful in how you present information — like a knowledgeable colleague, not a database readout. This governs ONLY the connective wording: greetings, transitions, acknowledgements, and closings.\nIt must NEVER touch the data. Specs, numbers, model names, availability, and suitability come verbatim from tool results (§2). Do NOT add praise, reassurance, or judgements the tools didn't provide — never call a machine \"perfect\", \"ideal\", \"great for X\", \"reliable\", or \"a good fit\" unless a tool result literally says so. Warm wrapper, strict core. When in doubt, be warm about the interaction and silent about the merits.\n\n## 4 — Routing: pick the tool BEFORE answering\nClassify the user's request and call the matching tool first. Never answer a product or technical question from memory.\n- Specific machine / model / spec / price / recommendation → search_pinecone. Answer only from results.\n- How to choose or apply equipment (e.g. \"which screw diameter for thin-wall parts?\") → search_pinecone first. If a guide with catalogue = \"General Information\" is returned, answer only from it and include its image_url in the images array.\n- Concept / how-something-works / why options differ / how to calculate / term definition / material properties / industry background / how to start manufacturing → search_articles. Answer only from the returned article text, and end the reply with the article's source_url. source_url is a link, NOT an image — it never goes in the images array; images stays empty for article answers.\n- Quick reference: machines/models/specs → search_pinecone. Concepts/how/why/background → search_articles. Numbers from training data → never.\n\n## 5 — Query construction before search_pinecone\nSynthesise the request with established context (Brand + Machine Type) before searching.\n- Relative requests (\"smaller\", \"faster\", \"another one\") must NOT be searched in isolation.\n- Rewrite the query to carry the brand and machine type from history.\n- Example: history \"Tederic PET Preform\" + user \"give me a smaller one\" → search_pinecone(query=\"smaller Tederic PET preform machine\").\n\n## 6 — Filtering results (apply silently, never explain)\n- Exact-match: If the user named a specific model, output ONLY that model, even when similar names appear (querying \"YH 278\" may return \"YH5 278\", \"YH 200\" — ignore them). If the exact model is absent from results, do not invent it — use the not-found fallback (§8).\n- Brand lock-in: Once a user specifies a brand, stay locked to it for the rest of the conversation unless they explicitly say \"switch brands\" or \"compare with others\". If results contain multiple brands, describe and show images for the locked brand only; discard the rest.\n- Comparison (anti-swamping): To compare two or more models, issue SEPARATE sequential search_pinecone calls — one per model — never a single combined query. Then merge, extracting the correct unique image_url per model. (One model's variants must not crowd out the other.)\n\n## 7 — Interaction\n- Greeting (\"Hi\"/\"Hello\"): reply warmly and ask what they're looking for, e.g. \"Hey! 👋 I'd be happy to help you find the right machine. What are you looking for today?\"\n- Acknowledge the request before the data. One short human line that shows you understood — \"Great, let me pull up our Tederic PET preform options for you:\" — then the specs.\n- Close by moving forward. After the data, one light line inviting the next step — \"Want me to compare any of these, or check the specs on a specific one?\" Keep it a genuine offer, not filler.\n- If nothing is found, stay warm and human in the fallback wording (§8) — help them help you, don't sound like an error message.\n- Image count must match: if 3 machines are discussed, images MUST contain 3 URLs.\n\n## 8 — Fallbacks (do not guess)\n- Exact model asked but absent: reply \"I couldn't find [model] in our current catalog. Here are the closest matches I found:\" and list the actual results.\n- Empty or clearly irrelevant results: reply \"I couldn't find [query] in our catalog. Could you double-check the model name, or describe what you need (e.g. tonnage range, application type)?\"\n\n## 9 — Cacheability\nSet \"cacheable\": true only if BOTH hold:\n1. Self-contained — answering required nothing from earlier turns. False for \"that one\", \"a smaller one\", \"the price\", \"the Tederic instead\", or a bare yes/no.\n2. Stable & reusable — the answer came from a search_pinecone result (machine record or General Information guide). False for any not-found fallback (catalog changes; misses are often typos). False for a general concept answered from your own knowledge without a tool result.\n\n## Output\nReturn ONLY a raw JSON object — no markdown, no code fences, no text before or after.\nSchema: { \"reply\": string, \"images\": [string], \"cacheable\": boolean }\n\nReply shape: every reply is [warm opener] → [strict data block] → [light closer]. The opener and closer are yours to phrase naturally; the data block is verbatim from tools. A greeting-only or fallback reply may skip the data block.\n\nFormatting inside \"reply\" (web chat):\n- Bold with SINGLE asterisks only: *Model X100:*\n- Lists use 🔹 or ⚙️, never dashes or dots\n- Double line breaks (\\n\\n) between machines/sections and around the opener/closer\n- Emojis are welcome in the opener and closer to feel human (👋, 😊, 👍) — use sparingly, never inside the spec lines\n- Punchy and scannable; the data stays tight even though the wrapper is warm\n- English only (§1)\n\nExample\nUser: \"I need a heavy duty drill.\"\n→ search_pinecone(query=\"heavy duty drill\")\n→ [{summary:\"Drill Max 500: High torque, 500W\", image_url:\"img1.jpg\"}, {summary:\"Drill Pro 200: Precision, 200W\", image_url:\"img2.jpg\"}]\nOutput: {\"reply\":\"Sure thing! 👍 Here are two heavy-duty options from our catalog:\\n\\n*Drill Max 500:*\\n🔹 High torque\\n🔹 500W power\\n\\n*Drill Pro 200:*\\n🔹 High precision\\n🔹 200W power\\n\\nWant me to compare these two, or are you looking for something with different specs?\",\"images\":[\"img1.jpg\",\"img2.jpg\"],\"cacheable\":true}"
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        1664,
-        4352
+        1824,
+        3520
       ],
       "id": "a0f25662-bba0-4f93-9e73-396b3c6fde2b",
       "name": "AI Agent",
@@ -32,7 +32,7 @@
       "typeVersion": 1,
       "position": [
         1680,
-        4784
+        3952
       ],
       "id": "cd58ccd2-b679-4cd9-8b40-da5d00ab2a29",
       "name": "Embeddings Google Gemini",
@@ -66,7 +66,7 @@
       "typeVersion": 2,
       "position": [
         -160,
-        4160
+        3328
       ],
       "id": "4417dc6e-2491-414d-a5b9-15fa5c6782b5",
       "name": "Guardrails",
@@ -82,7 +82,7 @@
       "typeVersion": 1,
       "position": [
         -96,
-        4384
+        3552
       ],
       "id": "61b0afad-3f55-4a55-aeaa-a36cea78effd",
       "name": "Google Gemini Chat Model1",
@@ -107,7 +107,7 @@
       "typeVersion": 1,
       "position": [
         -2528,
-        4112
+        3136
       ],
       "id": "6ffbf6e8-5073-4313-9f65-c279d6318a8e",
       "name": "WhatsApp Trigger",
@@ -129,7 +129,7 @@
       "typeVersion": 2.6,
       "position": [
         1088,
-        4352
+        3520
       ],
       "id": "de504e6d-03ad-47ed-aa93-fa022cc5edd6",
       "name": "Execute a SQL query",
@@ -149,7 +149,7 @@
       "typeVersion": 2,
       "position": [
         1312,
-        4352
+        3520
       ],
       "id": "17dbdeb7-b917-478f-ad45-fb89c3d112d1",
       "name": "Code in JavaScript",
@@ -257,6 +257,31 @@
               },
               "renameOutput": true,
               "outputKey": "Sticker"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "24db9393-8b44-4987-8953-98f6cd655c48",
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Image"
             }
           ]
         },
@@ -269,7 +294,7 @@
       "typeVersion": 3.4,
       "position": [
         -2080,
-        4064
+        3072
       ],
       "id": "e223a2ab-bd29-4c66-b04e-8c9b3ffd6348",
       "name": "Switch"
@@ -304,7 +329,7 @@
       "typeVersion": 2.3,
       "position": [
         -2304,
-        4112
+        3136
       ],
       "id": "feef447c-d7ec-4336-9f07-9bb31ac8bef6",
       "name": "Check Msg Exist"
@@ -320,7 +345,7 @@
       "typeVersion": 1,
       "position": [
         -2640,
-        3872
+        2880
       ],
       "id": "311a80f1-5d5f-4edd-97db-525a1159df52",
       "name": "Sticky Note"
@@ -329,14 +354,14 @@
       "parameters": {
         "content": "## RETIEVE HISTORY FROM DATABASE",
         "height": 320,
-        "width": 496,
+        "width": 448,
         "color": 2
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        992,
-        4192
+        1024,
+        3360
       ],
       "id": "b064fbd9-2507-460a-85c4-7c06d493ef26",
       "name": "Sticky Note1"
@@ -345,14 +370,14 @@
       "parameters": {
         "content": "## SEND MESSAGE AND SAVE TO DATABASE",
         "height": 944,
-        "width": 880,
+        "width": 800,
         "color": 3
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2144,
-        3664
+        2528,
+        2832
       ],
       "id": "1b9c873b-eda9-4949-b8bc-4fd06102f27c",
       "name": "Sticky Note2"
@@ -360,15 +385,15 @@
     {
       "parameters": {
         "content": "## MAIN AI BOT WITH RAG + RERANKING ",
-        "height": 800,
-        "width": 640,
+        "height": 912,
+        "width": 992,
         "color": 7
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         1488,
-        4128
+        3184
       ],
       "id": "483ab637-a9f4-4117-8838-f77a6b05fcae",
       "name": "Sticky Note3"
@@ -384,7 +409,7 @@
       "typeVersion": 1,
       "position": [
         -256,
-        4080
+        3248
       ],
       "id": "ff31a8a3-af35-4aec-90e4-d3c571b8169c",
       "name": "Sticky Note4"
@@ -399,8 +424,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -1872,
-        4352
+        -2000,
+        3296
       ],
       "id": "659b6183-966f-4f34-ab53-080d06786d8b",
       "name": "Sticky Note5"
@@ -415,7 +440,7 @@
       "typeVersion": 1.1,
       "position": [
         -1856,
-        4480
+        3648
       ],
       "id": "b477a44d-c2b5-4875-944f-94f5e0edf156",
       "name": "Download media",
@@ -445,7 +470,7 @@
       "typeVersion": 3.4,
       "position": [
         -384,
-        4336
+        3504
       ],
       "id": "15f63bdc-d7af-45c9-a610-a3253473e5ec",
       "name": "Transcript"
@@ -468,7 +493,7 @@
       "typeVersion": 3.4,
       "position": [
         -384,
-        4048
+        3040
       ],
       "id": "381f8b54-c039-416b-9c7d-e0dfcc693af5",
       "name": "Text"
@@ -483,7 +508,7 @@
           "mode": "list",
           "cachedResultName": "hitech-v2"
         },
-        "topK": 10,
+        "topK": 20,
         "useReranker": true,
         "options": {
           "pineconeNamespace": "hitech"
@@ -493,7 +518,7 @@
       "typeVersion": 1.3,
       "position": [
         1664,
-        4576
+        3744
       ],
       "id": "f94d6712-b682-49c3-b270-b2330add4595",
       "name": "Search Pinecone",
@@ -511,8 +536,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2320,
-        4256
+        2608,
+        3424
       ],
       "id": "98b114a8-90d5-497f-a6c3-b12f1a622f4a",
       "name": "Code in JavaScript1"
@@ -526,8 +551,8 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        2544,
-        4160
+        2832,
+        3328
       ],
       "id": "48cd076f-575e-4f7b-83d1-25963b445581",
       "name": "Split Out"
@@ -535,7 +560,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "messageType": "image",
         "mediaLink": "={{ $json.image_urls }}",
@@ -544,8 +569,8 @@
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
       "position": [
-        2768,
-        4160
+        3056,
+        3328
       ],
       "id": "88af598b-ae72-4e36-9332-a33733364854",
       "name": "Send Pictures",
@@ -662,8 +687,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        2544,
-        3968
+        2832,
+        3136
       ],
       "id": "c22301bc-57f8-4961-910b-87a484a4d034",
       "name": "Insert rows in a table",
@@ -684,7 +709,7 @@
       "typeVersion": 1,
       "position": [
         -672,
-        4448
+        3616
       ],
       "id": "8ade7f4f-20c3-44f0-9ea3-69fe4625b42d",
       "name": "Google Gemini Chat Model2",
@@ -707,7 +732,7 @@
       "typeVersion": 3.1,
       "position": [
         -736,
-        4224
+        3392
       ],
       "id": "8606dbeb-efeb-420d-8f7c-bf5219afbe40",
       "name": "Romanizer"
@@ -715,7 +740,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=Your message couldn't be processed as it contains restricted content (links or inappropriate language). Please rephrase and try again.",
         "additionalFields": {}
@@ -724,7 +749,7 @@
       "typeVersion": 1.1,
       "position": [
         192,
-        4336
+        3424
       ],
       "id": "6568d64f-a589-4a7a-9ffe-c88ec6c3bfc3",
       "name": "Send Fallback Guardrail",
@@ -741,7 +766,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=This message type isn't supported. Please send text or a voice note.",
         "additionalFields": {}
@@ -750,7 +775,7 @@
       "typeVersion": 1.1,
       "position": [
         -1856,
-        4192
+        3184
       ],
       "id": "257b4c37-d751-4307-ab7b-2260b4e510e0",
       "name": "Send Fallback Type",
@@ -763,17 +788,6 @@
           "name": "Mawavia WhatsApp account"
         }
       }
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        -1856,
-        3904
-      ],
-      "id": "eae0d5f1-dd6d-472c-a687-311e64f17c40",
-      "name": "No Operation, do nothing"
     },
     {
       "parameters": {
@@ -793,7 +807,7 @@
       "typeVersion": 3.4,
       "position": [
         -1184,
-        4480
+        3648
       ],
       "id": "666b9897-96a0-4e9c-ab9d-03fc00f704b2",
       "name": "Transcribe Text"
@@ -801,7 +815,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=Sorry, I couldn't understand your voice note. Please try again or type your message.",
         "additionalFields": {}
@@ -810,7 +824,7 @@
       "typeVersion": 1.1,
       "position": [
         -672,
-        4624
+        3792
       ],
       "id": "1481ab53-7066-4993-a15f-110133665d68",
       "name": "Send Fallback Guardrail1",
@@ -845,7 +859,7 @@
               }
             },
             {
-              "id": "b2d4f6a8-1c3e-4d5f-9a7b-3e5c7d9f1a2b",
+              "id": "dd152f23-c2c0-47dc-83b8-87f593295843",
               "leftValue": "={{ $json.text }}",
               "rightValue": "[NO_SPEECH]",
               "operator": {
@@ -863,7 +877,7 @@
       "typeVersion": 2.3,
       "position": [
         -960,
-        4480
+        3648
       ],
       "id": "67e70688-31ad-4fdf-82cd-1980f4c8ea00",
       "name": "Check Text"
@@ -871,7 +885,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "=Sorry, we are facing a temporary issue. Our team will assist you shortly.",
         "additionalFields": {}
@@ -879,8 +893,8 @@
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
       "position": [
-        2320,
-        4448
+        2608,
+        3616
       ],
       "id": "986a2ba4-0c0c-4aa5-bbfb-a528a2d1f41c",
       "name": "Temp Issue Msg",
@@ -897,7 +911,7 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
         "textBody": "={{ $json.reply_text }}",
         "additionalFields": {}
@@ -905,8 +919,8 @@
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
       "position": [
-        2544,
-        3776
+        2832,
+        2944
       ],
       "id": "4efaaba5-99ce-46c1-bd0b-054197450481",
       "name": "Send Text Message",
@@ -931,7 +945,7 @@
       "typeVersion": 4.3,
       "position": [
         -1632,
-        4480
+        3648
       ],
       "id": "7f89c2e9-d5cf-4115-b623-369c3085f271",
       "name": "Download Audio1",
@@ -950,7 +964,7 @@
       "typeVersion": 1,
       "position": [
         1824,
-        4784
+        3952
       ],
       "id": "3d7f762b-0804-4cbd-96e0-f4b8796eb4c9",
       "name": "Reranker Cohere",
@@ -964,16 +978,16 @@
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "=1098966963303717",
+        "phoneNumberId": "=1205692275964300",
         "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
-        "textBody": "🔍 Looking that up for you...",
+        "textBody": " Looking that up for you...",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
       "position": [
-        192,
-        3952
+        224,
+        2992
       ],
       "id": "d42861a4-108e-4218-9dd2-c4f35d633e69",
       "name": "Send Waiting Message",
@@ -1002,14 +1016,14 @@
       "typeVersion": 4.4,
       "position": [
         192,
-        4144
+        3232
       ],
       "id": "83833fdd-6700-4f65-ac1f-4bd4cec46c09",
       "name": "Embed Query",
       "credentials": {
         "httpQueryAuth": {
           "id": "KNzOeURXJScWzKuu",
-          "name": "Mawavia Query Auth"
+          "name": "Mawavia Gemini Query Auth"
         }
       }
     },
@@ -1025,7 +1039,7 @@
       "typeVersion": 2.6,
       "position": [
         416,
-        4144
+        3232
       ],
       "id": "1b699006-db8e-468f-9abb-063aeb6ad418",
       "name": "Check Semantic Cache",
@@ -1067,7 +1081,7 @@
       "typeVersion": 2.3,
       "position": [
         864,
-        4144
+        3232
       ],
       "id": "86f091cd-50ff-4404-b124-b94b07560a2b",
       "name": "Cache Hit?"
@@ -1079,8 +1093,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2320,
-        3776
+        2608,
+        2944
       ],
       "id": "69069141-c394-4f1b-accf-5b5641049986",
       "name": "Return Cached Reply"
@@ -1094,8 +1108,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        2816,
-        4448
+        3056,
+        3616
       ],
       "id": "571993d8-7092-4b43-8e57-26757bfb3059",
       "name": "Save to Semantic Cache",
@@ -1114,7 +1128,7 @@
       "typeVersion": 2,
       "position": [
         640,
-        4144
+        3232
       ],
       "id": "c2ba8b9a-53b6-4b47-a8a3-0f7e1cb61ad1",
       "name": "Parse Cache Result"
@@ -1128,8 +1142,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        160,
-        3824
+        176,
+        2912
       ],
       "id": "94af31e4-d5ea-4c74-8de7-d543717af5d6",
       "name": "Sticky Note6"
@@ -1144,7 +1158,7 @@
           "mode": "list",
           "cachedResultName": "models/gemini-3.5-flash"
         },
-        "text": "Transcribe this audio EXACTLY as spoken, word for word.\n\nCRITICAL — when there is no speech:\nIf the audio contains no intelligible human speech — silence, breathing, background or ambient\nnoise, music, static, or sound you cannot make out — output exactly:\n[NO_SPEECH]\nDo NOT guess. Do NOT invent plausible words. Do NOT transcribe noise as if it were speech.\nOutputting [NO_SPEECH] is ALWAYS better than inventing a sentence. An empty or noisy recording is\na normal, expected input — not something to fill in.\n\nOtherwise, transcribe it:\n- The speaker mixes Roman Urdu, Hindi/Sindhi/Punjabi, and English, and code-switches freely.\n- Output ALL text in Latin (Roman) script ONLY. NEVER output Arabic or Urdu script.\n- NEVER translate. Write what you hear phonetically in Roman letters. Keep English words in English.\n- Transcribe ONLY what is actually audible. If a word is unclear, omit it rather than guessing.\n- Known brand/model names — always spell exactly:\n  Tederic (not Tederik, Tedrick, Tedrik, Taderik)\n  UWA (not Yuwa, Uva, Ova)\n  Haitian (not Haition, Hatian)\n  SCR (not Skar, Eskar)\n  YH, YE, YU are machine series names — keep as-is.\n- Remove any timestamps like 00:00.\n\nOutput: only the transcription text, or exactly [NO_SPEECH]. Nothing else.\n",
+        "text": "Transcribe this audio EXACTLY as spoken, word for word.\n\nCRITICAL — when there is no speech:\nIf the audio contains no intelligible human speech — silence, breathing, background or ambient\nnoise, music, static, or sound you cannot make out — output exactly:\n[NO_SPEECH]\nDo NOT guess. Do NOT invent plausible words. Do NOT transcribe noise as if it were speech.\nOutputting [NO_SPEECH] is ALWAYS better than inventing a sentence. An empty or noisy recording is\na normal, expected input — not something to fill in.\n\nOtherwise, transcribe it:\n- The speaker mixes Roman Urdu, Hindi/Sindhi/Punjabi, and English, and code-switches freely.\n- Output ALL text in Latin (Roman) script ONLY. NEVER output Arabic or Urdu script.\n- NEVER translate. Write what you hear phonetically in Roman letters. Keep English words in English.\n- Transcribe ONLY what is actually audible. If a word is unclear, omit it rather than guessing.\n- Known brand/model names — always spell exactly:\n  Tederic (not Tederik, Tedrick, Tedrik, Taderik)\n  UWA (not Yuwa, Uva, Ova)\n  Haitian (not Haition, Hatian)\n  SCR (not Skar, Eskar)\n  YH, YE, YU are machine series names — keep as-is.\n- Remove any timestamps like 00:00.\n\nOutput: only the transcription text, or exactly [NO_SPEECH]. Nothing else.",
         "inputType": "binary",
         "options": {
           "maxOutputTokens": 2048
@@ -1154,7 +1168,7 @@
       "typeVersion": 1.1,
       "position": [
         -1408,
-        4480
+        3648
       ],
       "id": "8d712d4a-5f66-4f1f-a127-4c05f26d8d98",
       "name": "Analyze audio",
@@ -1174,7 +1188,7 @@
       "typeVersion": 1,
       "position": [
         1536,
-        4576
+        3744
       ],
       "id": "52317ba9-21da-4ab1-950e-3d607ec2fd1e",
       "name": "Gemini",
@@ -1189,14 +1203,14 @@
     {
       "parameters": {
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"The formatted message to be viewed on WhatsApp using single asterisks for bolding and emojis for bullet points.\"\n    },\n    \"images\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"An array containing the extracted image URLs matching the machines mentioned in the reply.\"\n    },\n    \"cacheable\": {\n      \"type\": \"boolean\",\n      \"description\": \"true ONLY if (1) the message is self-contained AND (2) the answer is stable and reusable. false for follow-ups ('that one','a smaller one','the price'), bare confirmations, OR a 'couldn't find / double-check the model' fallback. When unsure, false.\"\n    }\n  },\n  \"required\": [\"reply\", \"images\", \"cacheable\"]\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"The formatted message shown in the web chat using single asterisks for bolding and emojis for bullet points.\"\n    },\n    \"images\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"An array containing the extracted image URLs matching the machines mentioned in the reply.\"\n    },\n    \"cacheable\": {\n      \"type\": \"boolean\",\n      \"description\": \"true ONLY if (1) the message is self-contained AND (2) the answer is stable and reusable. false for follow-ups ('that one','a smaller one','the price'), bare confirmations, OR a 'couldn't find / double-check the model' fallback. When unsure, false.\"\n    }\n  },\n  \"required\": [\"reply\", \"images\", \"cacheable\"]\n}",
         "autoFix": true
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
       "position": [
-        1952,
-        4576
+        2240,
+        3744
       ],
       "id": "a2727890-526a-42cb-884b-68764925851b",
       "name": "Structured Output Parser"
@@ -1208,8 +1222,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        2032,
-        4784
+        2320,
+        3952
       ],
       "id": "e42d3e23-b49a-41e8-a642-38343c22e64a",
       "name": "Google Gemini Chat Model",
@@ -1248,11 +1262,1056 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2544,
-        4448
+        2832,
+        3616
       ],
       "id": "bf289e1b-1ca8-46c1-89fc-1355d5444d28",
       "name": "If Cacheable"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        3952
+      ],
+      "id": "7bac5c3a-df67-436a-8561-a05390ee6a80",
+      "name": "Embeddings Google Gemini1",
+      "retryOnFail": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "alV0kytDXuPJB27o",
+          "name": "Mawavia Gemini Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 5
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        3952
+      ],
+      "id": "002b1d85-c4bf-4b9d-90eb-398fcfb0ecb4",
+      "name": "Reranker Cohere1",
+      "credentials": {
+        "cohereApi": {
+          "id": "xBgDsFmOz0l04BDC",
+          "name": "Mawavia Cohere account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool to search HiTech Machinery's published knowledge-base articles: technical explainers, how-to guides, and industry background. Call it for CONCEPTUAL and EDUCATIONAL questions - how something works, why one option differs from another, how to calculate something, what a term means, industry history, material properties, or how to start manufacturing a particular product. Examples: \"how do I calculate clamping force?\", \"hydraulic vs electric injection molding\", \"what are the parts of an injection molding machine?\", \"what is the clamp factor for ABS?\", \"how do I start a thin-wall food container business?\". Each result includes model_name (the article title), text (the article passage), and source_url (the article link). This tool does NOT contain machine models, prices, or spec sheets - for those you MUST use the machinery catalogue tool instead. When you answer from this tool, cite the source_url at the end of your reply so the user can read the full article.",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "hitech-v2",
+          "mode": "list",
+          "cachedResultName": "hitech-v2"
+        },
+        "topK": 10,
+        "useReranker": true,
+        "options": {
+          "pineconeNamespace": "knowledge"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        1952,
+        3744
+      ],
+      "id": "f65605c8-cb91-4fab-b53d-766b4fa47130",
+      "name": "Search Articles",
+      "credentials": {
+        "pineconeApi": {
+          "id": "TlRrv4OUHiTNOmix",
+          "name": "Mawavia Pinecone"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $('WhatsApp Trigger').first().json.messages?.[0] || {};\nconst from = msg.from || '';\nconst img = msg.image || {};\nconst mime = img.mime_type || '';\nconst size = img.file_size || 0;\nconst OK_MIME = ['image/jpeg', 'image/png', 'image/webp'];\n\n// WhatsApp itself rejects images over 5 MB, so the size check is a floor in\n// case Meta raises the cap - not the thing doing the real work.\nif (!img.id) {\n  return [{ json: { ok: false, from, reason: 'NO_IMAGE',\n    reply: \"\\u274c I couldn't read that image. Please send the receipt photo again.\" } }];\n}\nif (!OK_MIME.includes(mime)) {\n  return [{ json: { ok: false, from, reason: 'BAD_MIME',\n    reply: '\\u274c Unsupported file type. Send a JPG, PNG or WebP photo.' } }];\n}\nif (size > 10 * 1024 * 1024) {\n  return [{ json: { ok: false, from, reason: 'TOO_LARGE',\n    reply: '\\u274c That image is too large. Max 10 MB.' } }];\n}\n\nreturn [{ json: {\n  ok: true,\n  from,\n  image_id: img.id,\n  mime_type: mime,\n  caption: img.caption || '',\n} }];"
+      },
+      "name": "Receipt Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        2640
+      ],
+      "id": "8f2fde3e-98f1-4799-ac36-71352a7abf40"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Receipt OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        2640
+      ],
+      "id": "7d7d17d4-a41d-44ae-8241-a79b9314fc75"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "name": "Send Receipt Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -1408,
+        2896
+      ],
+      "id": "f5bd0318-4b9a-4624-8911-c38689f91414",
+      "webhookId": "364b84e3-07b5-4acb-9dab-2f05b6caae59",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_allowed_senders?active=is.true&select=phone,employee_name,department&phone=eq.' + $json.from }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Look Up Sender",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1408,
+        2592
+      ],
+      "alwaysOutputData": true,
+      "id": "2242f142-cb07-4c68-b8e2-2f1039c7d512",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/app_users?select=user_id,full_name,department,role&phone=eq.' + $('Receipt Guard').first().json.from }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Look Up App User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1184,
+        2592
+      ],
+      "alwaysOutputData": true,
+      "id": "16950556-eece-47f2-8f02-fed277a8029b",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const g = $('Receipt Guard').first().json;\n\n// Both lookups are best-effort (onError: continue), so they can hand back an\n// error object, an empty array, or a single row. Flatten all three shapes.\nconst firstRow = (nodeName) => {\n  const items = $(nodeName).all();\n  if (!items.length) return {};\n  const j = items[0].json;\n  const row = Array.isArray(j) ? (j[0] || {}) : (j || {});\n  return (row && !row.error && !row.message) ? row : {};\n};\n\nconst wl = firstRow('Look Up Sender');   // wap_allowed_senders - the WhatsApp whitelist\nconst au = firstRow('Look Up App User'); // app_users - only if they also have a dashboard login\n\nconst uid = au.user_id || null;\n\nreturn [{ json: {\n  authorized: !!wl.phone,\n  from: g.from,\n  image_id: g.image_id,\n  mime_type: g.mime_type,\n  uid,\n  // app_users is what the web uploader writes its name from, so it wins here.\n  // wap_allowed_senders is hand-maintained and its casing drifts (sarim / ai\n  // against Sarim / AI), which split one person into two people in the\n  // dashboard depending on which channel they used. The whitelist name stays\n  // as the fallback, for senders who have no dashboard login at all.\n  employee_name: au.full_name || wl.employee_name || null,\n  department: au.department || wl.department || null,\n\n  // Storage RLS scopes reads to the folder named after the viewer's auth uid.\n  // A sender with no dashboard login gets a phone-named folder, readable only\n  // by accountants/admins - and it starts resolving to their own uid the day\n  // their phone lands in app_users.\n  storage_prefix: uid || ('whatsapp/' + g.from),\n} }];"
+      },
+      "name": "Sender Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        2592
+      ],
+      "id": "8c7f5eb1-2301-415c-b39c-7576a9af99c8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -672,
+        2592
+      ],
+      "id": "0a0d02ef-44e6-48c8-99fa-7af8d8ffef1d"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=⛔ You aren't set up to submit expenses yet. Ask your admin to add your number.",
+        "additionalFields": {}
+      },
+      "name": "Send Not Authorized",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -384,
+        2784
+      ],
+      "id": "5e00c554-5af8-437e-83b5-a0b3d4ff6dbe",
+      "webhookId": "be4cc784-bd7e-430b-a1f9-3952e915497f",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $('Sender Gate').first().json.image_id }}"
+      },
+      "name": "Get Media URL",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -384,
+        2592
+      ],
+      "id": "cc814fd6-8ca8-4804-a7d7-42f51d9d93fd",
+      "webhookId": "38e58c09-ff1a-4d25-a8a7-8ba126cfa7e0",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -96,
+        2592
+      ],
+      "id": "0b55f9b5-bcbc-4909-b2b9-7bc6961eb459",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GKWpewmFovqBnoK6",
+          "name": "Mawavia Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const keys = Object.keys(item.binary || {});\n  const key = item.binary && item.binary.data ? 'data' : keys[0];\n\n  if (!key) {\n    item.json.base64Image = '';\n    item.json.mimeType = 'image/jpeg';\n    continue;\n  }\n\n  const buffer = await this.helpers.getBinaryDataBuffer(i, key);\n  item.json.base64Image = buffer.toString('base64');\n  item.json.mimeType = item.binary[key].mimeType || 'image/jpeg';\n}\n\nreturn items;"
+      },
+      "name": "Image to Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        2592
+      ],
+      "id": "6ba4341a-bdca-4780-bd79-777fce409a5e"
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.base64Image }}",
+        "dataPropertyName": "image_hash"
+      },
+      "name": "Hash Image",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        416,
+        2592
+      ],
+      "id": "5f0419fa-8868-4889-a3d1-f6a99a0a4182"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"contents\": [ { \"parts\": [ { \"text\": \"Extract the data from this receipt and return ONLY a valid JSON object. Do not include any markdown formatting, conversational text, or explanations. You must strictly use this EXACT JSON structure. If a value cannot be found, use null for strings or 0 for numbers. Most receipts are from businesses in Pakistan: if no currency is explicitly shown, or the symbol is Rs or ₨, use PKR. The category field MUST be EXACTLY one of these seven values: Food, Fuel, Travel, Supplies, Utilities, Repairs, Other. Choose the single closest match, and use Other if unsure. Structure: { \\\"is_receipt\\\": true, \\\"vendor_name\\\": \\\"Merchant Name\\\", \\\"date\\\": \\\"YYYY-MM-DD\\\", \\\"receipt_number\\\": \\\"Invoice or Receipt Number\\\", \\\"payment_method\\\": \\\"Cash, Visa, etc.\\\", \\\"tax_id\\\": \\\"Vendor Tax ID or VAT\\\", \\\"category\\\": \\\"Food\\\", \\\"currency\\\": \\\"PKR\\\", \\\"subtotal\\\": 0.00, \\\"tax\\\": 0.00, \\\"total\\\": 0.00, \\\"ai_confidence\\\": 0.95, \\\"ai_flag\\\": \\\"Notes on blurriness or missing data (or null if perfect)\\\", \\\"items\\\": [ { \\\"description\\\": \\\"Item name\\\", \\\"qty\\\": 1, \\\"unit_price\\\": 0.00, \\\"amount\\\": 0.00 } ] }. If the image is NOT a receipt, return exactly this JSON and nothing else: { \\\"is_receipt\\\": false }\" }, { \"inlineData\": { \"mimeType\": \"{{ $('Image to Base64').first().json.mimeType }}\", \"data\": \"{{ $('Image to Base64').first().json.base64Image }}\" } } ] } ], \"generationConfig\": { \"responseMimeType\": \"application/json\" } }",
+        "options": {}
+      },
+      "name": "Gemini OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        2592
+      ],
+      "id": "d043b56d-add4-400a-8b42-05b11dfdf753",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "KNzOeURXJScWzKuu",
+          "name": "Mawavia Gemini Query Auth"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $input.item.json;\n\nlet rawText = '';\nif (response.candidates?.[0]?.content?.parts) {\n  rawText = response.candidates[0].content.parts\n    .filter(p => p.text !== undefined).map(p => p.text).join('\\n');\n} else {\n  rawText = response.text || response.message?.content || response.output || '';\n}\n\nconst fence = String.fromCharCode(96);\nconst clean = rawText\n  .replace(new RegExp(fence + '{3}json', 'gi'), '')\n  .replace(new RegExp(fence + '{3}', 'gi'), '')\n  .trim();\n\nlet receipt = null;\ntry {\n  receipt = JSON.parse(clean);\n} catch (e) {\n  const match = clean.match(/[\\{\\[][\\s\\S]*[\\}\\]]/);\n  if (match) {\n    try { receipt = JSON.parse(match[0]); } catch (innerE) {}\n  }\n}\n\nfunction normalizeCategory(raw) {\n  const s = String(raw || '').toLowerCase().trim();\n  const CANON = ['Food', 'Fuel', 'Travel', 'Supplies', 'Utilities', 'Repairs', 'Other'];\n  if (/food|meal|restaurant|grocer|cafe|snack|lunch|dinner|breakfast|bakery|\\btea\\b|eat/.test(s)) return 'Food';\n  if (/fuel|petrol|diesel|\\bcng\\b|gasol|filling station|gas station|\\bpump\\b/.test(s)) return 'Fuel';\n  if (/travel|taxi|uber|careem|indrive|flight|\\bair\\b|hotel|\\bfare\\b|\\bbus\\b|train|toll|rickshaw|transport/.test(s)) return 'Travel';\n  if (/suppl|stationer|office|hardware|\\bpart\\b|\\btool|material|equipment/.test(s)) return 'Supplies';\n  if (/utilit|electric|internet|wifi|\\bphone\\b|mobile|\\bbill\\b|water/.test(s)) return 'Utilities';\n  if (/repair|mainten|service|\\bfix\\b|spare/.test(s)) return 'Repairs';\n  const hit = CANON.find(x => x.toLowerCase() === s);\n  return hit || 'Other';\n}\n\nconst sd = $('Sender Gate').first().json;\nconst receiptHash = $('Hash Image').first().json.image_hash || null;\nconst expenseId = 'EXP-' + new Date().getFullYear() + '-'\n  + Date.now().toString(36).toUpperCase()\n  + Math.random().toString(36).slice(2, 6).toUpperCase();\n\nconst base = {\n  expense_id: expenseId,\n  receipt_hash: receiptHash,\n  sender_phone: sd?.from || null,\n  employee_name: sd?.employee_name || null,\n  department: sd?.department || null,\n  currency: 'PKR',\n  processed_at: new Date().toISOString(),\n};\n\nif (!receipt || typeof receipt !== 'object' || receipt.is_receipt === false) {\n  return { json: { ...base,\n    status: 'rejected', ai_flag: 'REJECTED_NOT_RECEIPT', is_receipt: false,\n    total: 0, subtotal: 0, tax: 0, items: [],\n  } };\n}\n\nreceipt.total = parseFloat(receipt.total) || 0;\nreceipt.subtotal = parseFloat(receipt.subtotal) || 0;\nreceipt.tax = parseFloat(receipt.tax) || 0;\n\nif (receipt.subtotal === 0 && receipt.total > 0) {\n  receipt.subtotal = parseFloat((receipt.total - receipt.tax).toFixed(2));\n}\n\nif (!Array.isArray(receipt.items)) receipt.items = [];\nreceipt.items = receipt.items.map(i => ({\n  description: i.description || 'Item',\n  qty: parseFloat(i.qty) || 1,\n  unit_price: parseFloat(i.unit_price) || 0,\n  amount: parseFloat(i.amount) || 0,\n}));\n\nreturn { json: { ...base,\n  vendor_name: receipt.vendor_name || null,\n  date: receipt.date || null,\n  receipt_number: receipt.receipt_number || null,\n  payment_method: receipt.payment_method || null,\n  tax_id: receipt.tax_id || null,\n  category: normalizeCategory(receipt.category),\n  subtotal: receipt.subtotal,\n  tax: receipt.tax,\n  total: receipt.total,\n  items: receipt.items,\n  is_receipt: true,\n  ai_confidence: parseFloat(receipt.ai_confidence) || 0.85,\n  ai_flag: receipt.ai_flag || null,\n  status: 'logged',\n} };"
+      },
+      "name": "Parse OCR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        2592
+      ],
+      "id": "851a2e05-d0ed-44c0-8d03-8a16605c7c64"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_receipt }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Is Receipt?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1088,
+        2592
+      ],
+      "id": "dbed92a0-4429-493e-b709-ffcdf45ee235"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=❌ I couldn't find a receipt in that photo.\n\nPlease send a clear, well-lit shot of the whole receipt and try again.",
+        "additionalFields": {}
+      },
+      "name": "Send Not A Receipt",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        2800
+      ],
+      "id": "318f9bdb-c41f-4187-aef3-72c6e7852f30",
+      "webhookId": "849006a1-8499-45a0-ac4a-cc199ad8ebca",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "vendor_name",
+              "value": "=eq.{{ $('Parse OCR').first().json.vendor_name }}"
+            },
+            {
+              "name": "total",
+              "value": "=eq.{{ $('Parse OCR').first().json.total }}"
+            },
+            {
+              "name": "date",
+              "value": "=eq.{{ $('Parse OCR').first().json.date }}"
+            },
+            {
+              "name": "status",
+              "value": "neq.rejected"
+            },
+            {
+              "name": "select",
+              "value": "expense_id,receipt_number,employee_name,receipt_hash"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Check Content Dup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1312,
+        2496
+      ],
+      "alwaysOutputData": true,
+      "id": "8f251615-8d91-46e4-9bfc-a0de6a612444",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const f    = $('Parse OCR').first().json;\nconst me   = ($('Sender Gate').first().json.employee_name || '').trim().toLowerCase();\nconst hash = $('Hash Image').first().json.image_hash || null;\nconst norm = v => String(v ?? '').replace(/[\\s\\-\\/]/g, '').toUpperCase();\nconst mine = norm(f.receipt_number);\n\nconst rows = $('Check Content Dup').all()\n  .map(i => i.json).flatMap(j => Array.isArray(j) ? j : [j])\n  .filter(r => r && r.expense_id);\n\nlet hard = null, soft = null;\nfor (const r of rows) {\n  const theirs   = norm(r.receipt_number);\n  const sameUser = (r.employee_name || '').trim().toLowerCase() === me;\n\n  if (hash && r.receipt_hash && r.receipt_hash === hash) { hard = r; break; }  // 1\n  if (mine && theirs) {                                                        // 2 & 3\n    if (mine === theirs) { hard = r; break; }\n    continue;                        // different receipt numbers = different receipts\n  }\n  if (sameUser) { hard = r; break; }                                           // 4\n  soft = soft || r;                                                            // 5\n}\n\nreturn [{ json: {\n  is_dup:      !!hard,\n  dup_id:      hard ? hard.expense_id : null,\n  image_hash:  hash,\n  soft_dup_id: soft ? soft.expense_id : null,\n  soft_dup_by: soft ? soft.employee_name : null,\n}}];"
+      },
+      "name": "Is Content Dup?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        2496
+      ],
+      "id": "7ee82c96-372d-4829-b12d-6f201a2a49c8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_dup }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Dup?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2608,
+        2496
+      ],
+      "id": "6ba9b725-3600-41e8-a5e5-ac77cb1120b5"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=⚠️ *Already logged*\n\nThis receipt is already on file as *{{ $json.dup_id }}*, so it wasn't logged again.\n\nIf this really is a different receipt, send it to accounts.",
+        "additionalFields": {}
+      },
+      "name": "Send Duplicate",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2832,
+        2400
+      ],
+      "id": "33dfc51c-75a5-43cc-8af0-33ccc97fef43",
+      "webhookId": "4c0273a7-a947-45ff-897e-a96dd106561f",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('Parse OCR').first().json;\nconst g = $('Sender Gate').first().json;\nconst b64 = $('Image to Base64').first().json.base64Image || '';\nconst mime = $('Image to Base64').first().json.mimeType || 'image/jpeg';\n\nconst path = g.storage_prefix + '/' + f.expense_id + '.jpg';\nconst buffer = Buffer.from(b64, 'base64');\n\n// Rebuilt from the base64 rather than passed through as binary, so this node\n// depends only on values that are already on the run - the same trick the web\n// workflow uses in its Prep Save.\nreturn {\n  json: { uid: g.uid, expense_id: f.expense_id, path, mime },\n  binary: { data: await this.helpers.prepareBinaryData(buffer, f.expense_id + '.jpg', mime) },\n};"
+      },
+      "name": "Prep Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        2592
+      ],
+      "id": "37df5c0b-a88e-4298-a43e-96f1031946a1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/storage/v1/object/receipts/' + $('Prep Save').item.json.path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "={{ $('Prep Save').item.json.mime }}"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "name": "Upload to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3056,
+        2592
+      ],
+      "id": "4e22f996-0d5b-420d-bedd-8b1b99f45864",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('Parse OCR').first().json;\nconst g = $('Sender Gate').first().json;\nconst prep = $('Prep Save').first().json;\nconst dup = $('Is Content Dup?').first().json || {};\n\nconst uploaded = $('Upload to Storage').first();\nconst okUpload = uploaded && !uploaded.json?.error;\n\nconst num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };\nconst CATS = ['Food','Fuel','Travel','Supplies','Utilities','Repairs','Other'];\n\nreturn { json: {\n  expense_id: prep.expense_id,\n  vendor_name: f.vendor_name || null,\n  date: f.date || null,\n  receipt_number: f.receipt_number || null,\n  payment_method: f.payment_method || null,\n  tax_id: f.tax_id || null,\n  category: CATS.includes(f.category) ? f.category : 'Other',\n  currency: 'PKR',\n  subtotal: num(f.subtotal),\n  tax: num(f.tax),\n  total: num(f.total),\n  items: Array.isArray(f.items) ? f.items : [],\n  is_receipt: true,\n  ai_confidence: num(f.ai_confidence),\n\n  // Persisted so the NEXT upload can be matched against it. Without this the\n  // hash layer of the dedupe never fires, because nothing writes a hash.\n  receipt_hash: dup.image_hash || null,\n\n  // Same vendor/date/total as someone else's receipt, with no receipt number to\n  // tell them apart. Not blocked - flagged for the accountant.\n  ai_flag: dup.soft_dup_id\n    ? 'POSSIBLE_DUPLICATE of ' + dup.soft_dup_id + ' (' + (dup.soft_dup_by || 'another employee') + ')'\n    : (f.ai_flag || null),\n\n  // The identity of record. Name and phone are both hand-maintained and drift;\n  // this is the account itself, and it is what RLS and the per-person totals\n  // key on. Null only for a roster number that belongs to no login.\n  user_id: g.uid || null,\n\n  sender_phone: g.from || null,\n  employee_name: g.employee_name || null,\n  department: g.department || null,\n  status: 'logged',\n  processed_at: new Date().toISOString(),\n  image_path: okUpload ? prep.path : null,\n} };"
+      },
+      "name": "Build Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        2592
+      ],
+      "id": "810d7244-0a8e-4716-9801-351da33abf09"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Insert Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3504,
+        2592
+      ],
+      "id": "827fa45e-b841-414b-898c-e612a06603b9",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=❌ Something went wrong saving that receipt. Please try again in a minute.",
+        "additionalFields": {}
+      },
+      "name": "Send Save Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        3728,
+        2688
+      ],
+      "id": "2758a3b6-0d41-4316-aeba-fd098d0c420f",
+      "webhookId": "fc327cdb-88cf-4a0b-8561-fea513adf3f7",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Build Row').first().json;\nconst num = v => parseFloat(v) || 0;\nconst fmt = n => 'PKR ' + num(n).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });\n\nconst items = Array.isArray(d.items) ? d.items : [];\nconst cP = Math.round(num(d.ai_confidence) * 100);\nconst cE = cP >= 85 ? '\\u{1F7E2}' : cP >= 70 ? '\\u{1F7E1}' : '\\u{1F534}';\n\nconst itemLines = items.slice(0, 5)\n  .map((it, i) => '  ' + (i + 1) + '. ' + it.description + ': ' + fmt(it.amount)).join('\\n');\nconst more = items.length > 5 ? '\\n  _...and ' + (items.length - 5) + ' more_' : '';\n\nconst msg = '\\u2705 *Receipt Logged \\u2014 Hi Tech Machinery*\\n'\n  + '\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\u2501\\n'\n  + '\\u{1F3EA} *Vendor:* ' + (d.vendor_name || 'Unknown') + '\\n'\n  + '\\u{1F4C5} *Date:* ' + (d.date || 'Unknown') + '\\n'\n  + '\\u{1F4B5} *Subtotal:* ' + fmt(d.subtotal) + '\\n'\n  + (num(d.tax) > 0 ? '\\u{1F9FE} *Tax:* ' + fmt(d.tax) + '\\n' : '')\n  + '\\u{1F4B0} *Total:* *' + fmt(d.total) + '*\\n'\n  + '\\u{1F3F7}\\uFE0F *Category:* ' + (d.category || 'Other') + '\\n'\n  + '\\u{1F4B3} *Payment:* ' + (d.payment_method || 'Unknown') + '\\n'\n  + (items.length ? '\\n\\u{1F4CB} *Items (' + items.length + '):*\\n' + itemLines + more + '\\n' : '')\n  + '\\n' + cE + ' *AI confidence:* ' + cP + '%\\n'\n  + '\\u{1F194} *Expense ID:* ' + d.expense_id + '\\n\\n'\n  // States the whole rule - which emoji, on which message, for how long -\n  // because this is the only place the rep will ever read it.\n  + '_Something wrong? React \\u{1F44E} to *this* message within 24 hours and '\n  + \"I'll remove it. Then send the corrected photo._\";\n\nreturn [{ json: { message: msg, expense_id: d.expense_id } }];"
+      },
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3728,
+        2496
+      ],
+      "id": "5c542cf9-64f2-4613-94f1-f458b56eb0ce"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "name": "Send Summary",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        3952,
+        2496
+      ],
+      "id": "90763213-4d8d-420b-86f1-53cf8678e87d",
+      "webhookId": "abfc75dc-eab3-4315-beb7-4c35b8533d67",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses?expense_id=eq.' + $('Build Summary').first().json.expense_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ wa_message_id: ($json.messages && $json.messages[0] && $json.messages[0].id) || $json.id || null }) }}",
+        "options": {}
+      },
+      "name": "Link Reaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4176,
+        2496
+      ],
+      "id": "4fad1f7a-5765-44b7-bfd6-9d46971e0580",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $('WhatsApp Trigger').first().json.messages?.[0] || {};\nconst r = m.reaction || {};\nconst emoji = String(r.emoji || '');\nconst messageId = r.message_id || '';\n\n// Removing a reaction arrives as an empty emoji. That is not a signal, and\n// must not be read as one.\nreturn [{ json: {\n  proceed: !!messageId && emoji !== '',\n  from: m.from || '',\n  message_id: messageId,\n  emoji,\n} }];"
+      },
+      "name": "Reaction Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        2208
+      ],
+      "id": "9f89a116-c20e-4f07-ae67-87c0f22cb105"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.proceed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Is Reaction?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        2208
+      ],
+      "id": "2316c594-1d0f-4b09-99d7-2ae113ecfd0c"
+    },
+    {
+      "parameters": {
+        "url": "https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wa_message_id",
+              "value": "=eq.{{ $('Reaction Router').first().json.message_id }}"
+            },
+            {
+              "name": "sender_phone",
+              "value": "=eq.{{ $('Reaction Router').first().json.from }}"
+            },
+            {
+              "name": "select",
+              "value": "expense_id,vendor_name,total,status,processed_at,image_path"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Find Expense",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1408,
+        2208
+      ],
+      "alwaysOutputData": true,
+      "id": "cdd8eb13-3db7-4766-91bb-1d687101379c",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = $('Reaction Router').first().json;\n\nconst rows = $('Find Expense').all()\n  .map(i => i.json).flatMap(j => Array.isArray(j) ? j : [j])\n  .filter(r => r && r.expense_id);\n\nconst row = rows[0] || null;\n\n// A reaction on anything else - a chatbot answer, someone else's summary -\n// lands here too. Silence is the right answer to those, and the only case\n// where silence is right.\n// The undo deletes the row outright, so a second reaction on the same message\n// finds nothing and lands here too - the rep has already been told it was\n// removed, so there is nothing left to say.\nif (!row) return [{ json: { action: 'ignore', expense_id: null, image_path: null, reply: '' } }];\n\nconst UNDO = ['\\u{1F44E}', '\\u274C', '\\u2716', '\\u274E', '\\u{1F6AB}', '\\u{1F645}', '\\u{1F5D1}', '\\u26D4'];\nconst isUndo = UNDO.some(e => q.emoji.includes(e));\nconst id = row.expense_id;\n\n// They reacted to their own receipt with something that does not mean undo.\n// Saying so beats staying quiet, which reads as \"done\" and leaves a receipt\n// logged that they believe they cancelled.\nif (!isUndo) {\n  return [{ json: { action: 'note', expense_id: id,\n    reply: '\\u2139\\uFE0F *' + id + '* is still logged.\\n\\n'\n      + 'To remove it, react \\u{1F44E} to that receipt message.' } }];\n}\n\nconst WINDOW_MS = 24 * 60 * 60 * 1000;\nif (Date.now() - new Date(row.processed_at).getTime() > WINDOW_MS) {\n  return [{ json: { action: 'note', expense_id: id,\n    reply: '\\u23F3 *' + id + \"* is more than 24 hours old, so I can't remove it now. \"\n      + 'Ask accounts to take it off.' } }];\n}\n\nreturn [{ json: { action: 'void', expense_id: id, image_path: row.image_path || null, reply: '' } }];"
+      },
+      "name": "Classify Reaction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        2208
+      ],
+      "id": "15ab1e3b-8263-4e9c-a527-33cb4687fb61"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "void",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Undo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -960,
+        2208
+      ],
+      "id": "b67657ff-2c72-456d-bc54-38c8205de51f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.reply }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Needs Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -672,
+        2400
+      ],
+      "id": "bf3cf328-0cea-4c20-8cf9-890f832eeb59"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "name": "Send Reaction Note",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        -384,
+        2400
+      ],
+      "id": "2049eb3e-6ce2-4942-8abe-1a1550484936",
+      "webhookId": "6048d326-ffbd-43da-8c33-7990e5142ae5",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/rest/v1/wap_expenses?expense_id=eq.' + $json.expense_id + '&sender_phone=eq.' + $('Reaction Router').first().json.from }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Delete Expense",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -672,
+        2208
+      ],
+      "id": "24536011-bf3e-4846-ac42-d3b9afef49ee",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Classify Reaction').first().json.image_path }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "name": "Has Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -384,
+        2208
+      ],
+      "id": "02665ab9-2243-4c63-a6d6-80e8b3bb38d1"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ 'https://oocmjiuymmvwvyvwlfpd.supabase.co/storage/v1/object/receipts/' + $('Classify Reaction').first().json.image_path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "name": "Delete Receipt Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -96,
+        2128
+      ],
+      "id": "4a3f9ab9-00d0-42c3-a46e-d62de1adcf63",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiBdTw4WEOmEkZ09",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=1205692275964300",
+        "recipientPhoneNumber": "=+{{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+        "textBody": "=🗑️ Removed — *{{ $('Classify Reaction').first().json.expense_id }}* and its photo are deleted.\n\nSend the corrected photo whenever you're ready.",
+        "additionalFields": {}
+      },
+      "name": "Send Undone",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        2208
+      ],
+      "id": "b55a0167-5c7c-4071-a504-c92bc11e881f",
+      "webhookId": "54ee5969-a53a-46a8-9d71-b9cd590cccbe",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "RGthhra5iGG2srmM",
+          "name": "Mawavia WhatsApp account"
+        }
+      }
     }
   ],
   "pinData": {
@@ -1261,8 +2320,8 @@
         "json": {
           "messaging_product": "whatsapp",
           "metadata": {
-            "display_phone_number": "15556514887",
-            "phone_number_id": "1098966963303717"
+            "display_phone_number": "923268439633",
+            "phone_number_id": "1205692275964300"
           },
           "contacts": [
             {
@@ -1277,10 +2336,10 @@
             {
               "from": "923366179838",
               "from_user_id": "PK.965736566322392",
-              "id": "wamid.HBgMOTIzMzY2MTc5ODM4FQIAEhgWM0VCMDAxREQ1OEU0RkFFNTQ3MzI2RAA=",
-              "timestamp": "1781282244",
+              "id": "wamid.HBgMOTIzMzY2MTc5ODM4FQIAEhggQUMxN0EzRDc5RDEwODgzNkEwRTg3NjBEQUYxQ0NDMUIA",
+              "timestamp": "1784876089",
               "text": {
-                "body": "tederic machine"
+                "body": "Hi"
               },
               "type": "text"
             }
@@ -1394,7 +2453,7 @@
       "main": [
         [
           {
-            "node": "No Operation, do nothing",
+            "node": "Reaction Router",
             "type": "main",
             "index": 0
           }
@@ -1422,11 +2481,12 @@
         ],
         [
           {
-            "node": "Send Fallback Type",
+            "node": "Receipt Guard",
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Check Msg Exist": {
@@ -1720,6 +2780,429 @@
           }
         ]
       ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Search Articles",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere1": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Search Articles",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Articles": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receipt Guard": {
+      "main": [
+        [
+          {
+            "node": "Receipt OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receipt OK?": {
+      "main": [
+        [
+          {
+            "node": "Look Up Sender",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Receipt Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up Sender": {
+      "main": [
+        [
+          {
+            "node": "Look Up App User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up App User": {
+      "main": [
+        [
+          {
+            "node": "Sender Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sender Gate": {
+      "main": [
+        [
+          {
+            "node": "Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          {
+            "node": "Get Media URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Not Authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Media URL": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Image to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image to Base64": {
+      "main": [
+        [
+          {
+            "node": "Hash Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Image": {
+      "main": [
+        [
+          {
+            "node": "Gemini OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini OCR": {
+      "main": [
+        [
+          {
+            "node": "Parse OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OCR": {
+      "main": [
+        [
+          {
+            "node": "Is Receipt?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Receipt?": {
+      "main": [
+        [
+          {
+            "node": "Check Content Dup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Not A Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Content Dup": {
+      "main": [
+        [
+          {
+            "node": "Is Content Dup?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Content Dup?": {
+      "main": [
+        [
+          {
+            "node": "Dup?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dup?": {
+      "main": [
+        [
+          {
+            "node": "Send Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prep Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Save": {
+      "main": [
+        [
+          {
+            "node": "Upload to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Storage": {
+      "main": [
+        [
+          {
+            "node": "Build Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row": {
+      "main": [
+        [
+          {
+            "node": "Insert Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Row": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Save Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Summary": {
+      "main": [
+        [
+          {
+            "node": "Link Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reaction Router": {
+      "main": [
+        [
+          {
+            "node": "Is Reaction?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Reaction?": {
+      "main": [
+        [
+          {
+            "node": "Find Expense",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Expense": {
+      "main": [
+        [
+          {
+            "node": "Classify Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Reaction": {
+      "main": [
+        [
+          {
+            "node": "Undo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Undo?": {
+      "main": [
+        [
+          {
+            "node": "Delete Expense",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Expense": {
+      "main": [
+        [
+          {
+            "node": "Has Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image?": {
+      "main": [
+        [
+          {
+            "node": "Delete Receipt Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Undone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Receipt Image": {
+      "main": [
+        [
+          {
+            "node": "Send Undone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Reply?": {
+      "main": [
+        [
+          {
+            "node": "Send Reaction Note",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -1728,7 +3211,7 @@
     "binaryMode": "separate",
     "availableInMCP": true
   },
-  "versionId": "8cc6a0b6-aac8-4919-87d2-2a740b76adbe",
+  "versionId": "71b19ed4-09af-411f-94df-994dff4bbe4a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "10a850d4da272d178bded5fca62981a8cddf507948e5177ac123d4f6ec8344ab"

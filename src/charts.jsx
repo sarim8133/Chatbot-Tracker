@@ -367,12 +367,12 @@ function EmployeeSpendBars({ data, selected, onSelect }) {
         <YAxis type="category" dataKey="name" tick={{ ...mkTick(c), fill: c.text }} axisLine={false} tickLine={false} width={64} />
         <Tooltip content={<MoneyTip />} cursor={{ fill: `${c.ink}0A` }} />
         <Bar dataKey="total" radius={[0, 3, 3, 0]} maxBarSize={22} cursor="pointer"
-          onClick={(d) => onSelect?.(selected === d?.name ? null : d?.name)}>
+          onClick={(d) => onSelect?.(selected === d?.pkey ? null : d?.pkey)}>
           {data.map((d, i) => {
-            const isSel = selected === d.name;
+            const isSel = selected === d.pkey;
             const dim = selected && !isSel;
             const fill = isSel ? c.accent : (!selected && i === 0 ? c.accent : c.ink);
-            return <Cell key={d.name} fill={fill} fillOpacity={dim ? 0.32 : 1} />;
+            return <Cell key={d.pkey} fill={fill} fillOpacity={dim ? 0.32 : 1} />;
           })}
         </Bar>
       </BarChart>
@@ -454,7 +454,9 @@ const panelHead = (title, sub, onExpand) => (
   </div>
 );
 
-export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [], trend = [], selectedEmployee = null, onSelectEmployee, topN = 14 }) {
+// `selectedEmployee` is the person key (a uuid for anyone with a login), so it
+// selects but never prints — `selectedEmployeeName` is what the titles show.
+export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [], trend = [], selectedEmployee = null, selectedEmployeeName = '', onSelectEmployee, topN = 14 }) {
   const [expanded, setExpanded] = useState(null); // 'emp' | 'cat' | 'trend'
 
   const empTop = byEmployee.slice(0, topN);
@@ -467,8 +469,8 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
     : <EmptyChart />);
 
   const donutTitle = mode === 'personal' ? 'Your categories'
-    : selectedEmployee ? `Categories · ${selectedEmployee}` : 'Categories · whole team';
-  const trendSub = `${mode === 'personal' ? 'You' : (selectedEmployee || 'All employees')} · PKR per month`;
+    : selectedEmployee ? `Categories · ${selectedEmployeeName}` : 'Categories · whole team';
+  const trendSub = `${mode === 'personal' ? 'You' : (selectedEmployee ? selectedEmployeeName : 'All employees')} · PKR per month`;
 
   const donutPanel = (
     <div className={panelCls}>
