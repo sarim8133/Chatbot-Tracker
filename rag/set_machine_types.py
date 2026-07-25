@@ -50,6 +50,20 @@ GEMINI_KEY = _load_key("GEMINI_API_KEY", ".gemini_key")
 # the namespace, so this one was inconsistent as well as wrong.
 COMPANY_FIX = {"FUDL": "FUDL"}
 
+# Whole-catalogue series rules. These four are uniform - every record in each
+# catalogue is that machine - so they need no per-model logic. Supplied by
+# Hi-Tech, and they beat what the brochures yielded: the vision pass read NEO-EII
+# as "hydraulic injection moulding machine" off pages that never print the word
+# electric, which is the one fact that defines the series.
+CATALOGUE_TYPE = {
+    "NEO-EII": "All-electric plastic injection moulding machine with a toggle clamping system",
+    "DT (Toggle-Clamp)": "Hydraulic precision toggle-system plastic injection moulding machine",
+    "Tederic DD (Double-Color)": ("Multi-component (multi-colour) toggle-system plastic injection "
+                                  "moulding machine, for complex multi-material parts"),
+    "NEO-HII (Two-Platen)": ("Two-platen hydraulic plastic injection moulding machine for "
+                             "large-scale, high-precision manufacturing"),
+}
+
 NEO_T = "Toggle-system servo-hydraulic plastic injection moulding machine"
 NEO_MS = ("Multi-component plastic injection moulding machine (IMM) with a horizontal "
           "rotary turntable and opposite injection units")
@@ -69,6 +83,8 @@ def clean_name(model):
 
 def classify(cat, model):
     """Return the authoritative type, or None to leave the record alone."""
+    if cat in CATALOGUE_TYPE:
+        return CATALOGUE_TYPE[cat]
     m = clean_name(model)
     # A series-level record like "NEO-Mv" carries the orientation with no size.
     if cat == "NEO-M":
@@ -153,7 +169,7 @@ def main():
     for r in recs:
         cat = r["metadata"].get("catalogue", "") or ""
         model = r["metadata"].get("model_name", "") or ""
-        if not (cat.startswith("NEO-T") or cat in ("NEO-M", "YHE Gen 5")):
+        if not (cat.startswith("NEO-T") or cat in ("NEO-M", "YHE Gen 5") or cat in CATALOGUE_TYPE):
             continue
         new = classify(cat, model)
         if new is None:
