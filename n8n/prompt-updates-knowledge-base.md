@@ -1,8 +1,8 @@
 # n8n changes: expose the Knowledge Base articles to the bot
 
 The 61 Knowledge Base blog posts are now in Pinecone `hitech-v2`, namespace **`knowledge`**
-(191 chunks). They are in a SEPARATE namespace from the 1,888 machine records so that article
-prose can never compete with spec tables in a machine lookup.
+(234 chunks, after the research compendium was added). They are in a SEPARATE namespace from the
+machine records so that article prose can never compete with spec tables in a machine lookup.
 
 The bot cannot see them until you add a second tool node. 3 edits.
 
@@ -28,8 +28,17 @@ Result: the agent now has two tools — `search_pinecone` (machines) and `search
 
 ## 2. "Search Articles" -> Description of data (toolDescription)
 
+> ⚠️ **This is a REPLACEMENT for the text currently live.** The old wording ended with
+> "This tool does NOT contain machine models, prices, or spec sheets", which stopped being
+> true when the research compendium was added. The `knowledge` namespace now holds
+> *High Tech-600HH High Speed Injection Moulding Machine*, *HiTech Plastic PET Preform
+> Molding Machine*, the *APM compressor series* overview and *Decoding the Pricing of
+> Injection Molding Machines in Pakistan* — models, spec talk and prices, all three of the
+> things the description swore were absent. A tool description that denies its own contents
+> means the agent will not call it for exactly the questions it can answer best.
+
 ```
-Use this tool to search HiTech Machinery's published knowledge-base articles: technical explainers, how-to guides, and industry background. Call it for CONCEPTUAL and EDUCATIONAL questions - how something works, why one option differs from another, how to calculate something, what a term means, industry history, material properties, or how to start manufacturing a particular product. Examples: "how do I calculate clamping force?", "hydraulic vs electric injection molding", "what are the parts of an injection molding machine?", "what is the clamp factor for ABS?", "how do I start a thin-wall food container business?". Each result includes model_name (the article title), text (the article passage), and source_url (the article link). This tool does NOT contain machine models, prices, or spec sheets - for those you MUST use the machinery catalogue tool instead. When you answer from this tool, cite the source_url at the end of your reply so the user can read the full article.
+Use this tool to search HiTech Machinery's published knowledge-base articles and research notes: technical explainers, how-to guides, buying guides, product-line overviews, and industry background. Call it for CONCEPTUAL, EDUCATIONAL and ORIENTATION questions - how something works, why one option differs from another, how to calculate something, what a term means, industry history, material properties, which FAMILY of machine suits an application, or how to start manufacturing a particular product. Examples: "how do I calculate clamping force?", "hydraulic vs electric injection molding", "what are the parts of an injection molding machine?", "what is the clamp factor for ABS?", "how do I start a thin-wall food container business?", "what makes the APM compressor series efficient?", "what drives injection moulding machine pricing?". Some articles DO discuss machine families, applications and indicative pricing, so for open-ended, comparison or "which should I buy" questions it is worth calling this tool ALONGSIDE the machinery catalogue tool. It is NOT authoritative for a specific model's specifications, current price or availability - the machinery catalogue tool is, and its numbers win on any conflict. Each result includes model_name (the article title), text (the article passage), and source_url (the article link). When you answer from this tool, cite the source_url at the end of your reply so the user can read the full article.
 ```
 
 ---
@@ -45,7 +54,7 @@ KNOWLEDGE BOUNDARIES
 🔹 TECHNICAL / PROCESS GUIDANCE (how to choose or apply equipment, e.g. "which screw diameter for thin wall parts?", "what happens to injection pressure if screw diameter increases?"): The catalogue index also contains company reference guides (catalogue = "General Information"). You MUST call search_pinecone FIRST. If a General Information guide is returned, answer ONLY from that guide and include its image_url in the images array.
 🔹 CONCEPTS, HOW-TO AND BACKGROUND (how something works, why options differ, how to calculate something, what a term means, material properties, industry history, how to start manufacturing a product): Call search_articles. These are answered from HiTech's published knowledge-base articles. Answer ONLY from the returned article text, and end your reply with the article's source_url so the user can read more. Do NOT put source_url in the images array - it is a link, not an image; the images array stays empty for article answers.
 🔹 GENERAL KNOWLEDGE: Only if BOTH tools return nothing relevant may you define a plain term in 1-3 sentences from general engineering knowledge. You must NEVER state a specific number, ratio, dimension, threshold or spec from training data (for example, never assert "L/D is typically 25:1"). Every number you output must come from a tool result.
-RULE OF THUMB: Machines, models, specs -> search_pinecone. Concepts, how-to, why, background -> search_articles. Numbers from training data -> never.
+RULE OF THUMB: A specific model, its specs, its price or its availability -> search_pinecone, and its numbers are final. Concepts, how-to, why, background, and "which type of machine suits my product" -> search_articles. Open-ended or comparison questions -> call BOTH. Numbers from training data -> never.
 ```
 
 ---
