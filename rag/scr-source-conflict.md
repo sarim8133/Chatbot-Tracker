@@ -1,7 +1,15 @@
-# SCR: two documents, two sets of dimensions
+# SCR: two documents, two sets of dimensions — RESOLVED
 
-**Open question for Sarim. Nothing here is a bug in the pipeline — both readings
-are correct transcriptions of what is printed.**
+> ✅ **Settled 2026-07-25.** Hi-Tech asked SCR: the **booklet is the current
+> revision**. Its dimensions were adopted on the 58 dedicated records that had a
+> booklet counterpart, in place, changing nothing else — verified byte-identical
+> once the dimension field is masked out. The 34 models the booklet never mentions
+> keep their catalogue dimensions, because there is nothing to adopt for them.
+> Applied by `rag/scr_apply_booklet_dims.py`; restore point in
+> `backups/scr-booklet-dims-backup.json`.
+
+**Nothing here was a bug in the pipeline — both readings were correct
+transcriptions of what is printed.**
 
 SCR ships the same compressors in two publications, and they disagree about
 overall dimensions:
