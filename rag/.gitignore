@@ -1,0 +1,18 @@
+# Never commit the Pinecone key or pulled catalogue data
+.pinecone_key
+.gemini_key
+.supabase_key
+hitech_sample.json
+hitech_manifest.json
+rebuild.log
+done_pages.txt
+
+# Source documents and ingest state. The research PDFs carry unit economics,
+# margins, supplier lists and investment figures -- publishing those to a git
+# remote is not undoable, so they stay local. The manifests are just filename ->
+# hash records and are rebuilt by re-running the ingest.
+General Knowledge/
+general_docs/
+kb_manifest.json
+pdf_manifest.json
+__pycache__/
