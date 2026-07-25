@@ -33,6 +33,12 @@ out-of-band and can never be parsed as SQL.
 > Note: `Save to Semantic Cache` already hand-escapes via `escSql()`. Only this
 > node was missed.
 
+> **Re-verified still live 2026-07-25** by reading the workflow (`JOBpBMBz05ZVmQ79`).
+> The node immediately upstream of it, `Check Semantic Cache`, already does exactly
+> what this fix asks for — `… 1 - (query_embedding <=> $1::vector) …` with the value
+> in **Options → Query Parameters**. So the pattern is already in this workflow and
+> already working; C1 is applying it one node later, not introducing anything new.
+
 ---
 
 ## 🟠 HIGH
