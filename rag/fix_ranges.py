@@ -199,6 +199,16 @@ def main():
                    and first_num(r["metadata"].get("model_name", "")) is not None
                    and p["lo"] <= first_num(r["metadata"].get("model_name", "")) <= p["hi"]]
 
+        # A brochure may shorten the series prefix on its equipment page: the PET
+        # preform book labels that page "D250-D500" while the machines in the very
+        # same book are DT-250, DT-350, DT 400 and DT 500. Only ever a fallback,
+        # and only within the one catalogue, so "D" cannot reach across to DD or Db.
+        if not members:
+            members = [r for r in pool
+                       if stem(r["metadata"].get("model_name", "")).startswith(p["stem"])
+                       and first_num(r["metadata"].get("model_name", "")) is not None
+                       and p["lo"] <= first_num(r["metadata"].get("model_name", "")) <= p["hi"]]
+
         # Spans whose endpoints are injection units (i380-i600, e80-e220,
         # m150-m2500) name no machine, so the stem test finds nothing. Match on
         # the unit code each machine carries instead.
