@@ -68,7 +68,13 @@ FOLDER = "HiTech_HT880"
 COMPANY = "HiTech"
 LABEL = "HT-880 Semi-Automatic PET Blow"
 MODEL = "HT-880"
-IMAGE_PAGE = 1          # the machine photo; the specs come from page 5
+# Pages 5 and 6 are the whole of this record -- the specs, the configuration, and
+# the picture. Page 1 carries the only photograph of the machine, and the rest of
+# the namespace uses a rendered brochure page as image_url, so it was the obvious
+# thumbnail; but page 1 is a sales-proposal cover, dated, with the bundled
+# accessories on it, and nothing on it is this machine's data. Out of scope means
+# out of scope, image included.
+IMAGE_PAGE = 5
 
 POPPLER_CANDIDATES = [
     r"C:\Program Files\poppler\Library\bin",
