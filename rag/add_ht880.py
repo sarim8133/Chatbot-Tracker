@@ -69,12 +69,19 @@ COMPANY = "HiTech"
 LABEL = "HT-880 Semi-Automatic PET Blow"
 MODEL = "HT-880"
 # Pages 5 and 6 are the whole of this record -- the specs, the configuration, and
-# the picture. Page 1 carries the only photograph of the machine, and the rest of
+# the pictures. Page 1 carries the only photograph of the machine, and the rest of
 # the namespace uses a rendered brochure page as image_url, so it was the obvious
 # thumbnail; but page 1 is a sales-proposal cover, dated, with the bundled
 # accessories on it, and nothing on it is this machine's data. Out of scope means
 # out of scope, image included.
-IMAGE_PAGE = 5
+#
+# Both pages are rendered. image_url stays a single string holding page 5, because
+# all 1,775 other records in the namespace have a string there and the agent is
+# told to read "an image_url field" -- turning this one into a list would make it
+# the only record of its shape. Page 6 rides alongside as image_url_2. See the
+# note in main() about what the agent needs before it will actually show it.
+IMAGE_PAGES = [5, 6]
+IMAGE_PAGE = IMAGE_PAGES[0]
 
 POPPLER_CANDIDATES = [
     r"C:\Program Files\poppler\Library\bin",
@@ -246,14 +253,16 @@ def main():
 
     rec_id = re.sub(r"[^a-zA-Z0-9_\-]", "", f"{FOLDER}_{slug(MODEL)}")[:400]
     text = build_text()
-    dest = f"{FOLDER}/{FOLDER}_page_{IMAGE_PAGE}.jpg"
-    image_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{dest}"
+    dests = {n: f"{FOLDER}/{FOLDER}_page_{n}.jpg" for n in IMAGE_PAGES}
+    urls = {n: f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{d}"
+            for n, d in dests.items()}
 
     print(f"id         : {rec_id}")
     print(f"company    : {COMPANY}")
     print(f"catalogue  : {LABEL}")
     print(f"model_name : {MODEL}")
-    print(f"image_url  : {image_url}")
+    for i, n in enumerate(IMAGE_PAGES):
+        print(f"{'image_url' if i == 0 else f'image_url_{i + 1}':11}: {urls[n]}  (page {n})")
     print(f"type source: {MACHINE_TYPE_SOURCE}")
     print(f"\n--- embedded text ({len(text)} chars) ---\n{text}\n--- end ---\n")
 
@@ -281,22 +290,30 @@ def main():
 
     # Inside .render/ because that whole tree is already gitignored as rebuildable
     # pdftoppm scratch; the subdirectory keeps it from colliding with the page
-    # renders add_catalogue.py drops there.
-    out_dir = os.path.join(HERE, ".render", "ht880")
-    img = render_page(IMAGE_PAGE, out_dir)
-    image_url = upload_image(img, dest, skey)
-    print(f"image uploaded -> {image_url}")
+    # renders add_catalogue.py drops there. One directory PER PAGE, because
+    # render_page returns the first file it finds and rendering both pages into
+    # one directory would hand back page 5 twice.
+    for n in IMAGE_PAGES:
+        img = render_page(n, os.path.join(HERE, ".render", "ht880", str(n)))
+        urls[n] = upload_image(img, dests[n], skey)
+        print(f"image uploaded -> {urls[n]}")
 
     vec = embed(text, gkey)
     print(f"embedded: dim {len(vec)}")
 
-    index.upsert(namespace=NAMESPACE, vectors=[{
-        "id": rec_id, "values": vec,
-        "metadata": {"catalogue": LABEL, "company": COMPANY, "image_url": image_url,
-                     "model_name": MODEL, "machine_type": MACHINE_TYPE,
-                     "machine_type_source": MACHINE_TYPE_SOURCE, "text": text},
-    }])
-    print(f"upserted 1 record into {INDEX_NAME}/{NAMESPACE}")
+    # image_url holds the first page and stays a plain string: all 1,775 other
+    # records have a string there, and the agent is told to copy "an image_url
+    # field". Extra pages are numbered fields rather than a list for the same
+    # reason -- no other record in the namespace would share the list shape.
+    meta = {"catalogue": LABEL, "company": COMPANY, "model_name": MODEL,
+            "machine_type": MACHINE_TYPE, "machine_type_source": MACHINE_TYPE_SOURCE,
+            "text": text}
+    for i, n in enumerate(IMAGE_PAGES):
+        meta["image_url" if i == 0 else f"image_url_{i + 1}"] = urls[n]
+
+    index.upsert(namespace=NAMESPACE, vectors=[{"id": rec_id, "values": vec, "metadata": meta}])
+    print(f"upserted 1 record into {INDEX_NAME}/{NAMESPACE} "
+          f"with {len(IMAGE_PAGES)} image(s)")
 
     man_path = os.path.join(HERE, "catalogue_manifest.json")
     man = json.load(open(man_path, encoding="utf-8")) if os.path.exists(man_path) else {}
