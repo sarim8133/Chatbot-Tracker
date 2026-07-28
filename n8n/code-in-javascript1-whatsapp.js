@@ -1,5 +1,13 @@
-// Live code for the "Code in JavaScript1" node in Hi-Tech Web Chat (JOBpBMBz05ZVmQ79).
-// This file is the source of truth — paste it whole rather than patching in place.
+// Live code for the "Code in JavaScript1" node in Mawavia Whatsapp Chatbot
+// (E6Bi8G9MKf8tyVn0). This file is the source of truth — paste it whole.
+//
+// DO NOT paste the Web Chat version into this node. It ends with
+//     session_id: $('Webhook').first().json.body.session_id
+// and there is no node called "Webhook" in this workflow — the trigger is
+// "WhatsApp Trigger". $() on a name that does not exist THROWS, and that line is
+// in the return statement, so it fails on every message and takes the whole bot
+// down. That is the only difference between the two files; everything below the
+// header is identical.
 //
 // PREREQUISITE: the AI Agent node must have Options → "Return Intermediate Steps"
 // switched ON. Without it the tool results never reach this node, the corpus below
@@ -39,6 +47,9 @@ let uniqueImageUrls = Array.isArray(parsedData.images) ? [...new Set(parsedData.
 // results here, and blanking every reply would be far worse than not checking.
 // groundingChecked in the output tells you which mode you were in — if it is
 // false in production, the toggle is off and you have no protection.
+//
+// WhatsApp bold is a single asterisk, the same as the web chat, so the
+// "*Model:*" block detection below needs no change between the two channels.
 // ============================================================================
 
 const steps = [];
@@ -104,7 +115,7 @@ if (groundingChecked) {
 
         // If every machine in the reply was invented, the leftovers are just a
         // warm opener wrapped around nothing. Say so plainly instead of
-        // shipping an empty bubble.
+        // shipping an empty message.
         if (!/\*[^*\n]+\*/.test(replyText)) {
             replyText = "I couldn't find those in our catalog. Could you double-check the model or series name, or tell me what you need (e.g. tonnage range, application type)?";
             uniqueImageUrls = [];
@@ -145,7 +156,8 @@ const agentCacheable = cacheableRaw === true || cacheableRaw === 'true';
 
 // ---- GATE 3: nothing we had to repair is fit to be replayed to someone else.
 // A cached bad answer is served BEFORE the agent runs, so it would outlive any
-// prompt fix.
+// prompt fix. Both channels share one semantic_cache, so a bad answer repaired
+// here would otherwise go on to poison the web chat too.
 const storeable = !bareConfirmation && agentCacheable && !tampered;
 
 // ---- Build the cache INSERT here, so n8n never comma-splits the values ---
@@ -165,7 +177,11 @@ return {
         reply_text: replyText,
         image_urls: uniqueImageUrls,
         image_urls_json: imageUrlsJson,
-        session_id: $('Webhook').first().json.body.session_id,
+        // The WhatsApp counterpart of the web node's session_id. Send Text
+        // Message and Insert rows both read the number straight off the trigger
+        // rather than from here, so this is carried for parity and for anything
+        // added later — but it must NOT be the web version's $('Webhook') line.
+        user_phone: $('WhatsApp Trigger').first().json.messages[0].from,
         from_cache: false,
         storeable,
         insert_sql,
