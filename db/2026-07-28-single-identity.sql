@@ -106,3 +106,21 @@ update public.wap_allowed_senders w set active = true, updated_at = now()
 -- a monthly-cap panel at src/mawavia-dashboard.jsx:3224 backed by an
 -- admin_set_spending_limit RPC. See the plan's task 4, whose first step is the
 -- grep that caught this.
+
+
+-- 4) user_id on both chat histories, backfilled. -----------------------------
+alter table public.n8n_chat_histories add column if not exists user_id uuid references public.app_users(user_id);
+alter table public.web_chat_histories add column if not exists user_id uuid references public.app_users(user_id);
+
+-- WhatsApp keys on the number, the one identifier the sender cannot change. The
+-- Name column was contacts[0].profile.name -- the sender's OWN WhatsApp display
+-- name -- so it was never safe to key on.
+update public.n8n_chat_histories h set user_id = a.user_id
+  from public.app_users a where a.phone = h."User_Number"::text and h.user_id is null;
+
+-- Web keys on the email local-part, which is what currentUserName() stamped.
+update public.web_chat_histories h set user_id = a.user_id
+  from public.app_users a where split_part(a.email,'@',1) = h."Name" and h.user_id is null;
+
+create index if not exists n8n_chat_histories_user_id_idx on public.n8n_chat_histories(user_id);
+create index if not exists web_chat_histories_user_id_idx on public.web_chat_histories(user_id);
