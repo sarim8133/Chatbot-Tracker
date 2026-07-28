@@ -137,30 +137,74 @@ update public.chat_archive h set user_id = a.user_id
 create index if not exists chat_archive_user_id_idx on public.chat_archive(user_id);
 
 -- chat_all is what dashboard_stats and the client both read, so user_id is
--- invisible to both until it is projected here. It goes LAST in the select list:
--- create-or-replace can only append columns to a view, never insert one, and
--- putting it mid-list fails with "cannot change name of view column".
+-- invisible to both until it is projected here. Appended columns go LAST:
+-- create-or-replace can only append to a view, never insert, and putting one
+-- mid-list fails with "cannot change name of view column".
+--
+-- This view is also where identity is now RESOLVED, once, for both readers. The
+-- old client comment said "the RPC applies the same rule server-side, so both
+-- agree on identity" -- an agreement held together by two copies of one rule in
+-- two languages, which is how they drifted apart.
+--
+-- Three appended columns: ident (the person), person_name (roster name),
+-- person_phone (roster number, so a rep merged across channels still shows one).
 create or replace view public.chat_all as
- SELECT n8n_chat_histories."Timestamp", n8n_chat_histories."User_Message",
-    n8n_chat_histories."AI_Response", n8n_chat_histories."User_Number",
-    n8n_chat_histories.unq_id, n8n_chat_histories."Name",
-    n8n_chat_histories.from_cache, 'whatsapp'::text AS channel,
-    n8n_chat_histories.user_id
-   FROM n8n_chat_histories
-UNION ALL
- SELECT chat_archive."Timestamp", chat_archive."User_Message",
-    chat_archive."AI_Response", chat_archive."User_Number",
-    chat_archive.unq_id, chat_archive."Name",
-    chat_archive.from_cache, 'whatsapp'::text AS channel,
-    chat_archive.user_id
-   FROM chat_archive
-UNION ALL
- SELECT web_chat_histories."Timestamp", web_chat_histories."User_Message",
-    web_chat_histories."AI_Response", NULL::bigint AS "User_Number",
-    web_chat_histories.unq_id, web_chat_histories."Name",
-    web_chat_histories.from_cache, 'web'::text AS channel,
-    web_chat_histories.user_id
-   FROM web_chat_histories;
+select
+  r."Timestamp", r."User_Message", r."AI_Response", r."User_Number",
+  r.unq_id, r."Name", r.from_cache, r.channel, r.user_id,
+  -- user_id is the stamp n8n writes; the two lookups in the lateral below cover
+  -- rows written before the backfill or by a workflow not yet updated, which
+  -- would otherwise key on free text and re-split the same human into a second
+  -- rep the moment they sent one more message. Keying straight off user_id was
+  -- tried first and gave 8 reps, not 6: web messages sent that same afternoon
+  -- arrived unstamped. n8n does not stamp it until task 10.
+  case when p.user_id is not null then 'uid:' || p.user_id::text
+       when r.channel = 'web' or r."User_Number" is null
+         then 'web:' || coalesce(nullif(btrim(r."Name"), ''), 'Website user')
+       else r."User_Number"::text
+  end                                    as ident,
+  p.full_name                            as person_name,
+  coalesce(p.phone, case when r.channel <> 'web' then r."User_Number"::text end)
+                                         as person_phone
+from (
+   SELECT n8n_chat_histories."Timestamp", n8n_chat_histories."User_Message",
+      n8n_chat_histories."AI_Response", n8n_chat_histories."User_Number",
+      n8n_chat_histories.unq_id, n8n_chat_histories."Name",
+      n8n_chat_histories.from_cache, 'whatsapp'::text AS channel,
+      n8n_chat_histories.user_id
+     FROM n8n_chat_histories
+  UNION ALL
+   SELECT chat_archive."Timestamp", chat_archive."User_Message",
+      chat_archive."AI_Response", chat_archive."User_Number",
+      chat_archive.unq_id, chat_archive."Name",
+      chat_archive.from_cache, 'whatsapp'::text AS channel,
+      chat_archive.user_id
+     FROM chat_archive
+  UNION ALL
+   SELECT web_chat_histories."Timestamp", web_chat_histories."User_Message",
+      web_chat_histories."AI_Response", NULL::bigint AS "User_Number",
+      web_chat_histories.unq_id, web_chat_histories."Name",
+      web_chat_histories.from_cache, 'web'::text AS channel,
+      web_chat_histories.user_id
+     FROM web_chat_histories
+) r
+-- LATERAL ... limit 1, not a three-way OR join: a row matching two ways would
+-- come back twice and silently double that person's message count. The branches
+-- are mutually exclusive anyway (two require user_id to be null).
+left join lateral (
+  select a.user_id, a.full_name, a.phone
+    from public.app_users a
+   where a.user_id = r.user_id
+      or (r.user_id is null and a.phone = r."User_Number"::text)
+      or (r.user_id is null and r."User_Number" is null
+          and split_part(a.email, '@', 1) = nullif(btrim(r."Name"), ''))
+   limit 1
+) p on true;
+
+-- MUST follow every replace of this view -- see section 7a.
+alter view public.chat_all set (security_invoker = on);
+grant select on public.chat_all to authenticated;
+revoke select on public.chat_all from anon;
 
 -- 329 rows, 326 mapped. The 3 unmapped are 923362188858 (mawavia2), removed from
 -- the roster by design - their history stays visible under the name fallback.
@@ -176,26 +220,21 @@ UNION ALL
 --        else c."User_Number"::text end as ident
 --
 -- One person, two channels, two keys. The full body is applied via migration
--- (dashboard_stats_resolve_identity); the two substantive changes are:
+-- (dashboard_stats_reads_chat_all_identity); the substantive changes are:
 --
--- a) A `resolved` CTE runs BEFORE grouping and resolves each row to a person:
---    c.user_id if n8n stamped it, else app_users by phone, else app_users by
---    email local-part. Resolving here rather than trusting the stamp matters --
---    the first attempt keyed straight off c.user_id and came back with 8 reps,
---    not 6, because web messages sent that same afternoon arrived with a null
---    user_id and re-split Sarim and Mawavia. n8n does not stamp it yet (task 10),
---    and until it does every new message would recreate the duplicate.
+-- a) base now reads c.ident from chat_all instead of building its own key. The
+--    resolution lives in the view (section 5) so this function and the client
+--    read the same column and cannot drift apart again.
 --
---    Scalar subqueries with limit 1, not an OR-join on the three conditions: a
---    row that matched two ways would be counted twice and silently inflate that
---    rep's message count.
+-- b) nm = coalesce(c.person_name, c."Name"). Once two channels collapse into one
+--    rep, "most recent Name" would flip the label between 'smsarim6' and 'Sarim'
+--    depending on which channel they last used.
 --
--- b) nm = coalesce(app_users.full_name, c."Name"). Once two channels collapse
---    into one rep, "most recent Name" would flip the label between 'smsarim6'
---    and 'Sarim' depending on which channel they last used.
+-- c) The users payload gains 'phone' (c.person_phone). A merged rep's identity is
+--    a uuid, so without it the rep card and the CSV would have no number to show.
 --
--- The legacy branches stay as a fallback so a sender with no Team account keeps
--- their history on screen instead of vanishing.
+-- The legacy branches in the view stay as a fallback so a sender with no Team
+-- account keeps their history on screen instead of vanishing.
 --
 -- VERIFY THIS AS A REAL USER, NOT OVER THIS CONNECTION. dashboard_stats is
 -- SECURITY INVOKER, so the MCP/superuser connection bypasses every policy the
