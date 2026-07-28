@@ -1,0 +1,10 @@
+-- One identity per person + a gate on the WhatsApp bot.
+-- Spec: docs/superpowers/specs/2026-07-28-single-identity-whatsapp-gate-design.md
+-- Plan: docs/superpowers/plans/2026-07-28-single-identity-whatsapp-gate.md
+--
+-- Re-runnable. Snapshots taken 2026-07-28 live in backup_20260728_* and are NOT
+-- dropped by this script -- delete them by hand once the change has proven itself.
+--
+--   backup_20260728_wap_allowed_senders   12 rows
+--   backup_20260728_n8n_chat_histories    29 rows
+--   backup_20260728_web_chat_histories   278 rows
