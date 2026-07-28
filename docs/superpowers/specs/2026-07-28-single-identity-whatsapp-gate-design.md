@@ -1,9 +1,10 @@
 # One person, one identity — and a gate on the WhatsApp bot
 
 **Date:** 2026-07-28
-**Status:** database and frontend implemented and verified; the two n8n edits
-(the gate itself, and identity stamping) are outstanding. **The bot is still
-ungated — any number can message it today.**
+**Status:** IMPLEMENTED and verified live on 2026-07-28 — database, frontend and
+both n8n workflows. The bot is gated on Team membership, both channels stamp
+`user_id` and the roster name, and the Reps tab shows one entry per person.
+See the plan's status table for the end-to-end evidence.
 
 ## The problem
 

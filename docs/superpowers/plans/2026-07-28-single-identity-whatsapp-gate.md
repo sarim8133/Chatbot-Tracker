@@ -12,19 +12,35 @@
 
 ---
 
-## Status — 2026-07-28
+## Status — 2026-07-28: COMPLETE
 
-**Tasks 1–8 are done, applied and verified. Tasks 9–11 remain, and 9/10 need a
-human at the n8n UI.**
+**Tasks 1–10 are applied and verified live.** The gate is in, both channels stamp
+identity, and the dashboard groups on it.
 
-Two things are still true until Task 9 lands, and both matter:
+End-to-end evidence:
 
-- **The bot is not gated.** Any number on earth can still message it and get
-  catalogue specs and pricing back.
-- **New WhatsApp and web messages arrive with a null `user_id`.** They resolve
-  correctly anyway — `chat_all` re-checks phone and email local-part against
-  `app_users` — so the duplicates do not come back. Task 10 makes the stamp
-  authoritative rather than reconstructed.
+| Check | Result |
+| --- | --- |
+| WhatsApp writes the roster identity | 17:34 row — `Name: Sarim`, `user_id` set (not `Mawavia_Hitech_khi`) |
+| Web writes the roster identity | 18:01 row — `Name: Sarim`, `user_id` set (not `smsarim6`) |
+| Non-members blocked | 0 rows from outside `whatsapp_members` |
+| One rep per person | 6: Sarim 193, Mawavia 102, Habib 27, Iftikhar 6, Asad 6, MSBK 3 |
+| No unstamped history | `web_chat_histories` 0 null `user_id` |
+
+`MSBK` (`923362188858`) is the de-rostered mawavia2 number, kept deliberately so
+its history stays visible rather than vanishing.
+
+### Two traps hit while applying the n8n half
+
+1. **`.item` vs `.first()`.** The web chat's insert sits after the agent, the
+   cache branch and a merge, so n8n's item pairing is lost and `.item` silently
+   yields nothing — rows landed with `Name` AND `user_id` null, which is worse
+   than the email local-part it replaced. `.first()` is the correct form; the
+   WhatsApp workflow had it right.
+2. **Two different `supabaseApi` credentials.** The gate's lookup was fixed while
+   the web chat's `Validate JWT2` still pointed at an anon-key credential, which
+   returns `[]` for `app_users` under RLS — so the name came back undefined with
+   no error anywhere.
 
 ### Deviations from the plan as written
 
