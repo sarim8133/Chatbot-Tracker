@@ -124,3 +124,43 @@ update public.web_chat_histories h set user_id = a.user_id
 
 create index if not exists n8n_chat_histories_user_id_idx on public.n8n_chat_histories(user_id);
 create index if not exists web_chat_histories_user_id_idx on public.web_chat_histories(user_id);
+
+
+-- 5) chat_archive + chat_all. -------------------------------------------------
+-- chat_archive is a THIRD source behind chat_all (older WhatsApp traffic), found
+-- only when chat_all's definition was read. Without it, archived messages keep
+-- counting as a separate rep.
+create table if not exists backup_20260728_chat_archive as select * from public.chat_archive;
+alter table public.chat_archive add column if not exists user_id uuid references public.app_users(user_id);
+update public.chat_archive h set user_id = a.user_id
+  from public.app_users a where a.phone = h."User_Number"::text and h.user_id is null;
+create index if not exists chat_archive_user_id_idx on public.chat_archive(user_id);
+
+-- chat_all is what dashboard_stats and the client both read, so user_id is
+-- invisible to both until it is projected here. It goes LAST in the select list:
+-- create-or-replace can only append columns to a view, never insert one, and
+-- putting it mid-list fails with "cannot change name of view column".
+create or replace view public.chat_all as
+ SELECT n8n_chat_histories."Timestamp", n8n_chat_histories."User_Message",
+    n8n_chat_histories."AI_Response", n8n_chat_histories."User_Number",
+    n8n_chat_histories.unq_id, n8n_chat_histories."Name",
+    n8n_chat_histories.from_cache, 'whatsapp'::text AS channel,
+    n8n_chat_histories.user_id
+   FROM n8n_chat_histories
+UNION ALL
+ SELECT chat_archive."Timestamp", chat_archive."User_Message",
+    chat_archive."AI_Response", chat_archive."User_Number",
+    chat_archive.unq_id, chat_archive."Name",
+    chat_archive.from_cache, 'whatsapp'::text AS channel,
+    chat_archive.user_id
+   FROM chat_archive
+UNION ALL
+ SELECT web_chat_histories."Timestamp", web_chat_histories."User_Message",
+    web_chat_histories."AI_Response", NULL::bigint AS "User_Number",
+    web_chat_histories.unq_id, web_chat_histories."Name",
+    web_chat_histories.from_cache, 'web'::text AS channel,
+    web_chat_histories.user_id
+   FROM web_chat_histories;
+
+-- 329 rows, 326 mapped. The 3 unmapped are 923362188858 (mawavia2), removed from
+-- the roster by design - their history stays visible under the name fallback.
