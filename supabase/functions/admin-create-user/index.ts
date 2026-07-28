@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-// Creates a dashboard login + writes app_users (role/identity) and, for employees,
-// the wap_allowed_senders roster row. Admin-only: the caller's JWT is verified and
+// Creates a dashboard login + writes app_users (role/identity) and the
+// wap_allowed_senders roster row. One call here is the whole grant: login,
+// WhatsApp chat (via the whatsapp_members view, which reads app_users.phone) and
+// WhatsApp receipts (which need the roster row for the FK on
+// wap_expenses.sender_phone). A phone is required for every role because it is
+// the link to the bot — see the check below.
+// Admin-only: the caller's JWT is verified and
 // their role checked before anything is created. verify_jwt is disabled at the
 // platform layer because we do custom auth here (and browsers send an unauthenticated
 // CORS preflight); the admin check below is the real gate.
@@ -50,8 +55,12 @@ Deno.serve(async (req) => {
 
   if (!['admin', 'accountant', 'employee'].includes(role)) return json({ error: 'Pick a valid role' }, 400);
   if (!fullName) return json({ error: 'Name is required' }, 400);
-  if (role === 'employee' && !phone) return json({ error: 'Employees need a WhatsApp phone number (their identity)' }, 400);
-  if (!realEmail && !phone) return json({ error: 'Provide an email or a phone number' }, 400);
+  // Required for EVERY role, not just employees. The phone is what links a person
+  // to the WhatsApp bot (see the whatsapp_members view), so a Team member without
+  // one is half-created: they can sign in, but the bot will never answer them and
+  // nothing on screen explains why. All existing rows already have a phone, so
+  // this tightens the rule without stranding anyone.
+  if (!phone) return json({ error: 'A WhatsApp phone number is required — it is how the bot recognises them' }, 400);
   if (realEmail && !realEmail.includes('@')) return json({ error: 'Email looks invalid' }, 400);
   // Invite needs a real inbox; the password path is the fallback (and the only option
   // for phone-only staff on the synthetic @hitech.local address).
@@ -85,9 +94,9 @@ Deno.serve(async (req) => {
   const { error: mErr } = await admin.from('app_users').insert({
     user_id: newId,
     role,
-    // Optional for admins/accountants, required for employees (checked above).
-    // Whoever has one can sign in with it and gets their receipts attributed.
-    phone: phone || null,
+    // Required for every role (checked above). It is the login identifier, the
+    // receipt attribution key, and what whatsapp_members matches the bot against.
+    phone,
     email: realEmail || null,
     full_name: fullName,
     department: department || null,
@@ -99,15 +108,21 @@ Deno.serve(async (req) => {
   }
 
   // --- WhatsApp roster row so they can submit receipts ---
-  // Required for ANYONE with a phone, not just employees: wap_expenses.sender_phone
+  // Written for everyone now that a phone is mandatory. wap_expenses.sender_phone
   // has an FK to this table, so a phone that isn't rostered makes their first
   // receipt upload fail on a foreign-key violation.
+  //
+  // A failure here leaves a person HALF granted: they can sign in and use the bot
+  // (whatsapp_members reads app_users, not this table) but their receipts will
+  // bounce. That breaks the one-action promise, so it is surfaced as a warning the
+  // admin sees rather than swallowed — re-saving the person in Team repairs it,
+  // because admin_set_role now upserts this row.
   let warning: string | undefined;
-  if (phone) {
+  {
     const { error: rErr } = await admin.from('wap_allowed_senders')
       .insert({ phone, employee_name: fullName, department: department || 'General', active: true });
     if (rErr && !/duplicate|unique/i.test(rErr.message)) {
-      warning = 'Login created, but the WhatsApp roster entry failed: ' + rErr.message;
+      warning = 'Login created, but the WhatsApp roster entry failed — their receipts will bounce until you re-save them in Team: ' + rErr.message;
     }
   }
 
