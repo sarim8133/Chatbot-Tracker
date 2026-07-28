@@ -12,6 +12,48 @@
 
 ---
 
+## Status — 2026-07-28
+
+**Tasks 1–8 are done, applied and verified. Tasks 9–11 remain, and 9/10 need a
+human at the n8n UI.**
+
+Two things are still true until Task 9 lands, and both matter:
+
+- **The bot is not gated.** Any number on earth can still message it and get
+  catalogue specs and pricing back.
+- **New WhatsApp and web messages arrive with a null `user_id`.** They resolve
+  correctly anyway — `chat_all` re-checks phone and email local-part against
+  `app_users` — so the duplicates do not come back. Task 10 makes the stamp
+  authoritative rather than reconstructed.
+
+### Deviations from the plan as written
+
+| Plan said | What was built | Why |
+| --- | --- | --- |
+| Task 4: drop `spending_limit` | **Withdrawn.** Column, panel and RPC all kept | Its own step 1 grep found the live monthly-cap panel |
+| Task 8 step 3: resolve identity inside `dashboard_stats` | Resolved in the **`chat_all` view**; the RPC and the client both read `ident` | The RPC and the client each had their own copy of the rule; one definition means they cannot drift apart again |
+| Task 8 step 4b: client derives `uid:` keys, `_repNames` from `u.name` | Client reads `chat_all.ident` directly; phone travels separately as `person_phone` / `users[].phone` | A uuid identity carries no phone, and digit-stripping one produced a plausible but fictional phone number |
+| — | Task 8a: `chat_archive` backfilled too | `chat_all` turned out to union **three** tables, not two |
+
+### Things this plan did not anticipate
+
+1. **`create or replace view` resets `reloptions`.** Replacing `chat_all` to add
+   a column silently dropped `security_invoker = on`, so the view ran with owner
+   rights and bypassed the admin-only RLS on all three chat tables. Restored, and
+   flagged at `db/security-rls.sql:44`.
+2. **`dashboard_stats` is SECURITY INVOKER, so verify it as a real user.** Over
+   the MCP/superuser connection it reported a clean 6 reps while a logged-in
+   admin still saw 8. `app_users` only had a self-read policy, so an admin
+   resolved their own identity and nobody else's. Added `app_users_admin_read`.
+3. **The Task 1 snapshots were world-readable.** `create table as` inherits
+   Supabase default privileges granting `anon` ALL on new public tables, and a
+   table with no RLS is served by PostgREST — so the full chat history, every
+   `session_id` and the staff phone roster were exposed to anyone with the anon
+   key. Revoked and RLS-enabled. **Run `get_advisors` after any migration that
+   creates a table.**
+
+---
+
 ## Testing note
 
 This repo has no test runner — `package.json` defines `dev`, `build`, `lint`, `preview` and nothing else, and there are no test files. Do not add a framework as part of this change. Every task below verifies with either a SQL query whose expected output is written out, or `npm run build` / `npx eslint`. Where a step says "Expected:", the output must match before moving on.

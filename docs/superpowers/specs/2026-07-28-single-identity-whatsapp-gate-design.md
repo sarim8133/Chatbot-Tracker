@@ -1,7 +1,9 @@
 # One person, one identity — and a gate on the WhatsApp bot
 
 **Date:** 2026-07-28
-**Status:** approved, not yet implemented
+**Status:** database and frontend implemented and verified; the two n8n edits
+(the gate itself, and identity stamping) are outstanding. **The bot is still
+ungated — any number can message it today.**
 
 ## The problem
 
@@ -128,7 +130,8 @@ carries — the gate and the identity resolver are the same call.
 
 ### 3. Stamp identity, not names
 
-- `user_id uuid` column added to `n8n_chat_histories` and `web_chat_histories`.
+- `user_id uuid` column added to `n8n_chat_histories`, `web_chat_histories` and
+  `chat_archive` (a third source behind `chat_all`, found during implementation).
 - n8n's `Insert rows in a table` writes the `user_id` and `full_name` the gate
   resolved, replacing `contacts[0].profile.name`.
 - The web chat writes the JWT uid and `app_users.full_name`, replacing the email
@@ -136,6 +139,27 @@ carries — the gate and the identity resolver are the same call.
 - The Reps tab groups on `user_id`.
 
 `Name` stays as a denormalised label for readability; it stops being the key.
+
+**Resolution lives in the `chat_all` view, not in each reader.** As built, the
+view exposes three derived columns — `ident`, `person_name`, `person_phone` — and
+both `dashboard_stats` and the dashboard read them.
+
+This was a correction made during implementation. The original plan put the rule
+inside `dashboard_stats`, leaving the client with its own copy in JS; the old
+client comment even said *"the RPC applies the same rule server-side, so both
+agree on identity"*. That agreement was two copies of one rule in two languages,
+and it is precisely how they drifted apart into the reported bug.
+
+`ident` prefers the stamped `user_id`, then falls back to matching phone and
+email local-part against `app_users`. Trusting the stamp alone is not enough:
+keyed straight off `user_id` the RPC returned 8 reps rather than 6, because web
+messages sent that same afternoon arrived unstamped and re-split Sarim and
+Mawavia. Until n8n stamps (§Design 3 above), every new message would otherwise
+recreate the duplicate.
+
+Because a `uid:` identity is a uuid and carries no phone, the phone travels
+separately. Digit-stripping a uuid for display produced a well-formatted and
+entirely fictional phone number.
 
 ### 4. Backfill
 
@@ -187,6 +211,31 @@ Left in place: the column, the panel at `src/mawavia-dashboard.jsx:3224`, the
 Worth noting for whoever picks this up: Habib's cap is `0`. If the panel enforces
 literally, that caps the CEO at nothing — probably meaning "unlimited" by
 accident. Not in scope here, but it is the kind of thing that bites at month end.
+
+## Security findings from implementation
+
+Three, all fixed, all recorded in `db/2026-07-28-single-identity.sql`. None was
+found by reading the code — one came from an advisor run and two from testing as
+a real user instead of over the admin connection.
+
+1. **`create or replace view` resets `reloptions`.** Replacing `chat_all` to add
+   a column silently dropped `security_invoker = on`. The view then ran with its
+   owner's rights and bypassed the `private.is_admin()` RLS on all three chat
+   tables, so any authenticated employee could read the whole company's chat
+   history. Restored, and warned about at `db/security-rls.sql:44`.
+2. **The backup snapshots were world-readable and writable.** `create table as`
+   inherits Supabase default privileges granting `anon` ALL on new public tables,
+   and a table with no RLS is served by PostgREST. The Task 1 snapshots therefore
+   exposed the full chat history, every `session_id` and the staff phone roster
+   to anyone holding the anon key — which ships in the frontend bundle — and
+   allowed `TRUNCATE`. Revoked and RLS-enabled. Run `get_advisors` after any
+   migration that creates a table.
+3. **`dashboard_stats` is SECURITY INVOKER, so it must be verified as a real
+   user.** Measured over the MCP connection it reported a correct 6 reps; a
+   logged-in admin still got 8, because `app_users` only had a self-read policy
+   and the identity lookups resolved the caller and nobody else. Added
+   `app_users_admin_read` (`private.is_admin()`), which grants admins nothing
+   `admin_list_users()` did not already return to them.
 
 ## Unchanged
 
