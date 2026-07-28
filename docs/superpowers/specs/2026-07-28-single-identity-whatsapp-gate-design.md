@@ -53,9 +53,9 @@ These bound the design and were verified against the live database, not assumed.
   its own RLS policy (`wap_senders_self_or_accountant`); and `admin_list_users()`
   joins it for the `active` flag. It stays, demoted from "roster" to "expense
   linkage + activation flag", written only by Team.
-- **`spending_limit` is never enforced.** No n8n workflow and no frontend code
-  reads it. It is stored and ignored. Not in scope to fix, but do not treat it as
-  live behaviour.
+- **`spending_limit` is never enforced.** No n8n workflow, no edge function and no
+  frontend code reads it — `admin-create-user` does not even write it. It is
+  stored and ignored, and it is dropped by this change (§7).
 - **`app_users.user_id` is `FOREIGN KEY → auth.users(id)`.** A Team member without
   a login cannot exist, which is why the roster question above only had one
   workable answer.
@@ -170,6 +170,24 @@ agree with ban state, so the column stops claiming authority it no longer has
 are `active: true`, and none of the three has ever logged in — the flag has been
 recording three different things.
 
+### 7. Drop `spending_limit`
+
+`alter table public.wap_allowed_senders drop column spending_limit`.
+
+Nothing reads it and nothing writes it — verified across the n8n workflows, both
+edge functions and `src/`. It is a column that looks like a spend control and is
+not one, which is worse than not having it: an admin editing it would reasonably
+expect a PKR 5,000 cap to do something.
+
+The values are recorded here so the intent is not lost if a real limit is ever
+built: Asad 50,000 · Habib 0 · Iftikhar 5,000 · Khizar Altaf 5,000 · Khizar
+Hussain 5,000 · Mawavia 46,000 · Taimoor 5,000 · `mawavia2` 10,000 · `sarim`
+25,000. Habib's 0 is itself evidence the column was never wired up — a literal
+reading would cap the CEO at nothing.
+
+Any UI or docs referencing it go in the same change:
+`db/expense-access-rls.sql:17` (comment) and `handoff_receipt.md:78`.
+
 ## Unchanged
 
 Web login and session handling, the AUP gate, email invites, expense RLS
@@ -203,5 +221,6 @@ policies, the `wap_expenses` foreign key, and the receipt OCR pipeline.
 
 ## Out of scope
 
-Enforcing `spending_limit`; migrating WhatsApp receipts off Drive; the
-`maxOutputTokens` cacheable investigation (tracked separately).
+Building a real spend control to replace the dropped column; migrating WhatsApp
+receipts off Drive; the `maxOutputTokens` cacheable investigation (tracked
+separately).
