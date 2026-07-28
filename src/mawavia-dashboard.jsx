@@ -349,10 +349,19 @@ function useData(onAuthError) {
 }
 
 // ── Profile (role + employee mapping) ─────────────────────────────────────────
-// Reads the signed-in user's own app_users row (RLS scopes it to self). Cached in
-// localStorage so a reload doesn't flash the wrong tab set. An account with no
-// profile row falls back to 'employee' (the most restrictive role → sees only its
-// own expenses), never to an elevated one.
+// Reads the signed-in user's own app_users row. Cached in localStorage so a
+// reload doesn't flash the wrong tab set. An account with no profile row falls
+// back to 'employee' (the most restrictive role → sees only its own expenses),
+// never to an elevated one.
+//
+// The user_id filter is NOT redundant with RLS. This query used to carry no
+// filter at all and leaned on the self-read policy to return exactly one row —
+// so the day an admin-read policy was added (app_users_admin_read, needed by
+// dashboard_stats to resolve identities), admins started getting all eight rows
+// and data[0] silently became whoever sorts first. That was Asad, an employee,
+// so every admin login rendered as Asad AND lost its admin tabs.
+//
+// Never let RLS be the reason a [0] is correct: filter for the row you want.
 const ROLE_LS = 'ht_role';
 function useProfile(onAuthError) {
   const [profile, setProfile] = useState(() => {
@@ -364,7 +373,9 @@ function useProfile(onAuthError) {
       let token;
       try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
       try {
-        const { data } = await sbFetch(token, 'app_users', 'select=role,full_name,phone,email');
+        const uid = currentUserId();
+        if (!uid) { onAuthError?.(); return; }
+        const { data } = await sbFetch(token, 'app_users', `select=role,full_name,phone,email&user_id=eq.${uid}`);
         if (cancelled) return;
         const p = data[0] || { role: 'employee', full_name: null };
         setProfile(p);

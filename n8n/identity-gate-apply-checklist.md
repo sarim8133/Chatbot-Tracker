@@ -163,10 +163,21 @@ Expected: `Name` is the roster name (`Sarim`, not `Mawavia_Hitech_khi`) and
 
 ### 2.3 Same for the web chat
 
-In **Hi-Tech Web Chat** (`JOBpBMBz05ZVmQ79`), the `Insert rows in a table` node
-writing `web_chat_histories` stamps `Name` from the JWT email local-part
-(`smsarim6`). Write the caller's `user_id` and take the name from
-`app_users.full_name`. Verify the same way against `web_chat_histories`.
+In **Hi-Tech Web Chat** (`JOBpBMBz05ZVmQ79`), `Insert rows in a table` stamps
+`Name` from the JWT email local-part (`smsarim6`). That workflow has **no
+`Member?` node** — its identity comes from two nodes that already exist:
+
+- `Validate JWT` → `GET /auth/v1/user`, so the uuid is **`.id`**, not `.user_id`
+- `Validate JWT2` → `GET /rest/v1/app_users?user_id=eq.<id>&select=full_name,role`
+
+| Column | To |
+| --- | --- |
+| `user_id` | `={{ $('Validate JWT').item.json.id }}` |
+| `Name` | `={{ $('Validate JWT2').item.json.full_name }}` |
+
+Verify the same way against `web_chat_histories`. If `Name` comes back empty,
+check `Validate JWT2` — it uses the `supabaseApi` credential, the same one that
+returned 401 on `whatsapp_members`.
 
 ### Why this is not urgent, and still worth doing
 
