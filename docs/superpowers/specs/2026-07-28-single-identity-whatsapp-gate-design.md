@@ -53,9 +53,12 @@ These bound the design and were verified against the live database, not assumed.
   its own RLS policy (`wap_senders_self_or_accountant`); and `admin_list_users()`
   joins it for the `active` flag. It stays, demoted from "roster" to "expense
   linkage + activation flag", written only by Team.
-- **`spending_limit` is never enforced.** No n8n workflow, no edge function and no
-  frontend code reads it — `admin-create-user` does not even write it. It is
-  stored and ignored, and it is dropped by this change (§7).
+- **`spending_limit` IS live — corrected 2026-07-28.** An earlier draft of this
+  spec said nothing read it and planned to drop it. That was wrong: there is a
+  monthly-cap panel at `src/mawavia-dashboard.jsx:3224` backed by an
+  `admin_set_spending_limit` RPC. The mistake came from a repo-wide grep whose
+  output was truncated before it reached that line — absence of evidence reported
+  as evidence of absence. The column stays, untouched by this change.
 - **`app_users.user_id` is `FOREIGN KEY → auth.users(id)`.** A Team member without
   a login cannot exist, which is why the roster question above only had one
   workable answer.
@@ -170,23 +173,20 @@ agree with ban state, so the column stops claiming authority it no longer has
 are `active: true`, and none of the three has ever logged in — the flag has been
 recording three different things.
 
-### 7. Drop `spending_limit`
+### 7. `spending_limit` — withdrawn, not done
 
-`alter table public.wap_allowed_senders drop column spending_limit`.
+This section previously specified dropping the column. It was withdrawn on
+2026-07-28 when the plan's own pre-flight grep found the monthly-cap panel that
+reads it. Dropping it would have deleted a working feature, which is a different
+decision from deleting dead weight, and the user chose to keep it once the facts
+were straight.
 
-Nothing reads it and nothing writes it — verified across the n8n workflows, both
-edge functions and `src/`. It is a column that looks like a spend control and is
-not one, which is worse than not having it: an admin editing it would reasonably
-expect a PKR 5,000 cap to do something.
+Left in place: the column, the panel at `src/mawavia-dashboard.jsx:3224`, the
+`admin_set_spending_limit` RPC, and the current caps.
 
-The values are recorded here so the intent is not lost if a real limit is ever
-built: Asad 50,000 · Habib 0 · Iftikhar 5,000 · Khizar Altaf 5,000 · Khizar
-Hussain 5,000 · Mawavia 46,000 · Taimoor 5,000 · `mawavia2` 10,000 · `sarim`
-25,000. Habib's 0 is itself evidence the column was never wired up — a literal
-reading would cap the CEO at nothing.
-
-Any UI or docs referencing it go in the same change:
-`db/expense-access-rls.sql:17` (comment) and `handoff_receipt.md:78`.
+Worth noting for whoever picks this up: Habib's cap is `0`. If the panel enforces
+literally, that caps the CEO at nothing — probably meaning "unlimited" by
+accident. Not in scope here, but it is the kind of thing that bites at month end.
 
 ## Unchanged
 

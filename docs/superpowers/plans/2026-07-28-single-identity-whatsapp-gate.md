@@ -276,7 +276,16 @@ git commit -m "fix(db): admin_set_role wiped non-employee phones and orphaned th
 
 ---
 
-### Task 4: Drop `spending_limit`
+### Task 4: Drop `spending_limit` — WITHDRAWN, DO NOT RUN
+
+**Step 1 below fired and stopped this task on 2026-07-28.** `spending_limit` is
+live: a monthly-cap panel at `src/mawavia-dashboard.jsx:3224` reads it, backed by
+an `admin_set_spending_limit` RPC. The column, the panel and the RPC all stay.
+Skip straight to Task 5. The steps are kept as the record of why.
+
+_Original task follows._
+
+### Task 4 (withdrawn): Drop `spending_limit`
 
 **Files:**
 - Modify: `db/2026-07-28-single-identity.sql`
