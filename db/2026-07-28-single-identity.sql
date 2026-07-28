@@ -85,3 +85,24 @@ begin
 end; $$;
 revoke all on function public.admin_set_role(uuid,text,text,text,text) from public, anon;
 grant execute on function public.admin_set_role(uuid,text,text,text,text) to authenticated;
+
+
+-- 3) Roster cleanup. ----------------------------------------------------------
+-- mawavia2 is the one deliberate loss of access: active on WhatsApp, no
+-- dashboard account, so under "only Team may message the bot" they are out.
+-- Verified before running: all four rows had zero rows in wap_expenses, so the
+-- ON DELETE SET NULL on wap_expenses.sender_phone orphaned nothing.
+delete from public.wap_allowed_senders
+ where phone in ('923362188858','03134331423','123123123123','03159601666');
+
+-- The active flag had been recording three different things (Taimoor false,
+-- both Khizars true, none of them ever logged in). whatsapp_members reads the
+-- ban instead, so the flag is reset to agree rather than left contradicting.
+update public.wap_allowed_senders w set active = true, updated_at = now()
+  from public.app_users a join auth.users u on u.id = a.user_id
+ where w.phone = a.phone and (u.banned_until is null or u.banned_until <= now());
+
+-- NOTE: spending_limit was NOT dropped. It looked unused but is live -- there is
+-- a monthly-cap panel at src/mawavia-dashboard.jsx:3224 backed by an
+-- admin_set_spending_limit RPC. See the plan's task 4, whose first step is the
+-- grep that caught this.
