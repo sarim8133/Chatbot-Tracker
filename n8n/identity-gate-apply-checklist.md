@@ -172,8 +172,16 @@ In **Hi-Tech Web Chat** (`JOBpBMBz05ZVmQ79`), `Insert rows in a table` stamps
 
 | Column | To |
 | --- | --- |
-| `user_id` | `={{ $('Validate JWT').item.json.id }}` |
-| `Name` | `={{ $('Validate JWT2').item.json.full_name }}` |
+| `user_id` | `={{ $('Validate JWT').first().json.id }}` |
+| `Name` | `={{ $('Validate JWT2').first().json.full_name }}` |
+
+**`.first()`, not `.item`.** `.item` resolves through n8n's item-pairing chain,
+and by the time execution reaches this node it has passed the agent, the cache
+branch and a merge — the pairing is lost, so `.item` yields nothing and the row
+is written with `Name` and `user_id` both null. That is worse than the old
+behaviour, which at least recorded the email local-part. Applied with `.item` on
+2026-07-28 and it produced exactly that. The WhatsApp workflow uses
+`$('Member?').first()` for the same reason.
 
 Verify the same way against `web_chat_histories`. If `Name` comes back empty,
 check `Validate JWT2` — it uses the `supabaseApi` credential, the same one that
