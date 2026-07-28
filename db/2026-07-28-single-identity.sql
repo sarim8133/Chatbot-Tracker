@@ -8,6 +8,10 @@
 --   backup_20260728_wap_allowed_senders   12 rows
 --   backup_20260728_n8n_chat_histories    29 rows
 --   backup_20260728_web_chat_histories   278 rows
+--   backup_20260728_chat_archive          51 rows
+--
+-- Those snapshots were briefly world-readable -- see section 8, which is the
+-- reason to delete them sooner rather than later.
 
 
 -- 1) Who may message the WhatsApp bot. The single answer to that question. ----
@@ -285,3 +289,36 @@ alter view public.chat_all set (security_invoker = on);
 -- re-enter this policy when it queries app_users.
 create policy app_users_admin_read on public.app_users
   for select to authenticated using (private.is_admin());
+
+
+-- 8) SECURITY: lock down the section-1 snapshots. -----------------------------
+--
+-- `create table as` in Supabase inherits default privileges that grant anon and
+-- authenticated ALL on new public tables, and a plain table with no RLS is
+-- served by PostgREST. So from the moment the Task 1 snapshots were taken, the
+-- full chat history, every session_id and the staff phone roster were readable
+-- -- and writable, and TRUNCATE-able -- by anyone holding the anon key, which
+-- ships in the frontend bundle.
+--
+-- Caught by get_advisors (4 ERROR-level rls_disabled_in_public + one
+-- sensitive_columns_exposed), not by inspection. Run the advisors after ANY
+-- migration that creates a table.
+--
+-- Two locks: revoke the grants, and enable RLS with no policies so a later
+-- re-grant cannot silently reopen it. Only service_role and the owner can read.
+-- Verified: `set local role anon; select ... ` -> permission denied.
+revoke all on public.backup_20260728_wap_allowed_senders from anon, authenticated;
+revoke all on public.backup_20260728_n8n_chat_histories  from anon, authenticated;
+revoke all on public.backup_20260728_web_chat_histories  from anon, authenticated;
+revoke all on public.backup_20260728_chat_archive        from anon, authenticated;
+
+alter table public.backup_20260728_wap_allowed_senders enable row level security;
+alter table public.backup_20260728_n8n_chat_histories  enable row level security;
+alter table public.backup_20260728_web_chat_histories  enable row level security;
+alter table public.backup_20260728_chat_archive        enable row level security;
+
+-- Advisors after this section: 0 ERROR. What remains is the pre-existing,
+-- documented set -- SECURITY DEFINER admin RPCs (by design, each re-checks
+-- is_admin), the two always-true INSERT policies on chat_feedback and
+-- client_errors, and INFO notices that these backups have RLS and no policies,
+-- which is exactly the intent.
