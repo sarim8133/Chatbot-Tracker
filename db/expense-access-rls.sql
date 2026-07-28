@@ -171,12 +171,23 @@ begin
             nullif(btrim(coalesce(p_full_name,'')),''), nullif(btrim(coalesce(p_department,'')),''));
   end if;
 end; $$;
+-- SUPERSEDED 2026-07-28 by db/2026-07-28-single-identity.sql, which is the live
+-- definition. The body above is kept only so this file still reads as the story
+-- of how the security model got here; do NOT re-run it, it reintroduces two
+-- lockouts. It wiped the phone of anyone who was not an employee (Sarim, Habib
+-- and Mawavia are all admins WITH phones), and it never touched
+-- wap_allowed_senders, so changing someone's number left a stale roster row and
+-- their next receipt failed the FK on wap_expenses.sender_phone. Both were
+-- harmless only while nothing authorised on app_users.phone. whatsapp_members
+-- now does.
 revoke all on function public.admin_set_role(uuid,text,text,text,text) from public, anon;
 grant execute on function public.admin_set_role(uuid,text,text,text,text) to authenticated;
 
 -- Creating / managing logins needs the Auth Admin API (not SQL). Two admin-only
 -- Edge Functions handle it (supabase/functions/*), each re-checking admin inside:
---   admin-create-user : creates the login + writes app_users (+ roster for employees)
+--   admin-create-user : creates the login + writes app_users + the roster row for
+--                       ANYONE with a phone (not just employees), and since
+--                       2026-07-28 a phone is required for every role
 --   admin-manage-user : deactivate (ban) / activate (unban) / delete a login
 --                       (+ flips the employee's roster active flag; blocks self-lockout)
 -- Users change their own password client-side via GoTrue PUT /auth/v1/user
