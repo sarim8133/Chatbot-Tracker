@@ -4408,7 +4408,7 @@ export default function Dashboard({ onLogout }) {
     onLogout?.();
   }, [onLogout]);
 
-  const {stats,loading,demo,lastUp,refreshing,refresh,channelFilter,setChannelFilter} = useData(handleLogout);
+  const {stats,loading,demo,refreshing,refresh,channelFilter,setChannelFilter} = useData(handleLogout);
 
   // Theme toggle (auto -> light -> dark -> auto), header-mounted so it's reachable
   // from every tab. See src/theme.js for the mechanism.
@@ -4624,11 +4624,6 @@ export default function Dashboard({ onLogout }) {
               <HelpCircle size={15}/>
             </button>
             <div aria-live="polite" className="flex items-center gap-3 empty:hidden">
-              {lastUp && (
-                <span className="hidden 2xl:inline text-[12px] text-zinc-500 tabular-nums">
-                  Updated {ago(lastUp)}
-                </span>
-              )}
               {demo && (
                 <span className="mono text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded"
                   style={{color:ACCENT_DK, background:tint(ACCENT,8), border:`1px solid ${tint(ACCENT,25)}`}}>
@@ -4642,15 +4637,20 @@ export default function Dashboard({ onLogout }) {
               aria-label="Refresh data"
               aria-busy={refreshing}
               whileTap={{scale:0.96}}
-              className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-on-ink text-[12px] font-semibold tracking-tight transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Refresh data"
+              /* Icon-only and square, matching the help and theme buttons either side
+                 of it. The 44px box stays: it is the touch target, not the visual
+                 size — the button reads small because the label and the extra
+                 horizontal padding are gone, not because it was shrunk below what a
+                 thumb can hit. */
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-on-ink transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <motion.div
                 animate={refreshing ? {rotate:360} : {}}
                 transition={{duration:0.7,repeat:refreshing?Infinity:0,ease:'linear'}}
               >
-                <RefreshCw size={12}/>
+                <RefreshCw size={15}/>
               </motion.div>
-              <span className="hidden lg:inline">Refresh</span>
             </motion.button>
             <button
               onClick={cycleTheme}
