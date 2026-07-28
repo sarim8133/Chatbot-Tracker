@@ -197,6 +197,52 @@ UNION ALL
 -- The legacy branches stay as a fallback so a sender with no Team account keeps
 -- their history on screen instead of vanishing.
 --
--- Verified: 6 reps (was 7, briefly 8) - Sarim 188, Mawavia 102, Habib 27,
+-- VERIFY THIS AS A REAL USER, NOT OVER THIS CONNECTION. dashboard_stats is
+-- SECURITY INVOKER, so the MCP/superuser connection bypasses every policy the
+-- function actually runs under. Measured that way it reported a clean 6 reps
+-- while a logged-in admin still got 8 with smsarim6 and mawaviahitech intact --
+-- see section 7, which is the RLS gap that caused it. Impersonate instead:
+--
+--   begin;
+--   set local role authenticated;
+--   set local request.jwt.claims = '{"sub":"<admin-uuid>","role":"authenticated"}';
+--   select jsonb_array_length(public.dashboard_stats(null) -> 'users');
+--   rollback;
+--
+-- Verified as admin Habib: 6 reps, 332 msgs - Sarim 188, Mawavia 102, Habib 27,
 -- Iftikhar 6, Asad 6, and MSBK/923362188858 (mawavia2, off the roster by design,
 -- still keyed on the phone). Channel filters still sum to the total: 281 + 51.
+-- Verified as employee Asad: 0 rows, 0 reps.
+
+
+-- 7) The RLS gap section 6 depended on -- and a hole this change opened. -------
+
+-- 7a) SECURITY REGRESSION, introduced in section 5 and fixed here.
+--
+-- CREATE OR REPLACE VIEW resets reloptions when no WITH clause is given, so
+-- replacing chat_all in section 5 silently dropped the security_invoker = on
+-- that db/security-rls.sql:47 had set. Without it the view runs with its OWNER's
+-- rights (postgres) and bypasses RLS on all three base tables -- each of which
+-- restricts SELECT to private.is_admin(). For as long as that was live, any
+-- authenticated employee could have read the entire company's chat history.
+--
+-- Any future replace of this view MUST re-assert this line.
+alter view public.chat_all set (security_invoker = on);
+
+-- 7b) Admins can read app_users, not just their own row.
+--
+-- dashboard_stats is SECURITY INVOKER deliberately (db/dashboard-stats.sql:30):
+-- that is what stops a non-admin seeing company-wide stats, because chat_all now
+-- returns them nothing. But it means section 6's app_users lookups also run as
+-- the caller, and the only SELECT policy was app_users_self_read -- so an admin
+-- resolved their OWN identity and nobody else's, and the Reps tab went on
+-- showing smsarim6, mawaviahitech, sales01 and procurement as separate people.
+--
+-- This grants admins nothing new: admin_list_users() is SECURITY DEFINER and
+-- already returns every column of this table to any admin. It aligns the
+-- direct-table permission with the RPC that was already handing it over.
+--
+-- No recursion risk: private.is_admin() is SECURITY DEFINER, so it does not
+-- re-enter this policy when it queries app_users.
+create policy app_users_admin_read on public.app_users
+  for select to authenticated using (private.is_admin());

@@ -44,6 +44,14 @@ CREATE POLICY admin_read ON semantic_cache     FOR SELECT TO authenticated USING
 -- 3. Make the chat_all view honor the CALLER's permissions (Postgres 15+).
 --    Without this a view runs as its owner and BYPASSES the RLS above — letting
 --    anon read everything through the view. This closes that hole.
+--
+--    ⚠️  THIS DOES NOT SURVIVE A `CREATE OR REPLACE VIEW chat_all`. Replacing a
+--    view with no WITH clause resets its reloptions, dropping this silently —
+--    the view keeps working, so nothing looks wrong while every authenticated
+--    employee can read the whole chat history. It happened on 2026-07-28 when
+--    chat_all was replaced to add a column. If you replace this view, re-run the
+--    line below and confirm with:
+--      select reloptions from pg_class where relname = 'chat_all';
 ALTER VIEW chat_all SET (security_invoker = on);
 
 -- 4. Grants: signed-in users may read; anon is explicitly locked out.
