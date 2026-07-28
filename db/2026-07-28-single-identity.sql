@@ -164,3 +164,39 @@ UNION ALL
 
 -- 329 rows, 326 mapped. The 3 unmapped are 923362188858 (mawavia2), removed from
 -- the roster by design - their history stays visible under the name fallback.
+
+
+-- 6) dashboard_stats: group the Reps tab on the person, not on a name. --------
+--
+-- This is the function that actually produced "three Mawavias, two Sarims". Its
+-- base CTE keyed WhatsApp rows on the phone and web rows on the display name:
+--
+--   case when c.channel = 'web' or c."User_Number" is null
+--        then 'web:' || coalesce(nullif(btrim(c."Name"), ''), 'Website user')
+--        else c."User_Number"::text end as ident
+--
+-- One person, two channels, two keys. The full body is applied via migration
+-- (dashboard_stats_resolve_identity); the two substantive changes are:
+--
+-- a) A `resolved` CTE runs BEFORE grouping and resolves each row to a person:
+--    c.user_id if n8n stamped it, else app_users by phone, else app_users by
+--    email local-part. Resolving here rather than trusting the stamp matters --
+--    the first attempt keyed straight off c.user_id and came back with 8 reps,
+--    not 6, because web messages sent that same afternoon arrived with a null
+--    user_id and re-split Sarim and Mawavia. n8n does not stamp it yet (task 10),
+--    and until it does every new message would recreate the duplicate.
+--
+--    Scalar subqueries with limit 1, not an OR-join on the three conditions: a
+--    row that matched two ways would be counted twice and silently inflate that
+--    rep's message count.
+--
+-- b) nm = coalesce(app_users.full_name, c."Name"). Once two channels collapse
+--    into one rep, "most recent Name" would flip the label between 'smsarim6'
+--    and 'Sarim' depending on which channel they last used.
+--
+-- The legacy branches stay as a fallback so a sender with no Team account keeps
+-- their history on screen instead of vanishing.
+--
+-- Verified: 6 reps (was 7, briefly 8) - Sarim 188, Mawavia 102, Habib 27,
+-- Iftikhar 6, Asad 6, and MSBK/923362188858 (mawavia2, off the roster by design,
+-- still keyed on the phone). Channel filters still sum to the total: 281 + 51.
