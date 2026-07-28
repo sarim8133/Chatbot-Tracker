@@ -75,23 +75,35 @@ const ChartsFallback = () => (
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-// Web-chat reps have no phone, so their identity is stored as "web:<name>" (a name can
-// itself contain digits, e.g. "sales01", so we mark them explicitly rather than infer
-// from digits). WHATSAPP reps are plain phone-number strings.
+// A rep identity comes from chat_all.ident and takes one of three forms:
+//   "uid:<uuid>"  a person with a Team account — the same human on WhatsApp AND
+//                 the web, which is the whole point of the identity change
+//   "web:<name>"  a web chatter with no account (a name can itself contain
+//                 digits, e.g. "sales01", so it is marked rather than inferred)
+//   "<digits>"    a WhatsApp number with no account
+// Only the third form IS a phone number; the other two carry none, so the phone
+// travels separately (person_phone on rows, u.phone on reps).
 const WEB = 'web:';
+const UID = 'uid:';
 const isWebRep = v => String(v).startsWith(WEB);
+const isUidRep = v => String(v).startsWith(UID);
 const clean    = n => String(n).replace(/\D/g, '');
 const fmtPhone = n => {
-  if (isWebRep(n)) return '—';              // web reps have no phone
+  // Never digit-strip a uuid identity: clean('uid:2a7c…') yields a run of digits
+  // that formats into a convincing, entirely fictional phone number.
+  if (n == null || isWebRep(n) || isUidRep(n)) return '—';
   const s = clean(n);
   if (!s) return '—';
   if (s.startsWith('92') && s.length === 12)
     return `+92 ${s.slice(2,5)} ${s.slice(5,8)} ${s.slice(8)}`;
   return `+${s}`;
 };
-const repName  = n => isWebRep(n) ? String(n).slice(WEB.length) : (_repNames[clean(n)] || fmtPhone(n));
+// _repNames is keyed on the raw identity for uid:/web: reps and on the digits for
+// phone reps, so this one lookup covers all three forms.
+const repLabel = n => _repNames[n] || (isWebRep(n) ? String(n).slice(WEB.length) : _repNames[clean(n)]);
+const repName  = n => repLabel(n) || fmtPhone(n);
 const initials = n => {
-  const nm = isWebRep(n) ? String(n).slice(WEB.length) : _repNames[clean(n)];
+  const nm = repLabel(n);
   if (nm) { const p = nm.trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0] || '') + (p[1]?.[0] ?? '')).toUpperCase() || nm.slice(0,2).toUpperCase(); }
   return String(n).slice(-2);
 };
@@ -159,15 +171,19 @@ function demoStats() {
     const d=new Date(now); d.setDate(d.getDate()-(13-i));
     return {date:fmtDay(d),count:Math.round(8+Math.random()*22+(i>9?12:0))};
   });
+  // Demo reps are phone-identified (no Team accounts behind them), so `number` and
+  // `phone` are the same string here. In prod `number` is a "uid:<uuid>" identity
+  // and `phone` comes from the roster — see dashboard_stats.
   const users = nums.map((n,i)=>({
-    number:n, count:Math.round(60-i*9+Math.random()*8),
+    number:n, phone:n, count:Math.round(60-i*9+Math.random()*8),
     lastActive:new Date(now-i*3600000*5).toISOString(),
     msgs:[{User_Message:qs[i%qs.length],AI_Response:'Sample response.'}],
   }));
   // Distinct answer per query so answer-grouping + drill-through behave like prod.
   const ansFor = q => `🔹 ${q}\n🔹 75 KW power · 10 BAR pressure\n🔹 2.6–11 m³/min capacity`;
   const recent = Array.from({length:60},(_,i)=>({
-    User_Number:nums[i%nums.length], User_Message:qs[i%qs.length],
+    User_Number:nums[i%nums.length], ident:nums[i%nums.length], person_phone:nums[i%nums.length],
+    User_Message:qs[i%qs.length],
     AI_Response:ansFor(qs[i%qs.length]),
     from_cache:Math.random()<0.42,
     Timestamp:new Date(now-i*1800000).toISOString(),
@@ -265,24 +281,27 @@ function useData(onAuthError) {
       const chanArg = channelFilter !== 'all' ? { p_channel: channelFilter } : {};
       const [agg,m,c,fb] = await Promise.all([
         sbRpc(token, 'dashboard_stats', chanArg),
-        sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
+        sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel,ident,person_phone&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
         sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,cache_purged,user_name&order=created_at.desc&limit=100'),
       ]);
       const msgs=m.data, cache=c.data;
-      // Web chats have no phone. Use the display name as the rep identity so the whole
-      // phone-keyed pipeline (grouping, the Conversations filter, rep drill-down, CSV)
-      // treats them uniformly instead of collapsing every web row into a null rep.
-      // The RPC applies the same rule server-side, so both agree on identity.
-      msgs.forEach(x=>{ if(x.channel==='web' || x.User_Number==null) x.User_Number = WEB + (x.Name || 'Website user'); });
+      // `ident` is resolved once in the chat_all view and read by BOTH this fetch and
+      // the RPC. It used to be derived here in JS and again in SQL from the same rule,
+      // which is exactly how the two drifted: the RPC keyed WhatsApp rows on the phone
+      // and web rows on the display name, so one person showed up as two reps.
+      // See db/2026-07-28-single-identity.sql §5.
+      //
       // The Reps tab reads u.msgs[0].User_Message for the latest-question preview;
       // the RPC returns just that value, so re-wrap it in the shape the UI expects.
       const users = (agg?.users || []).map(u => ({
         ...u, msgs: u.lastQuestion ? [{ User_Message: u.lastQuestion }] : [],
       }));
-      // Register only WhatsApp reps (phone-keyed) — web reps carry their name in the
-      // "web:" identity itself, so repName reads it directly without a lookup.
-      _repNames = Object.fromEntries(users.filter(u=>u.name && !isWebRep(u.number)).map(u=>[clean(u.number),u.name]));
+      // Key uid:/web: reps on the raw identity — clean() strips non-digits and would
+      // shred a uuid. Phone reps stay keyed on their digits.
+      _repNames = Object.fromEntries(
+        users.filter(u=>u.name)
+             .map(u=>[isUidRep(u.number)||isWebRep(u.number) ? u.number : clean(u.number), u.name]));
       const topQ = agg?.top_questions || [];
       const cacheHits = agg?.cache_hits ?? 0;
       const cacheMisses = agg?.cache_misses ?? 0;
@@ -862,7 +881,7 @@ function OverviewTab({s, onDrill}) {
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] text-zinc-800 truncate leading-snug">{trunc(m.User_Message,46)}</p>
                   <p className="text-[12px] text-zinc-500 mt-0.5 truncate">
-                    {repName(m.User_Number)} · {ago(m.Timestamp)}
+                    {repName(m.ident)} · {ago(m.Timestamp)}
                   </p>
                 </div>
               </motion.div>
@@ -1043,7 +1062,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
 
   const filtered = useMemo(()=>
     s.recent.filter(m=>{
-      const u = filter==='all' || String(m.User_Number)===filter;
+      const u = filter==='all' || String(m.ident)===filter;
       const t = !topicDrill || (m.AI_Response||'').trim() === topicDrill.answer;
       const q = !search || m.User_Message?.toLowerCase().includes(search.toLowerCase())
                         || m.AI_Response?.toLowerCase().includes(search.toLowerCase());
@@ -1084,8 +1103,8 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
         <ExportButton
           disabled={!filtered.length}
           exportFn={()=>exportCSV('conversations', [
-            {label:'Rep',         get:m=>repName(m.User_Number)},
-            {label:'Phone',       get:m=>fmtPhone(m.User_Number)},
+            {label:'Rep',         get:m=>repName(m.ident)},
+            {label:'Phone',       get:m=>fmtPhone(m.person_phone)},
             {label:'Message',     get:m=>m.User_Message},
             {label:'AI response', get:m=>m.AI_Response},
             {label:'Timestamp',   get:m=>new Date(m.Timestamp).toISOString()},
@@ -1122,7 +1141,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
               <p className="text-[12px] text-zinc-500 mt-2">Try a different search term, or set the rep filter back to "All reps".</p>
             </div>
           : filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE).map((m)=>{
-            const rowKey = `${m.Timestamp}__${m.User_Number}`;
+            const rowKey = `${m.Timestamp}__${m.ident}`;
             const ex = expanded===rowKey;
             return (
               <React.Fragment key={rowKey}>
@@ -1134,8 +1153,8 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                   className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 sm:px-6 py-3 border-b border-zinc-100 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 md:grid md:grid-cols-[1.8fr_3fr_1fr_28px] md:gap-0 md:items-center ${ex?'bg-zinc-50':''}`}
                 >
                   <div className="order-1 md:order-none flex items-center gap-3 min-w-0 basis-[calc(100%-3rem)] md:basis-auto">
-                    <Tag number={m.User_Number}/>
-                    <span className="text-[14px] text-zinc-900 font-medium truncate">{repName(m.User_Number)}</span>
+                    <Tag number={m.ident}/>
+                    <span className="text-[14px] text-zinc-900 font-medium truncate">{repName(m.ident)}</span>
                   </div>
                   <span className="order-3 md:order-none basis-full md:basis-auto text-[14px] text-zinc-500 truncate md:pr-4">{trunc(m.User_Message,52)}</span>
                   <span className="order-4 md:order-none basis-full md:basis-auto mono text-[11px] text-zinc-500 tabular-nums">{ago(m.Timestamp)}</span>
@@ -1154,7 +1173,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
                     >
                       <div className="px-6 py-5 bg-zinc-50 space-y-4">
                         <p className="text-[12px] text-zinc-400">
-                          {repName(m.User_Number)} · {fmtPhone(m.User_Number)}
+                          {repName(m.ident)} · {fmtPhone(m.person_phone)}
                         </p>
                         <div>
                           <p className="text-[12px] text-zinc-500 mb-1.5">Inbound</p>
@@ -1207,7 +1226,9 @@ function UsersTab({s, onDrill}) {
           exportFn={()=>exportCSV('reps', [
             {label:'Rank',        get:r=>r._rank},
             {label:'Rep',         get:r=>repName(r.number)},
-            {label:'Phone',       get:r=>fmtPhone(r.number)},
+            // r.number is a uuid identity for anyone with a Team account, so the
+            // number comes from the roster (dashboard_stats -> users[].phone).
+            {label:'Phone',       get:r=>fmtPhone(r.phone)},
             {label:'Messages',    get:r=>r.count},
             {label:'Last active', get:r=>new Date(r.lastActive).toISOString()},
           ], s.users.map((u,i)=>({...u, _rank:i+1})))}
@@ -1226,7 +1247,7 @@ function UsersTab({s, onDrill}) {
               <p className="text-[14px] font-semibold text-zinc-900 truncate">{repName(u.number)}</p>
               <p className="flex items-center gap-1 text-[11px] text-zinc-500 mt-0.5 truncate">
                 <Phone size={10} className="shrink-0 text-zinc-400"/>
-                {fmtPhone(u.number)}
+                {fmtPhone(u.phone)}
               </p>
             </div>
           </div>
@@ -3940,13 +3961,19 @@ function TeamTab({ role, onAuthError }) {
 
   const save = async (u) => {
     const dr = drafts[u.user_id];
+    // admin_set_role raises on a blank phone rather than nulling it (which is the
+    // bug that used to strip an admin's number on every edit). Catch it here so
+    // the admin gets a sentence instead of a Postgres exception.
+    if (!String(dr.phone || '').trim()) {
+      setErr('A phone number is required — it is how the WhatsApp bot recognises them.');
+      return;
+    }
     setSaving(u.user_id); setErr('');
     let token; try { token = await getAccessToken(); } catch { onAuthError?.(); setSaving(null); return; }
     try {
       await sbRpc(token, 'admin_set_role', {
         p_target: u.user_id, p_role: dr.role,
-        // Optional for every role now — an admin with a phone can sign in with
-        // it, and their receipts attribute to them instead of to nobody.
+        // Required for every role: it is the bot's link to this person.
         p_phone: dr.phone || null,
         p_full_name: dr.full_name || null,
         p_department: (dr.department || '').trim() || null,
@@ -4000,18 +4027,22 @@ function TeamTab({ role, onAuthError }) {
   // Invite when a real email is present and the invite toggle is on; otherwise the admin
   // sets a password (the only option for phone-only staff, who have no inbox).
   const useInvite = !!form.email.trim() && form.invite;
+  // The phone is required for every role, not just employees: it is what links a
+  // person to the WhatsApp bot (the whatsapp_members view matches on it), so a
+  // member without one is half-created — they can sign in, but the bot will never
+  // answer them and nothing on screen would explain why. admin-create-user
+  // enforces the same rule server-side.
   const canAdd = form.full_name.trim()
-    && (form.email.trim() || form.phone.trim())
-    && (form.role !== 'employee' || form.phone.trim())
+    && form.phone.trim()
     && (useInvite || form.password.length >= 8);
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <HelpNote>
         Add a team member and they can log in right away — with their <b>email or their phone number</b>.
-        A phone is <b>required for employees</b> (it’s their identity, and it’s unique, so two people can
-        share a name safely) and <b>optional for admins and accountants</b> — give one to anybody who
-        submits receipts, so their spending links to them instead of to nobody.
+        A phone is <b>required for everyone</b>: it’s their identity (unique, so two people can share a
+        name safely), it’s how the WhatsApp bot recognises them, and it’s what links their receipts to
+        them. Adding someone here grants all three — login, WhatsApp chat and receipts — in one step.
       </HelpNote>
 
       {/* Add member */}
@@ -4054,9 +4085,14 @@ function TeamTab({ role, onAuthError }) {
                     {ROLE_CHOICES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </label>
+                {/* Required for every role. The phone is the link to the WhatsApp bot
+                    (the whatsapp_members view matches on it), so a Team member without
+                    one can sign in but the bot will never answer them — a half-created
+                    person with nothing on screen to explain why. The server enforces
+                    this too, in admin-create-user. */}
                 <label className="flex flex-col gap-1">
-                  <Label>WhatsApp phone {form.role === 'employee' ? '(required)' : '(optional)'}</Label>
-                  <input className={teamInput} value={form.phone} onChange={e => setF({ phone: e.target.value })} placeholder="923001234567" inputMode="numeric" />
+                  <Label>WhatsApp phone (required)</Label>
+                  <input className={teamInput} value={form.phone} onChange={e => setF({ phone: e.target.value })} placeholder="923001234567" inputMode="numeric" required />
                 </label>
                 <label className="flex flex-col gap-1">
                   <Label>Email {form.role === 'employee' ? '(optional)' : '(for login)'}</Label>
@@ -4091,9 +4127,11 @@ function TeamTab({ role, onAuthError }) {
               )}
 
               <p className="text-[12px] text-zinc-400 mt-3">
-                {form.role === 'employee'
-                  ? `Employee: identified by phone (receipts link to that WhatsApp number). ${useInvite ? 'They’ll set their own password from the invite email.' : 'They log in with phone or email + this password.'}`
-                  : `Admin/accountant: logs in with email, or with their phone if you give them one. ${useInvite ? 'They’ll set their own password from the invite email.' : 'Uses the password you set here.'}`}
+                {`Identified by phone — the WhatsApp bot recognises them by it, and their receipts link to it. ${
+                  form.role === 'employee'
+                    ? 'They log in with phone or email.'
+                    : 'They log in with email, or with their phone.'
+                } ${useInvite ? 'They’ll set their own password from the invite email.' : 'Uses the password you set here.'}`}
               </p>
 
               {addErr && <div role="alert" className="mt-3 text-[13px]" style={{ color: NEG }}>{addErr}</div>}
@@ -4149,12 +4187,11 @@ function TeamTab({ role, onAuthError }) {
                     placeholder="name" aria-label="Name" className={`${teamInput} w-32`} />
                   <DeptCombo value={dr.department} onChange={v => setDraft(u.user_id, { department: v })}
                     options={departments} placeholder="dept" className="w-28" />
-                  {/* Shown for every role: required for an employee, optional for
-                      the rest. The placeholder is the only cue that it's optional,
-                      so it has to carry that. */}
+                  {/* Required for every role — admin_set_role now raises if it is
+                      blank rather than silently nulling it, which is what used to
+                      strip an admin's phone (and their bot access) on every edit. */}
                   <input type="text" value={dr.phone} onChange={e => setDraft(u.user_id, { phone: e.target.value })}
-                    placeholder={dr.role === 'employee' ? 'phone' : 'phone (optional)'}
-                    aria-label={dr.role === 'employee' ? 'Phone (required)' : 'Phone (optional)'}
+                    placeholder="phone" aria-label="Phone (required)"
                     inputMode="numeric" className={`${teamInput} w-36`} />
                   <div className="flex items-center gap-1.5 ml-auto">
                     {savedId === u.user_id && <span className="mono text-[11px]" style={{ color: POS }}>Saved ✓</span>}
