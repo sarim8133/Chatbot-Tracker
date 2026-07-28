@@ -382,6 +382,24 @@ function useCountUp(target, dur=900) {
 const stagger = { hidden:{}, show:{ transition:{ staggerChildren:0.05, delayChildren:0.03 } } };
 const fadeUp  = { hidden:{opacity:0,y:10}, show:{opacity:1,y:0,transition:{duration:0.4,ease:[0.22,1,0.36,1]}} };
 
+// The chat Panel's entrance, replacing the `fadeUp` that Panel carries by default.
+// Two reasons it has to differ, and the first is a bug fix:
+//
+// NO `y`. Panel's default fadeUp translates 10px, and the enlarged chat panel is
+// position:fixed and fills the viewport below the header — so that translate slid
+// the whole surface down, opening a 10px gap under the nav and pushing the composer
+// past the bottom edge for the length of the animation. A transform on it also makes
+// it the containing block for any fixed descendant. Opacity does neither: it creates
+// a stacking context, not a containing block. On a panel this size the fade IS the
+// entrance; the movement belongs to the rows inside it.
+//
+// It also staggers, which plain `fadeUp` cannot — that is what gives the tab
+// something to render on the way in rather than arriving in a single frame.
+const chatPanel = {
+  hidden: { opacity: 0 },
+  show:   { opacity: 1, transition: { duration: 0.18, ease: [0.22,1,0.36,1], staggerChildren: 0.06, delayChildren: 0.04 } },
+};
+
 // ── Content expand modal (portal-rendered, used for heatmap + inline panels) ──
 function ContentModal({ title, sub, open, onClose, children }) {
   useEffect(() => {
@@ -455,19 +473,42 @@ const Label = ({children, className=''}) => (
   <span className={`mono text-[11px] font-medium tracking-[0.02em] text-zinc-500 ${className}`}>{children}</span>
 );
 
+// The zoom in force at an element — measured, not assumed. `.app-scale`
+// (index.css) enlarges the page body, and the two ways to measure an element
+// disagree under it by exactly that factor: getBoundingClientRect() reports
+// VISUAL pixels, offsetWidth reports LAYOUT pixels. Their ratio is the scale.
+//
+// Measuring beats reading --app-scale, for two reasons. It stays right for
+// anything rendered outside the scaled region — the Chat tab opts out, so a
+// global constant would be a lie there. And on a browser that ignores `zoom` it
+// returns 1, which collapses every conversion below back to the original
+// arithmetic instead of pushing overlays off their triggers.
+const zoomOf = (el) => {
+  const w = el?.offsetWidth;
+  if (!w) return 1;
+  const z = el.getBoundingClientRect().width / w;
+  return z > 0 ? z : 1;
+};
+
 // Hover tooltip for metric labels — portal-rendered so overflow:hidden panels can't clip it.
 function HintIcon({ text }) {
   const ref   = useRef(null);
   const [pos, setPos] = useState(null);
   const show = () => {
     if (!ref.current) return;
+    // The tooltip is portalled to <body>, outside the body's content scale, so it
+    // carries the scale itself and its coordinates are converted to match: a
+    // zoomed element multiplies its own left/top by that factor, so divide the
+    // visual rect going in. The 220 cap and the 7px gap are unzoomed design
+    // values; only the clamp, which works in viewport pixels, needs the visual one.
+    const z   = zoomOf(ref.current);
     const r   = ref.current.getBoundingClientRect();
     const vpW = window.innerWidth;
-    const W   = 220;
+    const W   = 220 * z;
     let x = r.left + r.width / 2;
     if (x - W / 2 < 8)       x = W / 2 + 8;
     if (x + W / 2 > vpW - 8) x = vpW - W / 2 - 8;
-    setPos({ x, y: r.bottom + 7 });
+    setPos({ x: x / z, y: r.bottom / z + 7, z });
   };
   return (
     <>
@@ -491,6 +532,7 @@ function HintIcon({ text }) {
               style={{
                 position:'fixed', left:pos.x, top:pos.y,
                 transform:'translateX(-50%)',
+                zoom:pos.z,
                 background:INK,
                 zIndex:400,
               }}
@@ -1348,6 +1390,10 @@ const genSessionId = () =>
 // The rendered thread — including image URLs, which the DB doesn't store — lives
 // in localStorage so it survives tab switches and reloads. Keyed per session.
 const threadKey  = sid => `ht_web_chat_thread_${sid}`;
+// Which session this browser is on, per signed-in user. Named rather than inlined
+// because three places have to agree on it: the boot resolver, "New chat", and the
+// check for whether a session pre-dates this page load.
+const sessionKey = user => `ht_web_chat_session_${user}`;
 const loadThread = sid => { try { return JSON.parse(localStorage.getItem(threadKey(sid)) || '[]'); } catch { return []; } };
 
 // The signed-in username, pulled from the JWT, to tag rows (Name column).
@@ -1742,6 +1788,44 @@ function BadAnswerButton({ m, question, sessionId }) {
   );
 }
 
+// Thread skeleton — shown only while a session's history is being pulled back from
+// the DB, which is the one path in this tab that waits on the network (localStorage
+// is synchronous, so a thread already cached locally renders on the first frame and
+// never sees this). Without it those turns render the "Ask me anything" empty state
+// and then snap to a full conversation — the tab looked like it had nothing in it,
+// then abruptly did, which reads as a glitch rather than as loading.
+//
+// Bubble-shaped rather than generic bars: the shape IS the content here, so it says
+// "a conversation is coming back" instead of "something is coming back". Widths are
+// staggered and the sides alternate so it reads as speech, not as a loading grid.
+// Heights match ChatBubble's one- and two-line cases so nothing jumps when the real
+// thread lands. The pulse is neutralised by the reduced-motion block in index.css.
+function ChatThreadSkeleton() {
+  const rows = [
+    { user:false, w:'72%', h:'h-16' },
+    { user:true,  w:'44%', h:'h-9'  },
+    { user:false, w:'86%', h:'h-24' },
+    { user:true,  w:'36%', h:'h-9'  },
+    { user:false, w:'62%', h:'h-16' },
+  ];
+  return (
+    <>
+      <div className="space-y-4" aria-hidden="true">
+        {rows.map((r, i) => (
+          <div key={i} className={`flex ${r.user ? 'justify-end' : 'justify-start'}`}>
+            <div
+              className={`${r.h} animate-pulse rounded-2xl ${r.user ? 'rounded-br-sm' : 'rounded-bl-sm border border-zinc-200 bg-surface'}`}
+              style={{ width: r.w, maxWidth: '80%', ...(r.user ? { background: 'var(--color-zinc-200)' } : null) }}
+            />
+          </div>
+        ))}
+      </div>
+      {/* The shapes are decorative; this is what the screen reader gets instead. */}
+      <p role="status" className="sr-only">Loading conversation…</p>
+    </>
+  );
+}
+
 function ChatBubble({ m, question, sessionId }) {
   const isUser = m.role === 'user';
   return (
@@ -1995,18 +2079,37 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
   );
 }
 
-function ChatTab() {
+// `active` drives the entrance instead of mount, because this component never
+// unmounts: it stays alive across tab switches so an in-flight receipt upload, the
+// thread's scroll position and the composer caret all survive. Mount-time
+// initial/animate therefore fires exactly once, on app boot — which is why every
+// visit to this tab after the first one arrived as a hard cut.
+function ChatTab({ active }) {
   const reduce = useReducedMotion();
-  const [sessionId, setSessionId] = useState(() => {
-    const user = currentUserName() || 'anon';
-    const key = `ht_web_chat_session_${user}`;
-    let id = localStorage.getItem(key);
-    if (!id) { id = genSessionId(); localStorage.setItem(key, id); }
-    return id;
+  // Two questions answered from ONE reading of localStorage, resolved together
+  // because the second is unanswerable after the first: which session is this, and
+  // could the DB still be holding a thread for it? Minting an id WRITES it, so once
+  // that has happened "was there already a session here?" is gone.
+  //
+  // That distinction is the whole point. A freshly minted session has no history by
+  // definition, so it must skip the restore skeleton and land straight on the empty
+  // state — otherwise every first-time visitor gets a pulse for a round-trip that is
+  // guaranteed to come back empty, which is a worse flash than the one being fixed.
+  const [boot] = useState(() => {
+    const key    = sessionKey(currentUserName() || 'anon');
+    const stored = localStorage.getItem(key);
+    if (stored) return { id: stored, mayRestore: loadThread(stored).length === 0 };
+    const id = genSessionId();
+    try { localStorage.setItem(key, id); } catch { /* private mode */ }
+    return { id, mayRestore: false };
   });
-  const [messages, setMessages] = useState(() => loadThread(sessionId));
+  const [sessionId, setSessionId] = useState(boot.id);
+  const [messages, setMessages] = useState(() => loadThread(boot.id));
   const [input,    setInput]    = useState('');
   const [sending,  setSending]  = useState(false);
+  // Set from the initialiser rather than from the effect, so the very first frame
+  // already shows the skeleton instead of a frame of the empty state.
+  const [restoring, setRestoring] = useState(boot.mayRestore);
   // Enlarged is the normal way to read a long, spec-heavy answer, so it is the
   // default. Minimising is remembered — someone who wants the chat as one card
   // among others shouldn't have to say so on every visit.
@@ -2051,6 +2154,10 @@ function ChatTab() {
           r.AI_Response  ? {role:'assistant', text:r.AI_Response, from_cache:r.from_cache, ts:r.Timestamp} : null,
         ].filter(Boolean)));
       } catch { /* no history / unreachable → start empty */ }
+      // finally, not inside the try: a failed restore has to clear the skeleton
+      // too, or an unreachable DB leaves the thread pulsing forever instead of
+      // falling through to the empty state.
+      finally { if (!cancelled) setRestoring(false); }
     })();
     return () => { cancelled = true; };
   }, [sessionId]);
@@ -2342,7 +2449,7 @@ function ChatTab() {
     const user = currentUserName() || 'anon';
     localStorage.removeItem(threadKey(sessionId));
     const id = genSessionId();
-    localStorage.setItem(`ht_web_chat_session_${user}`, id);
+    localStorage.setItem(sessionKey(user), id);
     voiceRun.current++;   // a transcription still in flight belongs to the old thread — drop it
     // Don't leave a recording running or a take stranded when the thread resets.
     clearRecordTimer();
@@ -2486,8 +2593,13 @@ function ChatTab() {
     return () => document.removeEventListener('keydown', onKey);
   }, [expanded, toggleSize]);
 
+  // The root is an orchestrator only — it carries the variant label down and does
+  // nothing visual. It must stay that way: it is the ancestor of a position:fixed
+  // panel, so the moment it animated a transform it would become that panel's
+  // containing block. `stagger` holds no properties, only timing, which is why it is
+  // safe here where chatPanel would not be.
   return (
-    <motion.div variants={stagger} initial="hidden" animate="show">
+    <motion.div variants={stagger} initial="hidden" animate={active ? 'show' : 'hidden'}>
       {/* Enlarged fills everything BELOW the sticky header, never over it — the
           header is the navigation, so covering it would strand you on this tab.
           The panel is toggled in place rather than portalled: rendering it
@@ -2499,6 +2611,7 @@ function ChatTab() {
           alone lets the soft keyboard cover the composer instead of shortening
           the panel. */}
       <Panel
+        variants={chatPanel}
         className={`flex flex-col overflow-hidden ${expanded ? 'fixed inset-x-0 bottom-0 z-30 rounded-none border-x-0 border-b-0' : ''}`}
         style={expanded
           ? {top:'var(--app-header-h, 140px)',
@@ -2506,8 +2619,13 @@ function ChatTab() {
              minHeight:0}
           : {height:'calc(100vh - 260px)', minHeight:'440px'}}>
 
-        {/* Header — bot identity + new-chat reset */}
-        <div className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-zinc-200">
+        {/* Header — bot identity + new-chat reset.
+            These three rows are the tab's entrance: identity, then thread, then
+            composer, in the order you'd read them. They were plain divs before, so
+            the only thing that ever animated here was the Panel itself — one element
+            moving as a block, which is why an empty thread had nothing to show on the
+            way in and the tab read as a hard cut. */}
+        <motion.div variants={fadeUp} className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-zinc-200">
           <div className="flex items-center gap-3 min-w-0">
             <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{background:tint(ACCENT,8)}}>
               <Bot size={18} style={{color:ACCENT_DK}}/>
@@ -2536,10 +2654,10 @@ function ChatTab() {
               {expanded ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}
             </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Thread */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" style={{background:'var(--surface-2)'}}>
+        <motion.div variants={fadeUp} ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4" style={{background:'var(--surface-2)'}}>
           {!configured ? (
             <div className="h-full flex items-center justify-center text-center px-6">
               <div className="max-w-sm">
@@ -2552,6 +2670,10 @@ function ChatTab() {
                 </p>
               </div>
             </div>
+          ) : restoring ? (
+            // Ahead of the empty state on purpose: an empty `messages` during the
+            // restore means "not back yet", not "nothing to show".
+            <ChatThreadSkeleton/>
           ) : messages.length === 0 && !sending ? (
             <div className="h-full flex items-center justify-center text-center px-6">
               <div className="max-w-sm">
@@ -2591,10 +2713,10 @@ function ChatTab() {
               )}
             </>
           )}
-        </div>
+        </motion.div>
 
         {/* Composer — idle / recording / preview / transcribing / confirm, see the state machine above */}
-        <div className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-surface">
+        <motion.div variants={fadeUp} className="border-t border-zinc-200 px-3 sm:px-4 py-3 bg-surface">
           {voicePhase === 'recording' ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 border border-zinc-300 rounded-xl">
@@ -2710,7 +2832,7 @@ function ChatTab() {
           <p className="text-[11px] text-zinc-500 text-center mt-2.5 px-2 leading-snug">
             Hi Tech AI can make mistakes. Please verify important information.
           </p>
-        </div>
+        </motion.div>
 
       </Panel>
     </motion.div>
@@ -3706,7 +3828,16 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
   const menuRef = useRef(null);
 
   const place = useCallback(() => {
-    if (rootRef.current) setRect(rootRef.current.getBoundingClientRect());
+    const el = rootRef.current;
+    if (!el) return;
+    // Portalled to <body>, outside the body's content scale — same conversion as
+    // HintIcon: the menu carries the scale, so the input's visual rect is divided
+    // back into the menu's own zoomed coordinates or it lands low and to the right
+    // of the field it belongs to. The 6px gap and 176px floor are design values in
+    // that same zoomed space, so they stay as written.
+    const z = zoomOf(el);
+    const r = el.getBoundingClientRect();
+    setRect({ top: r.bottom / z + 6, left: r.left / z, width: Math.max(r.width / z, 176), z });
   }, []);
 
   useEffect(() => {
@@ -3748,7 +3879,7 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
       </button>
       {showPanel && createPortal(
         <ul ref={menuRef} role="listbox"
-          style={{ position: 'fixed', top: rect.bottom + 6, left: rect.left, width: Math.max(rect.width, 176), zIndex: 60 }}
+          style={{ position: 'fixed', top: rect.top, left: rect.left, width: rect.width, zoom: rect.z, zIndex: 60 }}
           className="max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-surface shadow-lg py-1">
           {list.map(o => (
             <li key={o} role="option" aria-selected={o.toLowerCase() === q}>
@@ -4222,11 +4353,10 @@ export default function Dashboard({ onLogout }) {
   // Clear this user's chat thread from localStorage before signing out so
   // the next person on the same machine can't see it in devtools.
   const handleLogout = useCallback(() => {
-    const user = currentUserName() || 'anon';
-    const sessionKey = `ht_web_chat_session_${user}`;
-    const sessionId  = localStorage.getItem(sessionKey);
+    const key       = sessionKey(currentUserName() || 'anon');
+    const sessionId = localStorage.getItem(key);
     if (sessionId) localStorage.removeItem(threadKey(sessionId));
-    localStorage.removeItem(sessionKey);
+    localStorage.removeItem(key);
     onLogout?.();
   }, [onLogout]);
 
@@ -4508,8 +4638,26 @@ export default function Dashboard({ onLogout }) {
         </div>
       </header>
 
-      {/* ── Page ── */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-8">
+      {/* ── Page ──
+          The body renders 25% larger than the header on desktop — see .app-scale
+          in index.css for why that lives here instead of in the browser's own zoom
+          (short version: browser zoom enlarges the nav too, and the nav is the one
+          strip with no room to spare).
+
+          Chat is the one tab that opts out. Its enlarged panel is position:fixed
+          and sized from --app-header-h and 100dvh, all real viewport pixels that a
+          zoomed context would rescale — and on a chat surface a bigger message box
+          is worth more than bigger text. Scaling the whole <main> rather than an
+          inner wrapper is deliberate: the max-w-7xl container has to grow with the
+          content, or everything just gets more cramped inside a box the same size.
+
+          The extra top padding rides the SAME breakpoint as the scale (xl is
+          1280px, exactly where --app-scale becomes 1.25) because it exists to pay
+          for it. The gap between the header rule and the page title held its ratio
+          when the body grew — but the header did NOT grow, so a 25%-larger title
+          now crowds a nav bar that stayed put, and the old gap reads as cramped.
+          It only needs the correction where the scale is live. */}
+      <main className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-8 xl:pt-12 pb-8${tab === 'chat' ? '' : ' app-scale'}`}>
 
         {/* Backend unreachable — sample data is showing. Make it unmistakable. */}
         {demo && (
@@ -4584,7 +4732,13 @@ export default function Dashboard({ onLogout }) {
             when the user pops over to another tab. Only mounted for roles that have it. */}
         {nav.some(n => n.id === 'chat') && (
           <div className={tab === 'chat' ? '' : 'hidden'} aria-hidden={tab !== 'chat'}>
-            <ChatTab/>
+            {/* The entrance lives inside ChatTab, driven by this flag rather than by
+                mount — the component deliberately never unmounts. Animating here
+                instead would be the wrong place twice over: it would fade a wrapper
+                whose contents still arrive in one frame, and the moment it reached
+                for `y` it would become the containing block for the enlarged panel,
+                which is position:fixed. */}
+            <ChatTab active={tab === 'chat'}/>
           </div>
         )}
       </main>

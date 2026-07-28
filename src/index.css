@@ -175,6 +175,43 @@ body, .theme-fade {
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
+/* ── Content scale ────────────────────────────────────────────────────────────
+   The page body renders 25% larger than the header. The dashboard reads better at
+   Chrome's 125% zoom — but browser zoom enlarges the HEADER too, and the header
+   has no slack to give: at 125% the tab strip runs out of room and Expenses/Team
+   get clipped off the right edge. So the enlargement moves into the page itself,
+   where it can be applied to the body alone and the nav is left at its designed
+   size.
+
+   WHY `zoom` AND NOT `transform: scale()`. A transform paints bigger without
+   relaying out: the element keeps its original box, so scaled content spills past
+   its own edges, and — the part that would actually break this app — a transformed
+   ancestor becomes the containing block for `position: fixed` descendants. Every
+   overlay here (tooltips, modals, the combo menu, toasts) is fixed-position and
+   portalled. `zoom` scales the layout instead: boxes reflow at the new size,
+   centering and wrapping stay correct, and fixed positioning still resolves
+   against the viewport.
+
+   WHY THE 1280px FLOOR RATHER THAN lg's 1024px. Media queries are evaluated
+   against the VIEWPORT, but a zoomed element lays out in viewport ÷ scale. So
+   inside this element every Tailwind breakpoint fires 25% early — at a 1024px
+   viewport the `lg:` desktop layout would be asked to fit into 819px. Gating at
+   1280 keeps the effective width at or above 1024 whenever the `lg:` rules are
+   live, so the desktop layout always has the room it was built for. Below the
+   floor the scale is 1 and nothing changes, which is also what keeps phones out of
+   it — scaling up there would drag the usable width under the 320px design floor.
+
+   The Chat tab opts out (see <main> in mawavia-dashboard.jsx). Its enlarged panel
+   is position:fixed and sized from `--app-header-h` and `100dvh` — real viewport
+   pixels that a zoomed context would rescale — and a bigger message box beats
+   bigger text there anyway.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root { --app-scale: 1; }
+@media (min-width: 1280px) {
+  :root { --app-scale: 1.25; }
+}
+.app-scale { zoom: var(--app-scale); }
+
 /* ── Scrollbars ───────────────────────────────────────────────────────────────
    Applied to EVERYTHING — the page, every tab, every panel, every dropdown and
    textarea — so one scroll area never looks like a different application from
