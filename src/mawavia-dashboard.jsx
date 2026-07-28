@@ -273,15 +273,20 @@ function useData(onAuthError) {
       // WHOLE table. They used to be derived here from a 500-row fetch, which meant
       // `limit=500` wasn't a display cap — it was the sample every metric ran on, so
       // past 500 rows the numbers quietly became "the last 500 messages". See
-      // db/dashboard-stats.sql. The raw fetch below is now only what it claims to be:
-      // the recent messages the Conversations tab lists.
+      // db/dashboard-stats.sql.
+      //
+      // The row fetch below now feeds ONLY the Overview activity feed, which shows
+      // seven. Conversations pages itself through the conversations_page RPC, so it
+      // no longer depends on how many rows happen to be sitting in this array —
+      // which is what let "All" list fewer messages of each channel than that
+      // channel's own chip did.
       //
       // chat_feedback is admin-read; for a non-admin RLS just returns [], which
       // renders the panel's empty state rather than erroring the whole load.
       const chanArg = channelFilter !== 'all' ? { p_channel: channelFilter } : {};
       const [agg,m,c,fb] = await Promise.all([
         sbRpc(token, 'dashboard_stats', chanArg),
-        sbFetch(token, MSG_SOURCE,`select=Timestamp,User_Number,Name,User_Message,AI_Response,from_cache,channel,ident,person_phone&order=Timestamp.desc&limit=500${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
+        sbFetch(token, MSG_SOURCE,`select=Timestamp,Name,User_Message,AI_Response,from_cache,channel,ident,person_phone&order=Timestamp.desc&limit=20${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
         sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
         sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,cache_purged,user_name&order=created_at.desc&limit=100'),
       ]);
@@ -311,15 +316,6 @@ function useData(onAuthError) {
         totalMsgs, todayCount: agg?.today_count ?? 0, ystCount: agg?.yst_count ?? 0,
         userCount: agg?.user_count ?? 0, cacheTotal:c.total||cache.length,
         msgsByDay: agg?.msgs_by_day || [],
-        // No second truncation here. This used to be msgs.slice(0,300), which cut the
-        // COMBINED time-sorted list — so "All" showed fewer messages of each channel
-        // than that channel's own chip did (55 WhatsApp under "WhatsApp", 44 under
-        // "All"), because the oldest rows dropped are mostly the archived WhatsApp
-        // ones. The fetch above is already capped and the list is paginated, so the
-        // slice bought nothing and silently made the channel filter inconsistent.
-        //
-        // The 500-row fetch cap will reintroduce this once total traffic passes it;
-        // the real fix at that point is to paginate server-side rather than raise it.
         users, topQ, maxQ:topQ[0]?.count||1, recent:msgs, cacheEntries:cache,
         heat: agg?.heat || null,
         volumeDaily: withLabels(agg?.volume_daily), cacheDaily: withLabels(agg?.cache_daily),
@@ -1060,17 +1056,30 @@ function Paginator({ page, total, perPage = PER_PAGE, onChange }) {
 }
 
 // ── Conversations Tab ─────────────────────────────────────────────────────────
-function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
+// Paged in the DATABASE, via the conversations_page RPC. Filtering and counting a
+// slice of rows the client happened to hold made every filter a lie by omission
+// once traffic outgrew the fetch: the array was cut AFTER both channels were
+// merged, so "All" listed fewer messages of each channel than that channel's own
+// chip did. Now the page you see and the total you are told come from the same
+// complete set, and the tab costs 25 rows instead of 500.
+function ConversationsTab({s, channelFilter, focusSignal, drill, onDrillConsumed, onAuthError}) {
   const [search,     setSearch]     = useState('');
+  const [dq,         setDq]         = useState('');   // debounced search — one request per pause, not per keystroke
   const [filter,     setFilter]     = useState('all');
   const [expanded,   setExpanded]   = useState(null);
   const [topicDrill, setTopicDrill] = useState(null);   // {answer, label} from a Most-asked drill
   const [page,       setPage]       = useState(1);
+  const [rows,       setRows]       = useState([]);
+  const [total,      setTotal]      = useState(0);
+  const [busy,       setBusy]       = useState(true);
+  const [err,        setErr]        = useState('');
   const searchRef = useRef(null);
   // Focus the search box when the parent fires the "/" shortcut.
   useEffect(()=>{ if (focusSignal) searchRef.current?.focus(); }, [focusSignal]);
-  // Reset to page 1 whenever the active filter set changes.
-  useEffect(()=>{ setPage(1); setExpanded(null); }, [search, filter, topicDrill]);
+  useEffect(()=>{ const t = setTimeout(()=>setDq(search.trim()), 300); return ()=>clearTimeout(t); }, [search]);
+  // Reset to page 1 whenever the active filter set changes — page 7 of the old
+  // result set is meaningless against the new one, and usually empty.
+  useEffect(()=>{ setPage(1); setExpanded(null); }, [dq, filter, topicDrill, channelFilter]);
 
   // Apply an incoming drill (Most-asked → answer filter, rep card → rep filter), then clear it upstream.
   useEffect(()=>{
@@ -1080,15 +1089,49 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
     onDrillConsumed?.();
   },[drill,onDrillConsumed]);
 
-  const filtered = useMemo(()=>
-    s.recent.filter(m=>{
-      const u = filter==='all' || String(m.ident)===filter;
-      const t = !topicDrill || (m.AI_Response||'').trim() === topicDrill.answer;
-      const q = !search || m.User_Message?.toLowerCase().includes(search.toLowerCase())
-                        || m.AI_Response?.toLowerCase().includes(search.toLowerCase());
-      return u && t && q;
-    })
-  ,[s,search,filter,topicDrill]);
+  // The filter set, in the shape the RPC wants. Shared by the page fetch and the
+  // CSV export so the file can never disagree with what's on screen.
+  const args = useMemo(()=>({
+    p_channel: channelFilter === 'all' ? null : channelFilter,
+    p_ident:   filter        === 'all' ? null : filter,
+    p_search:  dq || null,
+    p_answer:  topicDrill ? topicDrill.answer : null,
+  }), [channelFilter, filter, dq, topicDrill]);
+
+  // s.totalMsgs is the refresh trigger: it changes when the underlying data does
+  // (the 30s poll, or the Refresh button), so the list stays live without this
+  // effect firing on every unrelated parent render.
+  useEffect(()=>{
+    let cancelled = false;
+    (async()=>{
+      setBusy(true); setErr('');
+      let token;
+      try { token = await getAccessToken(); } catch { onAuthError?.(); return; }
+      try {
+        const d = await sbRpc(token, 'conversations_page',
+          { ...args, p_limit: PER_PAGE, p_offset: (page-1)*PER_PAGE });
+        if (cancelled) return;
+        setRows(d?.rows || []); setTotal(d?.total || 0);
+      } catch (e) {
+        if (cancelled) return;
+        setErr(e.message || 'Could not load conversations.'); setRows([]); setTotal(0);
+      } finally { if (!cancelled) setBusy(false); }
+    })();
+    return ()=>{ cancelled = true; };
+  },[args, page, s.totalMsgs, onAuthError]);
+
+  // Export every match, not the 25 on screen. Capped at the RPC's own ceiling.
+  const exportAll = async () => {
+    const token = await getAccessToken();
+    const d = await sbRpc(token, 'conversations_page', { ...args, p_limit: 2000, p_offset: 0 });
+    exportCSV('conversations', [
+      {label:'Rep',         get:m=>repName(m.ident)},
+      {label:'Phone',       get:m=>fmtPhone(m.person_phone)},
+      {label:'Message',     get:m=>m.User_Message},
+      {label:'AI response', get:m=>m.AI_Response},
+      {label:'Timestamp',   get:m=>new Date(m.Timestamp).toISOString()},
+    ], d?.rows || []);
+  };
 
   const field = "bg-surface border border-zinc-300 rounded-lg text-[14px] text-zinc-900 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20";
 
@@ -1120,16 +1163,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
           <option value="all">All reps</option>
           {s.users.map(u=><option key={u.number} value={u.number}>{repName(u.number)}</option>)}
         </select>
-        <ExportButton
-          disabled={!filtered.length}
-          exportFn={()=>exportCSV('conversations', [
-            {label:'Rep',         get:m=>repName(m.ident)},
-            {label:'Phone',       get:m=>fmtPhone(m.person_phone)},
-            {label:'Message',     get:m=>m.User_Message},
-            {label:'AI response', get:m=>m.AI_Response},
-            {label:'Timestamp',   get:m=>new Date(m.Timestamp).toISOString()},
-          ], filtered)}
-        />
+        <ExportButton disabled={!total} exportFn={exportAll}/>
       </motion.div>
 
       <HelpNote>Every message reps exchanged with Hi Tech AI, newest first. Search by text, filter by rep, click a row to see the full reply. Export sends all matches to CSV.</HelpNote>
@@ -1148,19 +1182,31 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
       )}
 
       {/* Log table */}
-      <Panel className="overflow-hidden">
+      {/* Dimmed, not blanked, while a refetch is in flight: the rows on screen are
+          still the right answer to the previous question, and replacing them with a
+          spinner on every page turn makes paging feel slower than it is. */}
+      <Panel className={`overflow-hidden transition-opacity duration-150 ${busy && rows.length ? 'opacity-60' : ''}`}>
         <div className="hidden md:grid grid-cols-[1.8fr_3fr_1fr_28px] px-6 py-3 border-b border-zinc-200 bg-zinc-50">
           {['Rep','Message','Time',''].map((t,i)=>(
             <Label key={i}>{t}</Label>
           ))}
         </div>
 
-        {!filtered.length
+        {err
+          ? <div className="py-16 text-center">
+              <p className="text-[13px]" style={{color:NEG}}>{err}</p>
+              <p className="text-[12px] text-zinc-500 mt-2">The list will reload on the next refresh.</p>
+            </div>
+          : busy && !rows.length   /* cold load only — see the Panel comment above */
+          ? <div className="py-16 text-center" role="status" aria-live="polite">
+              <p className="text-[13px] text-zinc-500">Loading conversations…</p>
+            </div>
+          : !rows.length
           ? <div className="py-16 text-center">
               <p className="text-[13px] text-zinc-500">No conversations found</p>
               <p className="text-[12px] text-zinc-500 mt-2">Try a different search term, or set the rep filter back to "All reps".</p>
             </div>
-          : filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE).map((m)=>{
+          : rows.map((m)=>{
             const rowKey = `${m.Timestamp}__${m.ident}`;
             const ex = expanded===rowKey;
             return (
@@ -1221,7 +1267,7 @@ function ConversationsTab({s, focusSignal, drill, onDrillConsumed}) {
             );
           })
         }
-        <Paginator page={page} total={filtered.length} onChange={p => { setPage(p); setExpanded(null); }}/>
+        <Paginator page={page} total={total} onChange={p => { setPage(p); setExpanded(null); }}/>
       </Panel>
     </motion.div>
   );
@@ -4775,7 +4821,7 @@ export default function Dashboard({ onLogout }) {
               transition={{duration:0.22}}
             >
               {tab==='overview'      && <OverviewTab      s={stats} onDrill={goDrill}/>}
-              {tab==='conversations' && <ConversationsTab s={stats} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill}/>}
+              {tab==='conversations' && <ConversationsTab s={stats} channelFilter={channelFilter} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill} onAuthError={handleLogout}/>}
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
               {tab==='cache'         && <CacheTab         s={stats}/>}
               {tab==='expenses'      && <ExpensesTab      role={role} onAuthError={handleLogout}/>}
