@@ -311,7 +311,16 @@ function useData(onAuthError) {
         totalMsgs, todayCount: agg?.today_count ?? 0, ystCount: agg?.yst_count ?? 0,
         userCount: agg?.user_count ?? 0, cacheTotal:c.total||cache.length,
         msgsByDay: agg?.msgs_by_day || [],
-        users, topQ, maxQ:topQ[0]?.count||1, recent:msgs.slice(0,300), cacheEntries:cache,
+        // No second truncation here. This used to be msgs.slice(0,300), which cut the
+        // COMBINED time-sorted list — so "All" showed fewer messages of each channel
+        // than that channel's own chip did (55 WhatsApp under "WhatsApp", 44 under
+        // "All"), because the oldest rows dropped are mostly the archived WhatsApp
+        // ones. The fetch above is already capped and the list is paginated, so the
+        // slice bought nothing and silently made the channel filter inconsistent.
+        //
+        // The 500-row fetch cap will reintroduce this once total traffic passes it;
+        // the real fix at that point is to paginate server-side rather than raise it.
+        users, topQ, maxQ:topQ[0]?.count||1, recent:msgs, cacheEntries:cache,
         heat: agg?.heat || null,
         volumeDaily: withLabels(agg?.volume_daily), cacheDaily: withLabels(agg?.cache_daily),
         badResponses: fb.data,
