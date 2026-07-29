@@ -51,9 +51,23 @@ f as (
   from public.chat_all c, args a
   where (a.channel is null or c.channel = a.channel)
     and (a.ident   is null or c.ident   = a.ident)
-    -- Matches the client's old rule exactly: Most-asked groups by the trimmed
-    -- answer text, so the drill-through has to compare the same way.
-    and (a.answer  is null or btrim(coalesce(c."AI_Response", '')) = a.answer)
+    -- A topic drill has to reproduce the Most-asked panel EXACTLY, because the
+    -- user clicked a number and expects that many rows. dashboard_stats() builds
+    -- those groups with `where length(a) >= 20 and length(q) >= 3`, so the
+    -- question-length rule has to be repeated here or the two disagree.
+    --
+    -- It disagreed: the top topic "hello" counted 5 in the panel and returned 12
+    -- here, because six "hi" and one "ye" share that one cached greeting answer
+    -- and are excluded from the count but not from the drill. The list opened on
+    -- "hi, hi, Hi, ye, bro" — which reads as a filter that simply isn't working.
+    --
+    -- Conditional on a.answer deliberately: unfiltered, Conversations is an audit
+    -- log and must still show every "hi" anyone ever sent. The rule belongs to
+    -- topic grouping, not to browsing.
+    and (a.answer is null or (
+           btrim(coalesce(c."AI_Response", '')) = a.answer
+       and length(btrim(coalesce(c."User_Message", ''))) >= 3
+    ))
     and (a.search  is null
          or c."User_Message" ilike '%' || a.search || '%'
          or c."AI_Response"  ilike '%' || a.search || '%')
@@ -75,7 +89,7 @@ revoke all on function public.conversations_page(text,text,text,text,int,int) fr
 grant execute on function public.conversations_page(text,text,text,text,int,int) to authenticated;
 
 comment on function public.conversations_page(text,text,text,text,int,int) is
-  'One filtered, counted page of chat_all for the Conversations tab. SECURITY INVOKER so chat_all RLS still applies — a non-admin gets nothing.';
+  'One filtered, counted page of chat_all for the Conversations tab. SECURITY INVOKER so chat_all RLS still applies — a non-admin gets nothing. When p_answer is set it mirrors dashboard_stats()''s topic-grouping rule (question >= 3 chars) so a Most-asked count and its drill agree.';
 
 
 -- Verified as admin Sarim, 2026-07-28:
@@ -88,6 +102,19 @@ comment on function public.conversations_page(text,text,text,text,int,int) is
 --   offset 325            total 337   page 12     <- last page returns its remainder
 --
 -- As employee Asad: total 0, rows 0.
+--
+-- Re-verified 2026-07-29 after the topic-grouping fix (migration
+-- `conversations_page_match_topic_grouping_rule`). Every one of the 8 Most-asked
+-- topics now returns exactly the count the panel shows, measured both over this
+-- connection and impersonating admin Sarim:
+--
+--   hello 5=5   rotary 4=4   blow 3=3   yhe gen 5 2=2   250 ton tederic 2=2
+--   neo dt dd 2=2   Rotary machines 2=2   pvc pipe 2=2
+--
+-- Browsing is unchanged: unfiltered 384 = every row in chat_all, whatsapp 97 +
+-- web 287 = 384, and all 13 sub-3-character questions are still listed. Employee
+-- Asad still gets 0. Grants survived the replace (authenticated=X, no anon) and
+-- prosecdef is still false.
 --
 -- NOTE ON SEARCH: p_search goes into ILIKE unescaped, so a literal % or _ typed
 -- into the search box acts as a wildcard. That is a search box behaving slightly
