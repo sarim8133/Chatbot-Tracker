@@ -146,6 +146,45 @@ export async function signedReceiptUrl(path, expiresIn = 3600) {
   return `${SB_URL}/storage/v1${data.signedURL}`;
 }
 
+// Signs many receipt paths at once, for the bulk download. Returns a
+// Map(path -> url); a path the caller isn't allowed to read is simply absent
+// rather than throwing, so one unreadable receipt can't sink a 200-file export.
+//
+// Storage RLS is what makes this safe to hand a whole month of paths: the
+// receipts_read_own_or_admin policy signs only what the caller may see, so an
+// employee's export physically cannot contain a colleague's receipt even if the
+// client asked for it. There is no client-side check to forget here.
+//
+// Chunked because the path list grows with the export and a single request
+// carrying two thousand of them is a timeout waiting to happen.
+export async function signedReceiptUrls(paths, expiresIn = 3600, chunkSize = 100) {
+  const token = await getAccessToken();
+  const out = new Map();
+  for (let i = 0; i < paths.length; i += chunkSize) {
+    const slice = paths.slice(i, i + chunkSize);
+    const res = await fetch(`${SB_URL}/storage/v1/object/sign/receipts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ expiresIn, paths: slice }),
+    });
+    if (!res.ok) continue;                       // whole chunk unavailable — skip it
+    const list = await res.json().catch(() => []);
+    for (const r of Array.isArray(list) ? list : []) {
+      if (r?.signedURL && r?.path) out.set(r.path, `${SB_URL}/storage/v1${r.signedURL}`);
+    }
+  }
+  return out;
+}
+
+// A signed URL that saves to disk instead of opening in a tab. Storage honours
+// ?download=<name> by setting Content-Disposition, which is the only thing that
+// works here — the <a download> attribute is ignored cross-origin, and Storage
+// is a different origin from the dashboard.
+export async function receiptDownloadUrl(path, filename) {
+  const url = await signedReceiptUrl(path);
+  return `${url}&download=${encodeURIComponent(filename)}`;
+}
+
 // Removes a receipt image from the private bucket. Called after
 // admin_delete_expense() has already destroyed the row and handed back its
 // image_path. Storage RLS (receipts_delete_accountant) is what actually

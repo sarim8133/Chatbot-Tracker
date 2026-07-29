@@ -13,7 +13,8 @@ import {
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
-import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl, deleteReceiptImage } from './receipts';
+import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl, signedReceiptUrls, receiptDownloadUrl, deleteReceiptImage } from './receipts';
+import { exportCSV, buildCSV, saveBlob, safeName, zipStore } from './export';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { useTheme } from './theme';
@@ -117,16 +118,9 @@ const ago = ts => {
 };
 const trunc = (s, n = 65) => !s ? '—' : s.length > n ? s.slice(0,n)+'…' : s;
 
-// ── CSV export ────────────────────────────────────────────────────────────────
-// Quote fields containing commas, quotes, or newlines (double internal quotes).
-const csvCell = v => {
-  let s = v == null ? '' : String(v);
-  // Neutralize spreadsheet formula injection (CWE-1236): a cell starting with
-  // = + - @ (or tab/CR) can execute as a formula when opened in Excel/Sheets.
-  // Prefix with an apostrophe so it's forced to plain text.
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
+// NOTE: csvCell()/exportCSV() moved to src/export.js when the receipt download
+// arrived and needed the same quoting and formula-injection guard.
+//
 // NOTE: buildHeat() and buildDaily() used to live here, deriving the heatmap and
 // the daily trends in the browser from the 500-row fetch. Both now come from
 // dashboard_stats() so they cover the whole table instead of a sliding window —
@@ -147,20 +141,6 @@ const labelFromKey = k => { const [,m,d] = k.split('-'); return `${+d} ${MONTHS[
 // hurts is a long, confident, WRONG answer, which no length test can catch.
 // The signal now comes from the reps instead: see chat_feedback / db/chat-feedback.sql.
 
-// columns: [{label, get(row)}]. Prepends a BOM so Excel reads UTF-8 (emoji) right.
-function exportCSV(name, columns, rows) {
-  const head = columns.map(c => csvCell(c.label)).join(',');
-  const body = rows.map(r => columns.map(c => csvCell(c.get(r))).join(',')).join('\n');
-  const blob = new Blob(['﻿' + head + '\n' + body], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = `hitech-${name}-${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
 
 // ── Demo Data ─────────────────────────────────────────────────────────────────
 function demoStats() {
@@ -2980,6 +2960,29 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
       else window.open(url, '_blank', 'noopener');   // only if the blank tab was blocked
     } catch { if (w) w.close(); }
   };
+
+  // Save one receipt image. Storage honours ?download=<name> by returning
+  // Content-Disposition: attachment, which is the only way to name the file —
+  // <a download> is ignored cross-origin, and Storage is a different origin.
+  //
+  // Opened via a tab rather than assigning location: if the header ever went
+  // missing, the failure is a tab showing the image, not the accountant's
+  // dashboard navigating away mid-review.
+  const [dlBusy, setDlBusy] = useState(false);
+  const downloadOne = async (e) => {
+    e.stopPropagation();
+    setDlBusy(true); setError('');
+    const w = window.open('', '_blank');
+    if (w) w.opener = null;
+    try {
+      const url = await receiptDownloadUrl(r.image_path, receiptFileName(r));
+      if (w) w.location = url;
+      else window.open(url, '_blank', 'noopener');
+    } catch {
+      if (w) w.close();
+      setError('Could not download this receipt.');
+    } finally { setDlBusy(false); }
+  };
   return (
     <div className="border-t border-zinc-100 first:border-t-0">
       <button type="button" onClick={onToggle}
@@ -3077,19 +3080,28 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: confColor }} />
                   AI confidence {conf}%
                 </span>
-                {r.image_path
-                  ? <button type="button" onClick={openStored}
-                      className="inline-flex items-center gap-1 text-accent hover:underline ml-auto"
-                      title="Opens a private, time-limited link (only you and the accountant can view it)">
-                      <ExternalLink size={11} /> View original
-                    </button>
-                  : r.drive_link
-                    ? <a href={r.drive_link} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-accent hover:underline ml-auto"
-                        onClick={(e) => e.stopPropagation()}>
-                        <ExternalLink size={11} /> View original
-                      </a>
-                    : <span className="inline-flex items-center gap-1 text-zinc-400 ml-auto"><ImageOff size={11} /> No image</span>}
+                <span className="ml-auto flex items-center gap-3">
+                  {r.image_path
+                    ? <>
+                        <button type="button" onClick={openStored}
+                          className="inline-flex items-center gap-1 text-accent hover:underline"
+                          title="Opens a private, time-limited link (only you and the accountant can view it)">
+                          <ExternalLink size={11} /> View original
+                        </button>
+                        <button type="button" onClick={downloadOne} disabled={dlBusy}
+                          className="inline-flex items-center gap-1 text-accent hover:underline disabled:opacity-50"
+                          title="Save this receipt image to your device">
+                          <Download size={11} /> {dlBusy ? 'Saving…' : 'Download'}
+                        </button>
+                      </>
+                    : r.drive_link
+                      ? <a href={r.drive_link} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-accent hover:underline"
+                          onClick={(e) => e.stopPropagation()}>
+                          <ExternalLink size={11} /> View original
+                        </a>
+                      : <span className="inline-flex items-center gap-1 text-zinc-400"><ImageOff size={11} /> No image</span>}
+                </span>
               </div>
 
               {/* Accountant tools. Employees never see this block at all — and
@@ -3458,6 +3470,201 @@ function toShareRows(rows, splitsByExpense) {
 // have no account to key on, so those still fall back to the stamped name.
 const personKey = (r) => r.user_id || `name:${(r.employee_name || '').trim().toLowerCase()}`;
 
+// ── Receipt download ──────────────────────────────────────────────────────────
+// Two shapes, one scope. Whatever the filters leave on screen is exactly what
+// gets exported — there is no second set of pickers in a dialog to drift out of
+// step with the ledger, so "30 in view" and "30 in the zip" can never disagree.
+//
+// Permissions are not re-implemented here. wap_expenses RLS decides which rows
+// the tab ever received, and Storage RLS decides which images will sign, so an
+// employee's export is scoped twice over by the database and not once by this file.
+
+// Above this, a bulk zip stops being a download and starts being a memory
+// problem on the phone it was requested from. Receipts run ~500KB, so 400 is
+// roughly a 200MB archive — already generous for one month of one company.
+const MAX_ZIP_FILES = 400;
+
+// Sorts by date, reads as a sentence, and stays unique: the expense id tail
+// separates two identical lunches bought at the same shop on the same day.
+//
+// The TAIL, not the head. Ids look like "EXP-2026-MS67RLTWWVDX", so the first
+// eight characters are "EXP-2026" on every receipt of the year — measured over
+// the live table, left(id,8) had 1 distinct value across 30 rows and right(id,8)
+// had 30. Slicing the wrong end silently removes the only unique part.
+function receiptFileName(r) {
+  const ext = (String(r.image_path || '').split('.').pop() || 'jpg').toLowerCase();
+  return [
+    (r.processed_at || '').slice(0, 10) || 'undated',
+    safeName(r.employee_name || 'unknown', 24),
+    safeName(r.vendor_name || 'receipt', 28),
+    Math.round(Number(r.total) || 0),
+    String(r.expense_id || '').slice(-8),
+  ].join('_') + '.' + safeName(ext, 5);
+}
+
+// Raw numbers, not fmtPKR: the accountant's first act is to sum the column, and
+// "PKR 4,500" is text to a spreadsheet. Currency gets its own column instead.
+const receiptColumns = (splitsByExpense, fileFor) => [
+  { label: 'Date',           get: r => (r.processed_at || '').slice(0, 10) },
+  { label: 'Employee',       get: r => r.employee_name },
+  { label: 'Department',     get: r => r.department },
+  { label: 'Category',       get: r => r.category },
+  { label: 'Vendor',         get: r => r.vendor_name },
+  { label: 'Subtotal',       get: r => Number(r.subtotal) || '' },
+  { label: 'Tax',            get: r => Number(r.tax) || '' },
+  { label: 'Total',          get: r => Number(r.total) || 0 },
+  { label: 'Currency',       get: r => r.currency || 'PKR' },
+  { label: 'Payment method', get: r => r.payment_method },
+  { label: 'Split',          get: r => (splitsByExpense.get(r.expense_id) || [])
+      .map(s => `${s.employee_name || s.sender_phone}: ${s.share}`).join('; ') },
+  // Ties a spreadsheet row to a file in the archive. Three outcomes worth
+  // distinguishing, because an accountant reconciling against the zip needs to
+  // know WHY a row has no file: legacy WhatsApp receipts only ever had a Drive
+  // link, some rows genuinely have no image, and a fetch can fail. Collapsing
+  // all three into a blank turns a recoverable problem into a mystery.
+  { label: 'Receipt file',   get: r => fileFor?.(r) || r.drive_link
+      || (r.image_path ? 'image not downloaded' : 'no image') },
+  { label: 'AI confidence',  get: r => Math.round((Number(r.ai_confidence) || 0) * 100) + '%' },
+  { label: 'Expense ID',     get: r => r.expense_id },
+];
+
+// Fetch the images and pack them. Returns { blob, got, missing } so the caller
+// can tell the truth about a partial export instead of quietly shipping fewer
+// files than the button promised.
+async function buildReceiptZip(rows, splitsByExpense, onProgress) {
+  const withImages = rows.filter(r => r.image_path);
+  const urls = await signedReceiptUrls(withImages.map(r => r.image_path));
+
+  // A handful at a time: enough to hide the round-trip latency, few enough that
+  // peak memory is a few images rather than the whole month.
+  const fetched = [];
+  let next = 0, done = 0;
+  await Promise.all(Array.from({ length: Math.min(5, withImages.length) }, async () => {
+    while (next < withImages.length) {
+      const r = withImages[next++];
+      const url = urls.get(r.image_path);
+      if (url) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) fetched.push({ r, blob: await res.blob() });
+        } catch { /* one unreadable image must not sink the export */ }
+      }
+      onProgress?.(++done, withImages.length);
+    }
+  }));
+
+  // Concurrency scrambled the order; put it back to what the ledger showed.
+  fetched.sort((a, b) => String(b.r.processed_at || '').localeCompare(String(a.r.processed_at || '')));
+
+  const nameOf = new Map();
+  const used = new Set();
+  for (const f of fetched) {
+    let name = receiptFileName(f.r);
+    // The id tail makes this all but impossible; handle it anyway, because a
+    // duplicate name in a zip silently overwrites on extraction.
+    for (let i = 2; used.has(name.toLowerCase()); i++) {
+      name = receiptFileName(f.r).replace(/(\.[^.]+)$/, `-${i}$1`);
+    }
+    used.add(name.toLowerCase());
+    nameOf.set(f.r.expense_id, name);
+  }
+
+  const csv = buildCSV(receiptColumns(splitsByExpense, r => nameOf.get(r.expense_id)), rows);
+  const entries = fetched.map(f => ({ name: nameOf.get(f.r.expense_id), blob: f.blob }));
+  entries.push({ name: 'receipts.csv', blob: new Blob([csv], { type: 'text/csv;charset=utf-8;' }) });
+
+  return {
+    blob: await zipStore(entries),
+    got: fetched.length,
+    noImage: rows.length - withImages.length,          // never had one
+    failed: withImages.length - fetched.length,        // had one, couldn't get it
+  };
+}
+
+// Download button + menu for the ledger header. Two options rather than one,
+// because "the numbers" and "the paperwork" are genuinely different jobs: the
+// CSV is instant and usually all that's wanted, the zip costs a fetch per image.
+function ReceiptDownloadMenu({ rows, splitsByExpense, scope, disabled }) {
+  const ctx = useContext(ToastContext);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  const stamp = `${scope}-${new Date().toISOString().slice(0, 10)}`;
+  const imageCount = rows.filter(r => r.image_path).length;
+
+  const doCsv = () => {
+    setOpen(false);
+    exportCSV(`receipts-${scope}`, receiptColumns(splitsByExpense, null), rows);
+    ctx?.pushToast({ state: 'done', msg: `Downloaded ${rows.length} receipt${rows.length === 1 ? '' : 's'} as CSV` });
+  };
+
+  const doZip = async () => {
+    setOpen(false);
+    if (imageCount > MAX_ZIP_FILES) {
+      ctx?.pushToast({ state: 'done', msg: `Too many for one zip (${imageCount}). Filter by person or category first.` });
+      return;
+    }
+    setBusy(true);
+    ctx?.pushToast({ state: 'preparing', msg: `Preparing ${imageCount} receipts…` });
+    try {
+      const { blob, got, noImage, failed } = await buildReceiptZip(rows, splitsByExpense,
+        (n, total) => ctx?.pushToast({ state: 'preparing', msg: `Fetching receipts… ${n}/${total}` }));
+      saveBlob(blob, `hitech-receipts-${stamp}.zip`);
+      // A short download that doesn't say it was short is the worst outcome
+      // here — the spreadsheet is complete either way, so name the shortfall.
+      const notes = [
+        failed  ? `${failed} couldn’t be fetched` : null,
+        noImage ? `${noImage} had no image` : null,
+      ].filter(Boolean);
+      ctx?.pushToast({ state: 'done', msg: notes.length
+        ? `Downloaded ${got} receipts — ${notes.join(', ')}`
+        : `Downloaded ${got} receipts + spreadsheet` });
+    } catch {
+      ctx?.pushToast({ state: 'done', msg: 'Could not build the download. Try again.' });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button type="button" onClick={() => setOpen(o => !o)} disabled={disabled || busy}
+        aria-haspopup="menu" aria-expanded={open}
+        className="flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] shrink-0 rounded-lg bg-surface border border-zinc-300 text-zinc-700 text-[12px] font-semibold tracking-tight transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed">
+        <Download size={13} />
+        <span>{busy ? 'Preparing…' : 'Download'}</span>
+      </button>
+      {open && (
+        <div role="menu"
+          className="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2.5rem)] rounded-lg border border-zinc-200 bg-surface shadow-lg z-30 py-1">
+          <button role="menuitem" type="button" onClick={doCsv}
+            className="w-full text-left px-3 py-2.5 hover:bg-zinc-50 transition-colors">
+            <span className="block text-[13px] font-medium text-zinc-800">Spreadsheet only</span>
+            <span className="block text-[11.5px] text-zinc-500 mt-0.5">
+              {rows.length} row{rows.length === 1 ? '' : 's'} · CSV for Excel
+            </span>
+          </button>
+          <button role="menuitem" type="button" onClick={doZip} disabled={!imageCount}
+            className="w-full text-left px-3 py-2.5 hover:bg-zinc-50 transition-colors border-t border-zinc-100 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+            <span className="block text-[13px] font-medium text-zinc-800">Receipt images + spreadsheet</span>
+            <span className="block text-[11.5px] text-zinc-500 mt-0.5">
+              {imageCount ? `${imageCount} image${imageCount === 1 ? '' : 's'} · ZIP` : 'No stored images in this view'}
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExpensesTab({ role, onAuthError }) {
   const isEmployee = role === 'employee';
   const [rows,   setRows]   = useState(null);
@@ -3466,6 +3673,7 @@ function ExpensesTab({ role, onAuthError }) {
   const [err,    setErr]    = useState(false);
   const [monthSel, setMonthSel] = useState(null);
   const [dept,   setDept]   = useState('all');
+  const [catSel, setCat]    = useState('all');
   const [selEmp, setSelEmp] = useState(null);
   const [empSearch, setEmpSearch] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
@@ -3541,6 +3749,21 @@ function ExpensesTab({ role, onAuthError }) {
     return [...new Set(rows.map(r => r.department).filter(Boolean))].sort();
   }, [rows]);
 
+  // Only categories that actually occur this month, in the palette's order — a
+  // dropdown offering six categories that select nothing is worse than four.
+  const catsPresent = useMemo(() => {
+    if (!rows) return [];
+    const seen = new Set(rows
+      .filter(r => (r.processed_at || '').slice(0, 7) === month)
+      .map(r => (CATS.includes(r.category) ? r.category : 'Other')));
+    return CATS.filter(c => seen.has(c));
+  }, [rows, month]);
+
+  // Effective category, derived exactly the way `month` is: a pick the newly
+  // chosen month has no receipts for falls back to "all", instead of emptying
+  // the tab behind a filter the dropdown can no longer even display.
+  const cat = catsPresent.includes(catSel) ? catSel : 'all';
+
   // Scope = current month + department filter (team). selEmp narrows further.
   const inScope = useMemo(() => {
     if (!rows) return [];
@@ -3553,17 +3776,23 @@ function ExpensesTab({ role, onAuthError }) {
   const inScopeShares = useMemo(
     () => toShareRows(inScope, splitsByExpense), [inScope, splitsByExpense]);
 
+  // The donut buckets anything unrecognised as "Other", so the filter has to
+  // bucket it identically — otherwise clicking the "Other" slice selects a
+  // category no row literally has, and the view empties.
+  const catKey = useCallback(r => (CATS.includes(r.category) ? r.category : 'Other'), []);
+  const byCat = useCallback(list => (cat === 'all' ? list : list.filter(r => catKey(r) === cat)), [cat, catKey]);
+
   // Keyed on the account; the name comes along only to label the bar.
   const byEmployee = useMemo(() => {
     const m = new Map();
-    for (const r of inScopeShares) {
+    for (const r of byCat(inScopeShares)) {
       const pkey = personKey(r);
       const hit = m.get(pkey);
       if (hit) hit.total += r.amount;
       else m.set(pkey, { pkey, name: r.employee_name || '—', total: r.amount });
     }
     return [...m.values()].sort((a, b) => b.total - a.total);
-  }, [inScopeShares]);
+  }, [inScopeShares, byCat]);
 
   // selEmp holds the person key, which is a uuid for anyone with a login — so
   // every label that used to print it needs the human name instead.
@@ -3629,20 +3858,26 @@ function ExpensesTab({ role, onAuthError }) {
     return inScopeShares;
   }, [inScopeShares, selEmp, empQuery, isEmployee]);
 
+  // Everything below the donut also honours the category filter. The donut
+  // itself deliberately does not (it reads focusShares), so it keeps showing the
+  // whole mix and you can click straight from one category to another instead of
+  // having to clear the filter first.
+  const focusSharesCat = useMemo(() => byCat(focusShares), [focusShares, byCat]);
+
   // The ledger lists receipts, not shares — one card per physical receipt, even
   // when several people are on it. Deduped by expense_id so a split receipt
   // doesn't appear once per participant.
   const focusRows = useMemo(() => {
     const seen = new Set();
     const out = [];
-    for (const s of focusShares) {
+    for (const s of focusSharesCat) {
       if (seen.has(s.expense_id)) continue;
       seen.add(s.expense_id);
       const original = inScope.find(r => r.expense_id === s.expense_id);
       out.push(original || s);
     }
     return out;
-  }, [focusShares, inScope]);
+  }, [focusSharesCat, inScope]);
 
   // Accountant searched a name that matches no one this month → show a clear
   // "not found" state instead of empty charts/KPIs.
@@ -3650,30 +3885,50 @@ function ExpensesTab({ role, onAuthError }) {
 
   const byCategory = useMemo(() => {
     const m = {};
-    focusShares.forEach(r => { const c = CATS.includes(r.category) ? r.category : 'Other'; m[c] = (m[c] || 0) + r.amount; });
+    focusShares.forEach(r => { const c = catKey(r); m[c] = (m[c] || 0) + r.amount; });
     return CATS.filter(c => m[c] > 0).map(c => ({ category: c, total: m[c] }));
-  }, [focusShares]);
+  }, [focusShares, catKey]);
 
   const trend = useMemo(() => {
     if (!rows) return [];
-    const scope = toShareRows(
+    const scope = byCat(toShareRows(
       rows.filter(r => dept === 'all' || r.department === dept),
       splitsByExpense,
-    ).filter(r => !selEmp || personKey(r) === selEmp);
+    ).filter(r => !selEmp || personKey(r) === selEmp));
     const m = {};
     scope.forEach(r => { const k = (r.processed_at || '').slice(0, 7); if (k) m[k] = (m[k] || 0) + r.amount; });
     return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), total: m[k] }));
-  }, [rows, dept, selEmp, splitsByExpense]);
+  }, [rows, dept, selEmp, splitsByExpense, byCat]);
 
-  // KPIs for the focused scope (month + dept + selEmp). Spend is the sum of
-  // shares; the receipt count is physical receipts, so a split bill is one.
-  const totalSpend = focusShares.reduce((a, r) => a + r.amount, 0);
+  // KPIs for the focused scope (month + dept + selEmp + category). Spend is the
+  // sum of shares; the receipt count is physical receipts, so a split bill is one.
+  const totalSpend = focusSharesCat.reduce((a, r) => a + r.amount, 0);
   const count = focusRows.length;
   const avg = count ? totalSpend / count : 0;
   const heroCount = useCountUp(Math.round(totalSpend));
-  const topCat = byCategory.length ? [...byCategory].sort((a, b) => b.total - a.total)[0] : null;
+  // With a category selected, "top category" is that category by definition —
+  // and it must report the FILTERED total, or this card contradicts the spend
+  // card sitting next to it.
+  const topCat = cat !== 'all'
+    ? { category: cat, total: totalSpend }
+    : (byCategory.length ? [...byCategory].sort((a, b) => b.total - a.total)[0] : null);
 
-  const listRows = focusRows;  // receipt ledger honours the same focus
+  // The ledger honours the same focus — and so does the download, over the FULL
+  // list rather than the 80 rows rendered below. The cap is a rendering budget,
+  // not a scope: an accountant asking for July gets all of July.
+  const listRows = focusRows;
+
+  // One description of the current scope, used both for the line under the
+  // heading and for the download filename — so the file on disk says exactly
+  // what the screen said when it was asked for.
+  const scopeParts = [
+    monthLabel(month),
+    dept !== 'all' ? dept : null,
+    selEmp ? selEmpName : (!isEmployee && empQuery ? `“${empSearch}”` : null),
+    cat !== 'all' ? cat : null,
+  ].filter(Boolean);
+  const scopeLabel = scopeParts.join(' · ');
+  const scopeSlug = safeName(scopeParts.join('-').toLowerCase(), 60);
 
   if (rows === null) return <Skeleton />;
 
@@ -3724,6 +3979,17 @@ function ExpensesTab({ role, onAuthError }) {
                 </select>
               </div>
             )}
+            {catsPresent.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Label>Category</Label>
+                <select value={cat} onChange={e => { setCat(e.target.value); setOpenId(null); }}
+                  aria-label="Filter by category"
+                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                  <option value="all">All categories</option>
+                  {catsPresent.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
             {!isEmployee && (
               <div ref={comboRef} className="relative flex items-center">
                 <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none z-10" />
@@ -3747,9 +4013,13 @@ function ExpensesTab({ role, onAuthError }) {
                     {byEmployeeShown.length === 0 ? (
                       <li className="px-3 py-2.5 text-[12px] text-zinc-400">No employee matches “{empSearch}”.</li>
                     ) : byEmployeeShown.slice(0, 8).map(e => (
-                      <li key={e.name} role="option" aria-selected={false}>
+                      // Key and value are both the person key, never the name:
+                      // selEmp is compared against personKey() everywhere else,
+                      // so setting a name here filtered every view to nothing.
+                      // Two colleagues sharing a first name also collided on key.
+                      <li key={e.pkey} role="option" aria-selected={false}>
                         <button
-                          onMouseDown={ev => { ev.preventDefault(); setSelEmp(e.name); setEmpSearch(''); setSuggestOpen(false); }}
+                          onMouseDown={ev => { ev.preventDefault(); setSelEmp(e.pkey); setEmpSearch(''); setSuggestOpen(false); }}
                           className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 transition-colors">
                           <span className="text-[12.5px] text-zinc-800 truncate">{e.name}</span>
                           <span className="mono text-[11px] text-zinc-400 shrink-0">{fmtPKR(e.total)}</span>
@@ -3830,6 +4100,11 @@ function ExpensesTab({ role, onAuthError }) {
               selectedEmployee={selEmp}
               selectedEmployeeName={selEmpName}
               onSelectEmployee={setSelEmp}
+              selectedCategory={cat === 'all' ? null : cat}
+              // Only clickable when there is more than one category to switch
+              // between — otherwise the donut could set a filter the toolbar
+              // isn't rendering a way to clear.
+              onSelectCategory={catsPresent.length > 1 ? (c => setCat(c || 'all')) : undefined}
             />
           </Suspense>
 
@@ -3845,11 +4120,22 @@ function ExpensesTab({ role, onAuthError }) {
 
           {/* Receipt ledger */}
           <Panel className="p-6">
-            <div className="flex items-baseline justify-between gap-3 mb-1">
-              <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Receipts</h2>
-              <span className="mono text-[11px] text-zinc-400 tabular-nums">{listRows.length} in view</span>
+            {/* Button beside the heading, not beside the description. The
+                description is long and scope-dependent; sharing a row with a
+                110px button left it ~100px wide at 320px, which wrapped it into
+                a seven-line column. On its own row it gets the full panel. */}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight min-w-0 truncate">Receipts</h2>
+              <ReceiptDownloadMenu
+                rows={listRows}
+                splitsByExpense={splitsByExpense}
+                scope={scopeSlug}
+                disabled={listRows.length === 0}
+              />
             </div>
-            <p className="text-[13px] text-zinc-500 mb-4">{monthLabel(month)}{selEmp ? ` · ${selEmpName}` : (empQuery ? ` · “${empSearch}”` : '')} — click a row for the full receipt</p>
+            <p className="text-[13px] text-zinc-500 mt-1 mb-4">
+              {scopeLabel} · <span className="mono tabular-nums">{listRows.length}</span> in view — click a row for the full receipt
+            </p>
             {listRows.length === 0
               ? <p className="text-[13px] text-zinc-400 py-6 text-center">No receipts in this view.</p>
               : (

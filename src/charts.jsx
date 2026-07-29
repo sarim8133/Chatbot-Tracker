@@ -382,9 +382,15 @@ function EmployeeSpendBars({ data, selected, onSelect }) {
 
 // Category donut — fixed per-category hues, PKR total in the hole, and a legend
 // carrying name + % so identity never rests on color alone (the relief rule).
-function CategoryDonut({ data }) {
+//
+// Click a slice (or a legend row) to filter the whole tab to that category, the
+// same drill the employee bars do. The legend carries the click as well as the
+// arc because on a phone the arcs are a few millimetres of ring — the legend row
+// is the target a thumb can actually hit.
+function CategoryDonut({ data, selected, onSelect }) {
   const c = useThemeColors();
   const total = data.reduce((a, b) => a + b.total, 0);
+  const pick = (cat) => onSelect?.(selected === cat ? null : cat);
   return (
     <div className="flex flex-col h-full">
       <div className="relative flex-1 min-h-[176px]">
@@ -392,8 +398,13 @@ function CategoryDonut({ data }) {
           <PieChart>
             <Pie data={data} dataKey="total" nameKey="category"
               innerRadius="62%" outerRadius="92%" paddingAngle={2}
-              stroke={c.surface} strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false}>
-              {data.map((d) => <Cell key={d.category} fill={catColor(d.category)} />)}
+              stroke={c.surface} strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false}
+              cursor={onSelect ? 'pointer' : undefined}
+              onClick={(d) => pick(d?.category ?? d?.payload?.category)}>
+              {data.map((d) => (
+                <Cell key={d.category} fill={catColor(d.category)}
+                  fillOpacity={selected && selected !== d.category ? 0.32 : 1} />
+              ))}
             </Pie>
             <Tooltip content={<MoneyTip />} />
           </PieChart>
@@ -403,15 +414,21 @@ function CategoryDonut({ data }) {
           <span className="mono text-[17px] font-bold text-zinc-900 tabular-nums">{fmtPKR(total)}</span>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5">
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1">
+        {/* px-1/py-1.5 makes each row a ~120x30 tap target rather than the bare
+            18px of text it used to be — the arcs are far too thin to hit on a
+            phone, so the legend has to be the real control. */}
         {data.map((d) => {
           const pct = total ? Math.round((d.total / total) * 100) : 0;
+          const isSel = selected === d.category;
           return (
-            <div key={d.category} className="flex items-center gap-2 min-w-0">
+            <button key={d.category} type="button" onClick={() => pick(d.category)}
+              aria-pressed={isSel}
+              className={`flex items-center gap-2 min-w-0 text-left rounded px-1 -mx-1 py-1.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${onSelect ? 'hover:bg-zinc-100/70 cursor-pointer' : 'cursor-default'} ${selected && !isSel ? 'opacity-45' : ''}`}>
               <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: catColor(d.category) }} />
-              <span className="text-[12px] text-zinc-700 truncate flex-1">{d.category}</span>
+              <span className={`text-[12px] truncate flex-1 ${isSel ? 'text-zinc-900 font-semibold' : 'text-zinc-700'}`}>{d.category}</span>
               <span className="mono text-[11px] text-zinc-500 tabular-nums shrink-0">{pct}%</span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -456,13 +473,15 @@ const panelHead = (title, sub, onExpand) => (
 
 // `selectedEmployee` is the person key (a uuid for anyone with a login), so it
 // selects but never prints — `selectedEmployeeName` is what the titles show.
-export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [], trend = [], selectedEmployee = null, selectedEmployeeName = '', onSelectEmployee, topN = 14 }) {
+export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [], trend = [], selectedEmployee = null, selectedEmployeeName = '', onSelectEmployee, selectedCategory = null, onSelectCategory, topN = 14 }) {
   const [expanded, setExpanded] = useState(null); // 'emp' | 'cat' | 'trend'
 
   const empTop = byEmployee.slice(0, topN);
   const empHidden = byEmployee.length - empTop.length;
 
-  const donut = byCategory.length ? <CategoryDonut data={byCategory} /> : <EmptyChart />;
+  const donut = byCategory.length
+    ? <CategoryDonut data={byCategory} selected={selectedCategory} onSelect={onSelectCategory} />
+    : <EmptyChart />;
   const spendTrend = trend.length ? <SpendTrend data={trend} /> : <EmptyChart label="Not enough history yet" />;
   const empBars = (data) => (data.length
     ? <EmployeeSpendBars data={data} selected={selectedEmployee} onSelect={onSelectEmployee} />
@@ -474,7 +493,11 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
 
   const donutPanel = (
     <div className={panelCls}>
-      {panelHead(donutTitle, 'Share of spend by category', () => setExpanded('cat'))}
+      {panelHead(donutTitle,
+        selectedCategory ? `Showing ${selectedCategory} — click it again to clear`
+          : onSelectCategory ? 'Share of spend — click a category to filter'
+          : 'Share of spend by category',
+        () => setExpanded('cat'))}
       <div className="h-72">{donut}</div>
     </div>
   );
