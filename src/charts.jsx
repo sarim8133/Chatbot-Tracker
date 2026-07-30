@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Maximize2, X } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
   Tooltip, ResponsiveContainer, Cell, CartesianGrid,
   PieChart, Pie,
 } from 'recharts';
@@ -331,6 +331,96 @@ export function HitRateTrend({ data = [] }) {
         onClose={() => setExpanded(false)}
       >
         {mkChart('m')}
+      </ChartModal>
+    </>
+  );
+}
+
+// ── Rep activity trend (Overview tab, lazily loaded) ──────────────────────────
+const RepTrendTip = ({active, payload, label}) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-1">{label}</p>
+      {payload.map(p => (
+        <div key={p.dataKey} className="flex items-center gap-1.5 text-[12px]">
+          <span className="w-2 h-2 rounded-sm shrink-0" style={{background:p.stroke}}/>
+          <span className="text-zinc-700">{p.name}</span>
+          <span className="mono font-semibold text-zinc-900 ml-auto">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const RepLegend = ({ reps, palette }) => (
+  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+    {reps.map((r,i) => (
+      <span key={r.ident} className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+        <span className="w-2 h-2 rounded-sm shrink-0" style={{background:palette[i % palette.length]}}/>
+        {r.name}
+      </span>
+    ))}
+  </div>
+);
+
+// One line per rep — the top 5 by volume, from dashboard_stats()'s
+// top_reps_daily (db/dashboard-stats.sql). Never color-alone (the codebase's
+// relief rule, see src/categories.js): every line is also named in the legend.
+export function RepActivityTrend({ data = [] }) {
+  const c = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+  const palette = [c.accent, c.ink, c.blue, c.pos, c.neg];
+
+  // Pivot [{date,label,reps:[{ident,name,count}]}] into one row per day with
+  // one column per rep — the shape Recharts' multi-<Line> wants.
+  const { rows, reps } = useMemo(() => {
+    const names = new Map();
+    for (const day of data) for (const r of day.reps || []) names.set(r.ident, r.name || r.ident);
+    const reps = [...names.entries()].map(([ident, name]) => ({ ident, name }));
+    const rows = data.map(day => {
+      const row = { label: day.label };
+      for (const r of day.reps || []) row[r.ident] = r.count;
+      return row;
+    });
+    return { rows, reps };
+  }, [data]);
+
+  const tickEvery = Math.max(0, Math.ceil(rows.length/8)-1);
+
+  const mkChart = () => (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={rows} margin={{top:6,right:6,bottom:0,left:4}}>
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false}
+          interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={30} allowDecimals={false}/>
+        <Tooltip content={<RepTrendTip/>}/>
+        {reps.map((r,i)=>(
+          <Line key={r.ident} type="monotone" dataKey={r.ident} name={r.name}
+            stroke={palette[i % palette.length]} strokeWidth={2} dot={false}
+            activeDot={{r:4, stroke:c.surface, strokeWidth:2}}/>
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+
+  return (
+    <>
+      <div className="relative">
+        <button onClick={()=>setExpanded(true)} aria-label="Expand chart" title="Click to expand"
+          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <Maximize2 size={14}/>
+        </button>
+        <div className="h-56" role="img" aria-label="Message volume per day for the top 5 reps, last 30 days">
+          {mkChart()}
+        </div>
+        <RepLegend reps={reps} palette={palette}/>
+      </div>
+      <ChartModal title="Rep activity" sub="Message volume per day, top 5 reps, last 30 days"
+        open={expanded} onClose={()=>setExpanded(false)}>
+        {mkChart()}
+        <RepLegend reps={reps} palette={palette}/>
       </ChartModal>
     </>
   );
