@@ -145,7 +145,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   // Each call site needs its own gradient ID (panel vs modal are both mounted).
   const mkVolume = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={view} margin={{top:6,right:6,bottom:0,left:-20}}>
+      <AreaChart data={view} margin={{top:6,right:6,bottom:0,left:4}}>
         <defs>
           <linearGradient id={`${uid}af${sfx}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor={c.accent} stopOpacity={0.14}/>
@@ -153,7 +153,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false}/>
         <Tooltip content={<ChartTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="count"
@@ -286,10 +286,11 @@ export function HitRateTrend({ data = [] }) {
   const [expanded, setExpanded] = useState(false);
   const uid = useId();
   const c = useThemeColors();
+  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
   const mkChart = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:-12}}>
+      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
         <defs>
           <linearGradient id={`${uid}rf${sfx}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor={c.accent} stopOpacity={0.16}/>
@@ -297,7 +298,7 @@ export function HitRateTrend({ data = [] }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={24} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={38} domain={[0,1]} tickFormatter={v=>`${Math.round(v*100)}%`}/>
         <Tooltip content={<RateTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="rate"
@@ -439,9 +440,10 @@ function CategoryDonut({ data, selected, onSelect }) {
 function SpendTrend({ data }) {
   const uid = useId();
   const c = useThemeColors();
+  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -6 }}>
+      <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 4 }}>
         <defs>
           <linearGradient id={`${uid}sp`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={c.accent} stopOpacity={0.14} />
@@ -449,7 +451,7 @@ function SpendTrend({ data }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4" />
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} minTickGap={20} />
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={20} padding={{left:12,right:12}} />
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
         <Tooltip content={<MoneyTip />} cursor={{ stroke: c.ink, strokeWidth: 1, strokeDasharray: '3 3' }} />
         <Area type="monotone" dataKey="total" stroke={c.accent} strokeWidth={2}
