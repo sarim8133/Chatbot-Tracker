@@ -69,6 +69,7 @@ const PER_PAGE = 25;
 // Charts live in a lazily-loaded chunk so Recharts doesn't block first paint.
 const ChartsRow = lazy(() => import('./charts'));
 const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTrend})));
+const RepActivityTrend = lazy(() => import('./charts').then(m=>({default:m.RepActivityTrend})));
 const ExpenseCharts = lazy(() => import('./charts').then(m=>({default:m.ExpenseCharts})));
 const ChartsFallback = () => (
   <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
@@ -864,6 +865,34 @@ function OverviewTab({s, onDrill, showCache}) {
   const total  = useCountUp(s.totalMsgs);
   const peak   = heatPeak(s.heat);
   const [heatExpanded, setHeatExpanded] = useState(false);
+  // "This 30 days vs the 30 before" — messages/hit-rate sum correctly across
+  // days from the existing 90-day arrays; active reps is a true distinct count
+  // computed server-side (see db/dashboard-stats.sql — summing a per-day
+  // distinct count would double-count a rep active on more than one day).
+  const periodMetrics = useMemo(() => {
+    const vol = s.volumeDaily || [];
+    const cd  = s.cacheDaily  || [];
+    const n = vol.length;
+    const sumCount = (arr, from, to) => arr.slice(Math.max(0,from), Math.max(0,to)).reduce((a,b)=>a+(b.count??0),0);
+    const curMsgs  = sumCount(vol, n-30, n);
+    const prevMsgs = sumCount(vol, n-60, n-30);
+    const cdSlice = (from,to) => cd.slice(Math.max(0,from), Math.max(0,to));
+    const rateOf = (rows) => {
+      const hits  = rows.reduce((a,r)=>a+(r.hits??0),0);
+      const total = rows.reduce((a,r)=>a+(r.total??0),0);
+      return total ? hits/total : 0;
+    };
+    const curRate  = rateOf(cdSlice(n-30, n));
+    const prevRate = rateOf(cdSlice(n-60, n-30));
+    return [
+      {label:'Messages', kind:'pct', current:curMsgs, previous:prevMsgs,
+        format:v=>v.toLocaleString(), hint:'Total messages, this 30 days vs the 30 before'},
+      {label:'Active reps', kind:'pct', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
+        format:v=>v.toLocaleString(), hint:'Distinct reps who messaged Hi Tech AI, this 30 days vs the 30 before'},
+      {label:'Hit rate', kind:'pp', current:curRate, previous:prevRate,
+        format:v=>`${Math.round(v*100)}%`, hint:'Cache hit rate, this 30 days vs the 30 before'},
+    ];
+  }, [s.volumeDaily, s.cacheDaily, s.activeRepsLast30, s.activeRepsPrev30]);
   const ledger = [
     {label:'Today',       value:s.todayCount, delta, hint:'Messages today, compared with yesterday'},
     {label:'Active reps', value:s.userCount,         hint:'Reps who messaged Hi Tech AI in this period'},
@@ -922,6 +951,8 @@ function OverviewTab({s, onDrill, showCache}) {
         ))}
       </Panel>
 
+      <PeriodCompare sub="the previous 30 days" metrics={periodMetrics}/>
+
       {/* Charts row — lazy-loaded (Recharts in its own async chunk) */}
       <Suspense fallback={<ChartsFallback/>}>
         <ChartsRow
@@ -929,6 +960,17 @@ function OverviewTab({s, onDrill, showCache}) {
           topReps={s.users.slice(0,5).map(u=>({name:repName(u.number).split(' ')[0],count:u.count}))}
         />
       </Suspense>
+
+      {s.topRepsDaily?.length > 0 && (
+        <Panel className="p-6">
+          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Rep activity</h2>
+          <p className="text-[14px] text-zinc-500 mt-1 mb-5">Top 5 reps by volume, last 30 days</p>
+          <HelpNote>Daily message count for the 5 busiest reps this month — is activity concentrated in a few people or spread out?</HelpNote>
+          <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
+            <RepActivityTrend data={s.topRepsDaily}/>
+          </Suspense>
+        </Panel>
+      )}
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
