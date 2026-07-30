@@ -71,6 +71,7 @@ const ChartsRow = lazy(() => import('./charts'));
 const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTrend})));
 const RepActivityTrend = lazy(() => import('./charts').then(m=>({default:m.RepActivityTrend})));
 const ExpenseCharts = lazy(() => import('./charts').then(m=>({default:m.ExpenseCharts})));
+const ApprovalTurnaround = lazy(() => import('./charts').then(m=>({default:m.ApprovalTurnaround})));
 const ChartsFallback = () => (
   <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
     <div className="h-[300px] rounded-xl bg-surface border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
@@ -667,6 +668,44 @@ function PeriodCompare({ sub, metrics }) {
           </div>
         </div>
       ))}
+    </Panel>
+  );
+}
+
+// Status distribution — same visual language as CacheTab's "Cache vs AI"
+// proportion bar. Four buckets from wap_expenses.status; `flagged` is a
+// separate boolean column (a flagged receipt can still end up approved), so
+// it's a callout beside the bar, not a fifth bucket.
+function StatusSplit({ counts, total, flaggedPct }) {
+  const order = ['logged','pending_approval','approved','rejected'];
+  const toneColor = (tone) => tone === 'pos' ? POS : tone === 'neg' ? NEG
+    : tone === 'warn' ? 'var(--warn)' : 'var(--muted)';
+  return (
+    <Panel className="p-6">
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <Label>Status</Label>
+        <span className="mono text-[11px] text-zinc-500 tabular-nums">{flaggedPct}% ever flagged</span>
+      </div>
+      {total === 0 ? (
+        <p className="mono text-[11px] uppercase tracking-widest text-zinc-400 py-4 text-center">No receipts yet</p>
+      ) : (
+        <>
+          <div className="h-2.5 flex rounded-full overflow-hidden bg-zinc-100"
+            role="img" aria-label={order.map(k => `${Math.round((counts[k]/total)*100)}% ${STATUS_META[k].label}`).join(', ')}>
+            {order.map(k => counts[k] > 0 && (
+              <div key={k} style={{ width: `${(counts[k]/total)*100}%`, background: toneColor(STATUS_META[k].tone) }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+            {order.map(k => (
+              <span key={k} className="flex items-center gap-1.5 text-[12px] text-zinc-600">
+                <span className="w-2 h-2 rounded-sm shrink-0" style={{background:toneColor(STATUS_META[k].tone)}}/>
+                {STATUS_META[k].label} <span className="mono text-zinc-400">{counts[k]}</span>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </Panel>
   );
 }
@@ -4529,6 +4568,8 @@ function ExpensesTab({ role, phone, onAuthError }) {
             ))}
           </Panel>
 
+          <PeriodCompare sub="the month before" metrics={spendCompareMetrics}/>
+
           {/* Charts */}
           <Suspense fallback={<ChartsFallback />}>
             <ExpenseCharts
@@ -4546,6 +4587,19 @@ function ExpensesTab({ role, phone, onAuthError }) {
               onSelectCategory={catsPresent.length > 1 ? (c => setCat(c || 'all')) : undefined}
             />
           </Suspense>
+
+          {!isEmployee && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div className="bg-surface border border-zinc-100 rounded-xl p-6 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)]">
+                <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Approval turnaround</h2>
+                <p className="text-[13px] text-zinc-500 mt-1 mb-4">Average days from submission to approval</p>
+                <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
+                  <ApprovalTurnaround data={approvalTurnaround}/>
+                </Suspense>
+              </div>
+              {statusSplit && <StatusSplit {...statusSplit}/>}
+            </div>
+          )}
 
           {/* Monthly limits. Everyone who can see the panel sees the numbers;
               only dev / finance_manager / finance_admin can CHANGE them.
