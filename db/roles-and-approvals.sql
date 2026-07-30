@@ -826,3 +826,225 @@ grant execute on function private.can_approve_over_limit()     to authenticated;
 -- wap_expenses read access for everyone for a few minutes, fixed same-day by
 -- fix_wap_splits_read_recursion — see §13 for the full account.
 -- ============================================================================
+
+
+-- ============================================================================
+-- Task 6 — delete/split/limit RPCs require can_manage_expenses(), not
+-- can_view_all_expenses()  (2026-07-30)
+--
+-- Task 5 (above) widened can_view_all_expenses() to include ceo — correct for
+-- READING every expense. But four RPCs that modify or destroy data were still
+-- gated on that same read predicate, so the moment Task 5 landed, the CEO
+-- silently gained delete, split and spending-limit rights he must not have.
+-- Task 5 §Step 6 recorded this as a known, not-yet-fixed gap for
+-- admin_delete_expense specifically. Step 1 below shows it was open on ALL
+-- FOUR RPCs, not just that one.
+--
+-- The design rule this task enforces: the CEO can see every expense but must
+-- not be able to change or destroy one. The correct predicate for all four is
+-- private.can_manage_expenses() ({dev, finance_admin}), which already existed
+-- (Task 2) and needed no change of its own.
+--
+-- Applied via migration `manage_rpcs_require_manage_capability` (Supabase MCP
+-- apply_migration).
+-- ============================================================================
+
+
+-- ── 14. Why read and manage had to become different predicates ─────────────
+-- Before this task, every call site that cared about "admin or accountant"
+-- shared can_view_all_expenses() — read, delete, split and set-limit all
+-- asked the same question. That was harmless while the role set underneath it
+-- was {admin, accountant} (Task 2 and earlier): neither of those roles could
+-- see an expense without also being trusted to manage it. Task 5 broke that
+-- coincidence on purpose: ceo needed adding to the read side only, to satisfy
+-- "the CEO sees everything." Widening a shared predicate for one caller's
+-- read requirement silently widens every writer that happens to reuse it too
+-- — that is exactly the mechanism that opened this gap, and worth watching
+-- for the next time a predicate is widened for one caller and reused by
+-- others.
+--
+-- private.can_manage_expenses() ({dev, finance_admin}) already existed with
+-- the right role set (Task 2); it just wasn't wired to these four RPCs yet.
+-- No new function, no new role — only four guard lines change.
+--
+--
+-- ── 15. Two of the four bodies do not exist anywhere in this repo ──────────
+-- admin_set_expense_split() and admin_set_spending_limit() were redefined
+-- live by the 2026-07-24 migration split_picker_uses_team_members_not_roster
+-- (see db/expense-accountant-tools.sql §9), documented there but never
+-- checked back in as SQL — that file's §5/§6 bodies are explicitly flagged as
+-- "original shape, for context" only. A later migration
+-- (split_rpc_stamps_user_id, 2026-07-25) touched admin_set_expense_split
+-- again, adding a user_id column to its INSERT — also never checked in.
+--
+-- Both live bodies were fetched with pg_get_functiondef immediately before
+-- writing this migration and diffed by hand against the text this task was
+-- handed. admin_delete_expense and admin_clear_expense_split matched byte-for-
+-- byte apart from the guard line — safe to use as given. admin_set_expense_
+-- split and admin_set_spending_limit did not match, in exactly the ways
+-- db/expense-accountant-tools.sql §9 already predicted:
+--   • roster check: live validates phone against public.app_users (team
+--     members); the repo copy validates against public.wap_allowed_senders
+--     (the WhatsApp submit roster) — a different, smaller, staler set.
+--   • admin_set_expense_split's INSERT: live carries a user_id column stamped
+--     from app_users; the repo copy's INSERT (and its own CREATE TABLE
+--     statement, db/expense-accountant-tools.sql §2) has no such column.
+--   • admin_set_spending_limit: live is an UPSERT (insert ... on conflict do
+--     update) that creates the wap_allowed_senders row on demand from
+--     app_users if one doesn't exist yet; the repo copy is a plain UPDATE
+--     that fails with P0002 if no roster row exists yet.
+-- Pasting the repo bodies would have reverted all of the above silently: a
+-- split naming a real team member with no wap_allowed_senders roster row
+-- (exactly the failure mode db/expense-accountant-tools.sql §9 describes for
+-- the original bug) would again be refused as "not on the employee roster,"
+-- a split's user_id would go back to not being stamped at all, and setting a
+-- first-time limit for someone who has never used WhatsApp would start
+-- failing with P0002 instead of creating their roster row. Only the guard
+-- line was changed in either function; everything else in this migration is
+-- the live body, verbatim.
+--
+--
+-- ── 16. private.is_admin() could not be retired this task — blocked, not
+--       forced ─────────────────────────────────────────────────────────────
+-- private.is_admin() (role = 'admin') has been dead code for every current
+-- human since Task 3 renamed the last 'admin' row to 'dev' — no value in
+-- app_users.role can match it any more (Task 2 §3 deferred retiring it to
+-- "a later task," once nothing referenced it). This task tried:
+--   drop function private.is_admin();
+-- Postgres refused:
+--   ERROR: 2BP01: cannot drop function private.is_admin() because other
+--   objects depend on it
+--   DETAIL: policy client_errors_admin_read on table client_errors depends on
+--   function private.is_admin()
+-- Not forced — no CASCADE. client_errors (migration create_client_errors_sink,
+-- 2026-07-21) predates the six-role system entirely and was never on Task 4's
+-- list of tables moved onto the new capability functions (n8n_chat_histories,
+-- chat_archive, web_chat_histories, semantic_cache, chat_feedback — five
+-- named tables, not six). client_errors_admin_read is exactly the same shape
+-- of silent lockout Task 4's preamble describes for chat/cache: since Task 3
+-- it matches nobody at all, including the dev — nobody can read client_errors
+-- through this policy today, gap or no gap — and deciding which capability it
+-- should move to is outside this task's stated scope of four expense RPCs.
+-- Recorded here as a discovery for a follow-up task, not fixed in this one.
+--
+-- The refusal is still useful, not just a loose end: it is the mechanism
+-- proving something OTHER than the four RPCs in scope still reaches
+-- is_admin(), and names exactly what — one policy, one table — which is a
+-- smaller, safer handoff than a vague "something might still use it."
+-- §Verification Step 6 below independently confirms none of the four RPCs
+-- reference the OLD read predicate either, by the same style of proof: the
+-- only public function whose body still mentions can_view_all_expenses() is
+-- expense_team_members() — a read, which is correct.
+--
+--
+-- ============================================================================
+-- Verification — measured 2026-07-30 (Task 6)
+-- ============================================================================
+--
+-- Step 1 — failing probes, before the migration, impersonating Habib (ceo,
+-- c7dd77aa-56fc-40fe-9343-dc2c1b2e2a47), each inside its own rolled-back
+-- transaction. A 42501 would mean already safe; anything else means the gap
+-- is open. All four came back open — worse than Task 5 §Step 6 had shown for
+-- admin_delete_expense alone:
+--   admin_delete_expense('PROBE-DOES-NOT-EXIST','probe')
+--     -> P0002: no such expense: PROBE-DOES-NOT-EXIST      (past the gate)
+--   admin_clear_expense_split('PROBE-DOES-NOT-EXIST')
+--     -> 0, no error at all                                 (past the gate,
+--        the starkest case — nothing even complained, it just ran)
+--   admin_set_expense_split('PROBE-DOES-NOT-EXIST', '[]'::jsonb)
+--     -> P0002: no such expense: PROBE-DOES-NOT-EXIST      (past the gate)
+--   admin_set_spending_limit('923104309666', 50000)
+--     -> 50000.00, no error                                 (past the gate,
+--        and a real write — this call actually changed Asad's stored limit,
+--        rolled back immediately after)
+-- Baseline confirmed unchanged going in: 33 expenses, 0 splits.
+--
+-- Step 2 — live bodies fetched via pg_get_functiondef for all four RPCs (see
+-- §15). admin_delete_expense and admin_clear_expense_split matched the text
+-- this task was handed exactly but for the guard line. admin_set_expense_
+-- split and admin_set_spending_limit did not match the checked-in repo copy,
+-- exactly as §15 describes; the live body of each was used, with only the
+-- guard line changed. Migration manage_rpcs_require_manage_capability applied
+-- (Supabase MCP apply_migration): four CREATE OR REPLACE FUNCTION statements,
+-- nothing else (no grant/revoke — CREATE OR REPLACE FUNCTION preserves the
+-- existing ACL when the signature is unchanged). Result: success.
+--
+-- Step 3 — same four probes, same rolled-back-transaction pattern, same Habib
+-- session, immediately after the migration:
+--   admin_delete_expense        -> 42501: not authorized
+--   admin_clear_expense_split   -> 42501: not authorized
+--   admin_set_expense_split     -> 42501: not authorized
+--   admin_set_spending_limit    -> 42501: not authorized
+-- All four now refuse the CEO. Matches expectation exactly.
+--
+-- Step 4 — finance_admin and dev confirmed NOT over-tightened, employee
+-- confirmed still refused:
+--   Mawavia (finance_admin, dfc200b5-5ef8-4fce-8514-6c4ea753ce29)
+--     admin_set_spending_limit('923104309666', 50000) -> 50000.00
+--     admin_delete_expense('PROBE-DOES-NOT-EXIST','probe') -> P0002 (past the
+--       gate; the phone above is Asad's — Mawavia is setting a colleague's
+--       limit, which is exactly what finance_admin is for)
+--   Sarim (dev, 2a7c873e-959f-4727-81a7-25c757833db4)
+--     admin_set_spending_limit('923104309666', 50000) -> 50000.00
+--   Asad (employee, fb9f85e3-97f5-423b-89f1-c388c16b232d)
+--     admin_delete_expense('PROBE-DOES-NOT-EXIST','probe') -> 42501: not
+--       authorized (unchanged — employees were never in can_manage_expenses()
+--       or can_view_all_expenses())
+--
+-- Step 5 — a real split, end to end, proving the 2026-07-24 team-members fix
+-- (§15) was not reverted. As Mawavia, inside a rolled-back transaction,
+-- splitting the lowest expense_id in the live table between two real team
+-- members — Sarim (923366179838, dev) and Asad (923104309666, employee):
+--   admin_set_expense_split(...) -> 2
+-- Confirms validation is against app_users (team members), not
+-- wap_allowed_senders (roster) — the old, pre-fix error ("one or more phone
+-- numbers are not on the employee roster") did not fire. Confirmed after
+-- rollback: 33 expenses, 0 splits — nothing leaked.
+--
+-- Step 6 — stale-predicate scan across every function in public:
+--   select p.proname from pg_proc p join pg_namespace n
+--     on n.oid = p.pronamespace
+--   where n.nspname = 'public'
+--     and pg_get_functiondef(p.oid) like '%can_view_all_expenses%'
+--   -> expense_team_members only.
+-- The plan's literal query form hit ERROR 42809, "array_agg is an aggregate
+-- function": Postgres does not guarantee AND-clause evaluation order, and
+-- chose to run pg_get_functiondef() against the built-in array_agg aggregate
+-- (prokind='a', which pg_get_functiondef cannot handle) before the
+-- nspname='public' filter narrowed the row set. Rewritten with a
+-- `with candidates as materialized (...)` CTE that filters to nspname='public'
+-- and prokind='f' first, forcing that filter to fully apply before
+-- pg_get_functiondef is ever called on the remaining rows — same question,
+-- same (only) answer, expense_team_members, which is correct: it is a read.
+--
+-- Step 7 — private.is_admin() retirement (§16): drop refused with 2BP01,
+-- policy client_errors_admin_read on public.client_errors depends on it. Not
+-- forced. Confirmed via pg_policies: client_errors_admin_read, cmd=SELECT,
+-- qual=private.is_admin(), with_check=null — the only remaining dependency
+-- found. Ran the plan's post-drop sanity check anyway, impersonating Sarim
+-- (dev), to confirm this task's actual changes broke nothing else even though
+-- the drop itself did not land:
+--   chats = 407, expenses = 33, people = 8   -- all three match expectation
+--
+-- Step 8 — get_advisors('security'): 0 ERROR-level. Every finding falls into
+-- the bucket already documented in Task 4/5's Verification sections above:
+-- the same ten SECURITY DEFINER admin RPCs (WARN, reachable by authenticated;
+-- resolve_login_email also by anon — each re-checks its own capability
+-- internally, unchanged by this task), the two always-true INSERT policies on
+-- chat_feedback and client_errors (by design), and rls_enabled_no_policy INFO
+-- on the four backup_20260728_* tables plus wap_expense_deletions
+-- (deliberate). No new finding attributable to this task.
+--
+-- Net result: all four RPCs were open to the CEO before this task, not just
+-- admin_delete_expense as Task 5 had recorded — confirmed and closed
+-- together. finance_admin and dev are unaffected (spending-limit writes and
+-- delete's authorization stage both still succeed); employee isolation is
+-- unchanged (still refused). A real split between two genuine team members
+-- still works, proving the 2026-07-24 fix survived. No public function
+-- retains the old read predicate except the one read RPC for which it is
+-- correct. private.is_admin() is still one policy away from retirement —
+-- client_errors_admin_read, itself silently dead since Task 3 for the same
+-- reason is_admin() is dead everywhere else — left alone deliberately, as a
+-- named, precise handoff rather than a forced CASCADE. Production is
+-- unchanged throughout: 33 expenses, 0 splits, before and after every step.
+-- ============================================================================
