@@ -1235,3 +1235,82 @@ drop function private.is_admin();
 -- to the two Edge Functions (no password available in this environment). Both
 -- need a human at a keyboard. See section 7.
 -- ============================================================================
+
+
+-- ============================================================================
+-- PHASE B
+-- 12-13. Approval status, flags, the event trail, and the RPCs   (2026-07-30)
+--        Migrations: expense_approval_schema, expense_approval_rpcs
+-- ============================================================================
+--
+-- STATUS: logged -> pending_approval -> approved, and any -> rejected.
+-- 'logged' is KEPT as the intake state on purpose. n8n writes it on every
+-- WhatsApp and web receipt and those workflows can only be hand-edited in the
+-- n8n UI, so renaming it would mean a coordinated deploy or silently broken
+-- intake. Nothing about the intake path changes.
+--
+-- FLAGGED IS A BOOLEAN, NOT A STATUS. A receipt can be flagged, sent up, and
+-- approved anyway with the flag surviving as the permanent record of why it was
+-- questioned. Fold it into status and approving erases that.
+--
+-- DELEGATED AUTHORITY. finance_admin signs off within the person's limit;
+-- anything flagged (which is what over-limit sets) requires finance_manager. The
+-- strict reading -- everything goes up -- makes the manager approve a 700 PKR
+-- rickshaw ride for five sales staff daily, a queue nobody clears, and the
+-- finance records tab would stay permanently empty.
+--
+-- ONE EVENT TABLE, NOT TWO. Remarks, flags and sign-offs are one chronological
+-- trail per receipt, which is what the UI renders anyway. A single `remark`
+-- column would let the second remark destroy the first and carry no author.
+-- actor_role and actor_name are SNAPSHOTS so the trail still reads correctly
+-- after someone changes role; amount_at_event records what was actually signed
+-- for, since an approval stamp with no number attached says nothing.
+--
+-- ---------------------------------------------------------------------------
+-- TWO TRAPS HIT WHILE BUILDING THIS
+--
+-- a) THE TRIGGER MUST NOT REUSE expense_month_usage(). The auto-flag runs BEFORE
+--    INSERT, so the row being judged is not in the table yet. Calling that
+--    function compares the cap against the month WITHOUT this receipt, so it
+--    would only ever flag someone who was ALREADY over -- and the receipt that
+--    actually takes them across the line, the one worth flagging, sails through.
+--    The trigger adds new.total explicitly for that reason.
+--
+-- b) THE EVENTS READ POLICY MUST NOT SUBQUERY wap_expenses DIRECTLY. That would
+--    make it depend on wap_expenses_read, which already depends on
+--    wap_expense_splits -- reopening the exact structural cycle that took the
+--    Expenses tab down with 42P17 during Task 5. It goes through
+--    private.expense_is_visible_to_me(), a SECURITY DEFINER helper, so the
+--    dependency stays one-directional.
+--
+-- 0 MEANS NO LIMIT. Habib's spending_limit is literally 0.00 and the column
+-- comment has defined 0 as "no limit" since 2026-07-24. Read literally it means
+-- "zero rupees allowed" and the CEO is flagged on every receipt he ever files.
+-- Both the trigger and expense_month_usage() guard on cap > 0.
+--
+-- ---------------------------------------------------------------------------
+-- Verified 2026-07-30, impersonating real accounts, every probe rolled back.
+--
+-- Auto-flag (the trigger, on real caps):
+--   Habib   cap 0.00   receipt 9,999,999  -> NOT flagged   (0 = unlimited)
+--   Asad    cap 50,000 receipt 60,000     -> FLAGGED, "takes the month to 60000
+--                                            PKR against a 50000 PKR cap"
+--   Khizar  cap 5,000  receipt 100        -> NOT flagged
+--
+-- Authorization:
+--   finance_manager approving their OWN receipt -> 42501 "you cannot approve
+--     your own expense" (line 8, i.e. past the role gate and stopped on identity)
+--   finance_admin approving a FLAGGED receipt   -> 42501 "only the finance
+--     manager can approve it" (line 16, i.e. past the role gate and stopped on
+--     the flag -- the delegated-authority rule, not a permissions failure)
+--   finance_admin approving an UNflagged one    -> approved, approved_by stamped
+--
+-- Remark visibility:
+--   finance_admin writes one visible + one internal remark on Asad's receipt;
+--   Asad reads exactly ONE -- "Please attach the itemised bill". The internal
+--   note is invisible to him.
+--
+-- Production after all probes: 34 expenses, 0 PROBE rows, 0 events, 0 non-logged,
+-- 0 flagged. (34 not 33: a real receipt -- Sarim, inDrive, 801 PKR -- arrived
+-- from the live app at 12:01 while this work was in progress.)
+-- ============================================================================
