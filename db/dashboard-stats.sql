@@ -164,3 +164,49 @@ comment on function public.dashboard_stats(text) is
 
 grant execute on function public.dashboard_stats(text) to authenticated;
 revoke execute on function public.dashboard_stats(text) from anon;
+
+-- ============================================================================
+-- 2026-07-30 — rep-activity-trend + active-rep window scalars
+-- ----------------------------------------------------------------------------
+-- Added two new keys, no existing key touched:
+--   top_reps_daily      -- top-5-by-volume reps, per day, over their own last-30
+--                           window (`trend_span`, separate from the 90-day-floored
+--                           `span` the volume/cache trend uses -- a 5-line-times-
+--                           90-day payload is needless weight for a trend chart
+--                           nobody reads back more than a month on).
+--   active_reps_last30  -- true count(distinct ident) over [today-29, today]
+--   active_reps_prev30  -- true count(distinct ident) over [today-59, today-30)
+--
+-- Why active_reps is two scalars, not a per-day array: summing a per-day
+-- distinct-count array across a 30-day window double-counts any rep active on
+-- more than one day -- it sums "rep-days," not distinct reps in the window.
+-- Each scalar here is a single count(distinct ident) over its whole window,
+-- correct by construction.
+--
+-- Verified via Supabase MCP execute_sql, each check in its own rolled-back
+-- transaction, impersonating real app_users rows:
+--   * private.can_read_chats() baseline call executes without error.
+--   * Dev account (role=dev): trend_days=30, reps_per_day=5, user_count=10,
+--     active_reps_last30=9, active_reps_prev30=6 -- both <= user_count as
+--     expected.
+--   * Independent cross-check (raw count(distinct ident) over chat_all for the
+--     last-30 window, computed outside dashboard_stats()) = 9, matching
+--     active_reps_last30 exactly.
+--   * Employee account (role=employee, gated to zero rows by
+--     private.can_read_chats() inside chat_all's RLS): user_count=0,
+--     active_reps_last30=0, active_reps_prev30=0, as expected.
+--
+-- One planning assumption corrected by measurement: for an empty `base` (the
+-- employee case, or any dev/ceo account with zero rows), top_reps_daily comes
+-- back as a ONE-element array (today, reps: null), not an empty array. This
+-- is not a bug in the new CTEs -- `trend_span` reuses the exact
+-- greatest(coalesce(first_day, today), today - N) shape the pre-existing
+-- `span` CTE already uses for volume_daily/cache_daily, and that CTE has the
+-- identical property (confirmed: volume_daily also comes back length 1, not
+-- 0, for the same empty-base employee call). coalesce(first_day, today) maps
+-- a null first_day to today, and greatest(today, today-N) is today, so the
+-- one-day generate_series is inherent to a pattern already live and verified
+-- since 2026-07-23 -- not something this change introduced. Recorded here
+-- rather than silently normalized because a future consumer of
+-- top_reps_daily should not assume "empty base => empty array."
+-- ============================================================================
