@@ -601,6 +601,7 @@ const Delta = ({value}) => {
 // shows an absolute count difference like "today vs yesterday"). previous=0
 // has no meaningful % change, so it reads "new" instead of dividing by zero.
 const PctDelta = ({current, previous}) => {
+  if (current == null || previous == null) return null;
   if (previous === 0) {
     return current > 0
       ? <span className="mono text-[11px] font-semibold" style={{color:POS}}>new</span>
@@ -620,6 +621,7 @@ const PctDelta = ({current, previous}) => {
 // relative % change of a percentage reads as confusing next to the value
 // itself. `current`/`previous` are 0-1 fractions.
 const PpDelta = ({current, previous}) => {
+  if (current == null || previous == null) return null;
   const pp = Math.round((current - previous) * 100);
   if (pp === 0) return <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
   const up = pp > 0;
@@ -653,7 +655,7 @@ function PeriodCompare({ sub, metrics }) {
           </span>
           <div>
             <span className="mono text-[26px] leading-none font-bold tracking-tight text-zinc-900">
-              {m.format ? m.format(m.current) : m.current.toLocaleString()}
+              {m.format ? m.format(m.current) : (m.current ?? 0).toLocaleString()}
             </span>
             <div className="mt-2 flex items-center gap-2">
               {m.kind === 'pp'
