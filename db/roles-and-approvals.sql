@@ -1153,3 +1153,85 @@ drop function private.is_admin();
 -- and the preflight is not blocked; it does not prove a dev's token is accepted.
 -- Confirm by adding a member from the Team tab.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 8-10. Client, and the Phase A verification sweep       (2026-07-30)
+-- ============================================================================
+--
+-- src/caps.js is the client mirror of the private.* functions: one map from role
+-- to capability booleans, plus the Team picker's role list. It is COSMETIC.
+-- Nothing in it is a boundary -- the database refuses the same things to a
+-- crafted REST call that never loads the file. Its job is to avoid drawing a
+-- button the server will reject. If it disagrees with the SQL, the SQL is right.
+--
+-- capsFor() falls back to the employee capability set for an unknown role, so
+-- the failure mode of a stale or missing profile is the most restrictive nav,
+-- never an elevated one.
+--
+-- THREE CLIENT TRAPS WORTH RECORDING:
+--
+-- a) ht_role -> ht_role_v2. Every signed-in user had 'admin' or 'accountant'
+--    cached in localStorage. Those spellings no longer exist, so on first load
+--    after the migration capsFor() would resolve them to 'employee' and a dev
+--    would briefly lose Team and Expenses until the background refetch landed.
+--    Bumping the key makes the cache miss once and read fresh.
+--
+-- b) The Overview "Cache" tile read 0 for the CEO, and 0 was a LIE. s.cacheTotal
+--    comes from a direct semantic_cache fetch in useData, not from
+--    dashboard_stats; RLS empties it and an empty array renders as zero, which
+--    reads as "the cache is empty" rather than "you cannot see this". The tile is
+--    now removed for roles without can_manage_cache() instead of shown lying.
+--    The neighbouring "From cache / AI calls" tiles are unaffected -- they come
+--    from the from_cache column on the chat rows, which the CEO can read.
+--
+-- c) Removing that tile drops the ledger from 3 items to 2, and the panel's grid
+--    was hardcoded md:grid-cols-[1.6fr_repeat(3,1fr)] -- which would have left
+--    the CEO a blank fourth column. Both templates are now written out in full
+--    and selected with a ternary, NOT interpolated: Tailwind v4 scans source
+--    text statically, so a repeat(${n},1fr) built at runtime never reaches the
+--    stylesheet. Verified both survive into dist/assets/index-*.css.
+--
+-- ---------------------------------------------------------------------------
+-- PHASE A VERIFICATION SWEEP. Every account impersonated through the real
+-- policies (set local role authenticated + injected request.jwt.claims), which
+-- is the same enforcement path a REST call with that JWT takes:
+--
+--   who             role            chats  cache  expenses  people
+--   Sarim           dev              407     37        33       8
+--   Habib           ceo              407      0        33       8
+--   Mawavia         finance_admin      0      0        33       8
+--   Asad            employee           0      0         0       1
+--   Iftikhar        employee           0      0         0       1
+--   Khizar Altaf    employee           0      0         0       1
+--   Khizar Hussain  employee           0      0         0       1
+--   Taimoor Nasir   employee           0      0         0       1
+--
+-- Matches the capability matrix exactly. Reading the notable cells:
+--   - ceo cache 0 but chats 407  -> the transcript/cache split holds
+--   - finance_admin chats 0 but expenses 33, people 8 -> she needs names to
+--     attribute receipts, not the transcript
+--   - employee people 1 -> app_users_self_read only; the staff directory is not
+--     readable by staff
+--
+-- An employee's 0 is only meaningful because it was tested with something to
+-- find: a probe receipt inserted for Asad inside a rolled-back transaction
+-- returned exactly 1 (his own) while a second employee saw 0 of it. A bare count
+-- of 0 against an empty table proves nothing -- the same trap applied to
+-- client_errors in section 6b.
+--
+-- Advisors: 0 ERROR. The WARN/INFO set is unchanged from before this work --
+-- ten SECURITY DEFINER admin RPCs (each re-checks its own capability), the two
+-- always-true INSERT policies (chat_feedback, client_errors, both by design),
+-- resolve_login_email's accepted anon tradeoff, and rls_enabled_no_policy on the
+-- four backup_20260728_* tables plus wap_expense_deletions (deliberate: an
+-- accountant must not be able to read or erase the record of what they deleted).
+--
+-- whatsapp_members re-checked: service_role and postgres only. No grant to
+-- authenticated or anon. It is a definer-rights view over every colleague's
+-- phone number, so that must stay true.
+--
+-- NOT VERIFIED HERE: a real browser session per role, and a real signed-in call
+-- to the two Edge Functions (no password available in this environment). Both
+-- need a human at a keyboard. See section 7.
+-- ============================================================================
