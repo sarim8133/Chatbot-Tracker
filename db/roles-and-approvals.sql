@@ -234,3 +234,131 @@ grant execute on function private.can_approve_over_limit()     to authenticated;
 -- written anywhere, no CHECK constraint was touched, and the one transactional
 -- GRANT used for testing was rolled back and confirmed gone.
 -- ============================================================================
+
+
+-- ============================================================================
+-- Task 3 — role DATA migration: admin/accountant/employee → six roles  (2026-07-30)
+--
+-- Task 2 (above) redefined private.can_view_all_expenses() to recognise
+-- dev/ceo/finance_manager/finance_admin. Until the DATA in app_users.role
+-- caught up, every admin/accountant fell through to "own records only" on the
+-- five live policies listed in §4 above — a live production gap, not a
+-- theoretical one. This task closes it.
+--
+-- Applied via migration `roles_dev_ceo_finance` (Supabase MCP apply_migration).
+-- ============================================================================
+
+
+-- ── 5. Why the order inside the migration matters ──────────────────────────
+-- One transaction, three ordered phases:
+--   1. DROP app_users_role_check first. The old constraint is
+--      `role in ('accountant','admin','employee')` — an UPDATE writing 'dev'
+--      or 'finance_admin' would violate it if it were still attached.
+--   2. UPDATE the data (admin → dev, accountant → finance_admin) while no
+--      constraint is attached.
+--   3. ADD the new constraint back, allow-listing all six roles, before the
+--      transaction commits.
+-- Because it is one transaction, there is no committed state where the
+-- constraint and the data disagree: either the whole thing lands, or (e.g. a
+-- typo in the new CHECK) the whole thing rolls back and app_users is
+-- untouched.
+--
+-- Two more objects were folded into the same migration, because the rename
+-- provably broke both the moment it landed:
+--   - public.admin_set_role(): validated p_role against a hardcoded
+--     ('admin','accountant','employee') list. Left alone, the Team panel
+--     could not save ANY role after this migration — including 'dev' for
+--     Sarim. Reproduced the live 2026-07-24 body unchanged except the
+--     allow-list and the is_admin()→is_dev() gate.
+--   - public.admin_list_users(): gated on private.is_admin(), which after
+--     this migration matches nobody (no row has role='admin' any more).
+--     Swapped the gate to private.is_dev(); body otherwise unchanged.
+--
+--
+-- ── 6. Role mapping applied ─────────────────────────────────────────────────
+--   old role     count   new role         how the change was made
+--   -----------  ------  ---------------  ---------------------------------
+--   admin        2       dev              automatic UPDATE inside the migration
+--   accountant   1       finance_admin    automatic UPDATE inside the migration
+--   employee     5       employee         unchanged
+--
+-- Then, as a separate explicit follow-up (deliberately NOT folded into the
+-- automatic map, so it reads in history as a recorded decision rather than a
+-- side effect of the bulk rename):
+--   Habib (c7dd77aa-56fc-40fe-9343-dc2c1b2e2a47), landed at dev by the
+--   automatic admin→dev map, was moved dev → ceo by its own UPDATE keyed on
+--   his user_id.
+--
+-- Final roster (8 users):
+--   Sarim           dev             AI          -- the only dev; Team tab gate
+--   Habib           ceo             CEO         -- explicit, not automatic
+--   Mawavia         finance_admin   Media
+--   Asad            employee        Sales
+--   Iftikhar        employee        Sales
+--   Khizar Altaf    employee        Sales
+--   Khizar Hussain  employee        Technical
+--   Taimoor Nasir   employee        Sales
+--
+-- Sarim ending as 'dev' was confirmed before this task was considered done —
+-- he is the only account that can reach the Team tab (admin_list_users and
+-- admin_set_role both gate on private.is_dev()), so if he had NOT ended up
+-- 'dev', both devs would have been demoted simultaneously: an unrecoverable
+-- lockout requiring a service-key repair. It did not happen — see
+-- Verification, Step 4/6 below.
+--
+--
+-- ============================================================================
+-- Verification — measured 2026-07-30 (Task 3)
+-- ============================================================================
+--
+-- Step 1 — baseline, immediately before this migration:
+--   select role, count(*) from public.app_users group by role order by role;
+--   → accountant 1, admin 2, employee 5             (matched the plan's expectation)
+--
+-- Step 2 — migration `roles_dev_ceo_finance` applied via the Supabase MCP
+-- apply_migration tool with the exact SQL in §5–6. Result: success.
+--
+-- Step 3 — counts immediately after the migration:
+--   select role, count(*) from public.app_users group by role order by role;
+--   → dev 2, employee 5, finance_admin 1             (matched expectation)
+--
+-- Step 4 — Habib moved dev → ceo by an explicit, separate UPDATE keyed on his
+-- user_id. Full roster afterward:
+--   Asad            employee        Sales
+--   Habib           ceo             CEO
+--   Iftikhar        employee        Sales
+--   Khizar Altaf    employee        Sales
+--   Khizar Hussain  employee        Technical
+--   Mawavia         finance_admin   Media
+--   Sarim           dev             AI
+--   Taimoor Nasir   employee        Sales
+-- Matched the plan's expected final state exactly, byte for byte. Sarim
+-- confirmed 'dev'.
+--
+-- Step 5 — the production gap from Task 2 §4, verified CLOSED through the
+-- RLS-protected table itself (not by calling private.* directly — schema
+-- private has no USAGE grant for authenticated; see Task 2's Verification
+-- section above for why that's dormant/expected and doesn't reflect what real
+-- callers experience):
+--   total_expenses (superuser)                       = 33
+--   mawavia_sees   (finance_admin, impersonated)      = 33   -- == total: gap CLOSED
+--   asad_sees      (employee, impersonated)           = 0    -- < total: isolation holds
+-- asad_sees = 0 because Asad has not personally submitted a receipt in this
+-- dataset, not because of a bug — the acceptance bar was asad_sees < total,
+-- which 0 < 33 satisfies. The "own records only" RLS branch is doing exactly
+-- what it should for an employee with zero rows of his own.
+--
+-- Step 6 — admin_list_users(), impersonated:
+--   Sarim (dev, 2a7c873e-959f-4727-81a7-25c757833db4):
+--     select count(*) from public.admin_list_users();  → 8   (matched expectation)
+--   Habib (ceo, c7dd77aa-56fc-40fe-9343-dc2c1b2e2a47):
+--     select count(*) from public.admin_list_users();
+--     → ERROR: 42501: not authorized                        (matched expectation —
+--       the CEO can read chats and all expenses, but must not manage the team)
+--
+-- Net result: the live gap opened by Task 2 is closed — finance_admin
+-- (Mawavia) now sees all expenses, not just her own — employee isolation is
+-- still intact (Asad, and by construction every other employee, sees only
+-- his own rows), the Team panel is reachable by the dev only, and Sarim did
+-- not lose dev access at any point.
+-- ============================================================================
