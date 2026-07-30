@@ -17,6 +17,7 @@ import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveR
 import { exportCSV, buildCSV, saveBlob, safeName, zipStore } from './export';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
+import { CAPS, capsFor, ROLE_CHOICES } from './caps';
 import { useTheme } from './theme';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -347,7 +348,12 @@ function useData(onAuthError) {
 // so every admin login rendered as Asad AND lost its admin tabs.
 //
 // Never let RLS be the reason a [0] is correct: filter for the row you want.
-const ROLE_LS = 'ht_role';
+// v2 (2026-07-30): the 'admin' / 'accountant' spellings no longer exist. Every
+// signed-in user had one of them cached here, and a stale value would resolve
+// through capsFor() to the fail-closed 'employee' nav until the background
+// refetch landed — a dev briefly losing Team and Expenses on first load. A new
+// key misses once and reads fresh instead.
+const ROLE_LS = 'ht_role_v2';
 function useProfile(onAuthError) {
   const [profile, setProfile] = useState(() => {
     try { return JSON.parse(localStorage.getItem(ROLE_LS) || 'null'); } catch { return null; }
@@ -764,7 +770,7 @@ function BadResponseRow({ r }) {
   );
 }
 
-function OverviewTab({s, onDrill}) {
+function OverviewTab({s, onDrill, showCache}) {
   const delta  = s.todayCount - s.ystCount;
   const total  = useCountUp(s.totalMsgs);
   const peak   = heatPeak(s.heat);
@@ -772,15 +778,23 @@ function OverviewTab({s, onDrill}) {
   const ledger = [
     {label:'Today',       value:s.todayCount, delta, hint:'Messages today, compared with yesterday'},
     {label:'Active reps', value:s.userCount,         hint:'Reps who messaged Hi Tech AI in this period'},
-    {label:'Cache',       value:s.cacheTotal,        hint:'Answers served instantly from cache — no AI call'},
+    // s.cacheTotal comes from a DIRECT semantic_cache fetch (see useData), not
+    // from dashboard_stats. RLS empties that table for anyone without
+    // can_manage_cache(), and an empty array renders as 0 — which reads as "the
+    // cache is empty" rather than "you can't see it". Removed, not shown lying.
+    ...(showCache ? [{label:'Cache', value:s.cacheTotal, hint:'Answers served instantly from cache — no AI call'}] : []),
   ];
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
 
-      <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday; "Cache" is answers served instantly without an AI call.</HelpNote>
+      <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday{showCache ? '; "Cache" is answers served instantly without an AI call' : ''}.</HelpNote>
 
-      {/* Readout cluster — one instrument panel, hero + ledger, divided by hairlines */}
-      <Panel className="grid grid-cols-1 md:grid-cols-[1.6fr_repeat(3,1fr)] divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden">
+      {/* Readout cluster — one instrument panel, hero + ledger, divided by hairlines.
+          Both column templates are written out in full rather than interpolated:
+          Tailwind scans source text statically, so a `repeat(${n},1fr)` built at
+          runtime never reaches the stylesheet and the grid silently collapses. */}
+      <Panel className={`grid grid-cols-1 divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden ${
+        ledger.length === 3 ? 'md:grid-cols-[1.6fr_repeat(3,1fr)]' : 'md:grid-cols-[1.6fr_repeat(2,1fr)]'}`}>
         {/* Primary readout */}
         <div className="p-6">
           <div className="flex items-center justify-between">
@@ -3666,7 +3680,12 @@ function ReceiptDownloadMenu({ rows, splitsByExpense, scope, disabled }) {
 }
 
 function ExpensesTab({ role, onAuthError }) {
-  const isEmployee = role === 'employee';
+  // "Employee" here means "sees only their own receipts", which is now a
+  // capability rather than a role name: finance_viewer is not an employee but is
+  // equally restricted to a subset, and finance_manager is not a dev but sees
+  // everything. Derive it instead of comparing strings.
+  const caps = capsFor(role);
+  const isEmployee = !caps.allExpenses && !caps.approvedExpenses;
   const [rows,   setRows]   = useState(null);
   const [splits, setSplits] = useState([]);
   const [team,   setTeam]   = useState([]);
@@ -4172,13 +4191,10 @@ function ExpensesTab({ role, onAuthError }) {
 // Add a team member directly (creates the Supabase login + writes app_users and,
 // for employees, the WhatsApp roster) via the admin-create-user Edge Function, and
 // edit existing people's role/identity via the admin_set_role RPC. Both re-check
-// admin server-side, so nothing here can be abused from the client.
-
-const ROLE_CHOICES = [
-  { value: 'admin',      label: 'Admin',      desc: 'Full access — all tabs + everyone’s expenses' },
-  { value: 'accountant', label: 'Accountant', desc: 'Everyone’s expenses + sales tabs' },
-  { value: 'employee',   label: 'Employee',   desc: 'Only their own expenses (linked by phone)' },
-];
+// dev server-side, so nothing here can be abused from the client.
+//
+// ROLE_CHOICES now lives in src/caps.js beside the capability map, so the picker
+// and the permissions it hands out are edited in one place.
 
 const genPassword = () => {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -4359,8 +4375,8 @@ function TeamTab({ role, onAuthError }) {
     setActing(null);
   };
 
-  if (role !== 'admin') {
-    return <Panel className="p-8 text-center text-[14px] text-zinc-500">Only admins can manage the team.</Panel>;
+  if (!capsFor(role).team) {
+    return <Panel className="p-8 text-center text-[14px] text-zinc-500">Only developers can manage the team.</Panel>;
   }
   if (users === null) return <Skeleton />;
 
@@ -4695,26 +4711,41 @@ const EXPENSES_NAV = {id:'expenses', label:'Expenses', icon:Receipt, sub:'Employ
 const TEAM_NAV = {id:'team', label:'Team', icon:Shield, sub:'Manage logins & roles'};
 const ALL_NAV = [...SALES_NAV, EXPENSES_NAV, TEAM_NAV];   // superset, for hash/history validation
 
-// Which tabs a role may see:
-//   employee            → Chat + their own expenses ("My Expenses")
-//   accountant          → only the all-employee Expenses tab
-//   admin               → every sales tab + all-employee Expenses + Team panel
-//   unknown (loading)   → sales tabs only, until the profile resolves
+// Which tabs a role may see. Derived from the capability map (src/caps.js) so
+// this list and the RLS in db/roles-and-approvals.sql cannot drift into
+// disagreeing.
+//
+//   c.chats = may READ the transcript (Conversations, Reps, Overview)
+//   c.cache = may read semantic_cache (dev only — the CEO gets the transcript,
+//             not the cache internals)
+//   c.chat  = has the Chat TAB. True for everyone, and not because the sales bot
+//             is useful to Finance: the web receipt uploader lives inside that
+//             composer, so withholding the tab would leave Finance owing
+//             receipts with no way to file one.
+//
+// An unknown role (profile still loading) resolves through capsFor() to the
+// employee capability set, so the fallback is the most restrictive nav, never an
+// elevated one.
 function navForRole(role) {
-  const myExpenses = {...EXPENSES_NAV, label:'My Expenses', sub:'Your receipts & spend'};
-  const chat = SALES_NAV.find(n => n.id === 'chat');
-  if (role === 'employee')   return [myExpenses, chat];
-  if (role === 'accountant') return [EXPENSES_NAV];
-  if (role === 'admin')      return [...SALES_NAV, EXPENSES_NAV, TEAM_NAV];
-  return SALES_NAV;
+  const c = capsFor(role);
+  const nav = [];
+  if (c.chats) nav.push(...SALES_NAV.filter(n => n.id !== 'chat' && (n.id !== 'cache' || c.cache)));
+  nav.push(c.allExpenses || c.approvedExpenses
+    ? EXPENSES_NAV
+    : {...EXPENSES_NAV, label:'My Expenses', sub:'Your receipts & spend'});
+  if (c.chat) nav.push(SALES_NAV.find(n => n.id === 'chat'));
+  if (c.team) nav.push(TEAM_NAV);
+  return nav;
 }
 
-// Role display (shown in the header for everyone).
-const ROLE_META = {
-  admin:      { label:'Admin',      color:BLUE },
-  accountant: { label:'Accountant', color:POS },
-  employee:   { label:'Employee',   color:'var(--muted)' },
-};
+// Role display (shown in the header for everyone). Built from the same map, so
+// adding a role means editing src/caps.js and nothing here.
+const ROLE_META = Object.fromEntries(
+  Object.entries(CAPS).map(([role, c]) => [role, {
+    label: c.label,
+    color: c.tone === 'accent' ? BLUE : c.tone === 'pos' ? POS : 'var(--muted)',
+  }]),
+);
 
 // ── Root Component ────────────────────────────────────────────────────────────
 export default function Dashboard({ onLogout }) {
@@ -5082,7 +5113,7 @@ export default function Dashboard({ onLogout }) {
             </p>
           </div>
           {/* Channel filter — the analytics source combines WhatsApp + website chat. */}
-          {role==='admin' && ['overview','conversations','users'].includes(tab) && (
+          {capsFor(role).chats && ['overview','conversations','users'].includes(tab) && (
             <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-zinc-100 border border-zinc-200 shrink-0" role="group" aria-label="Filter by channel">
               {[['all','All'],['whatsapp','WhatsApp'],['web','Website']].map(([v,label])=>(
                 <button key={v} type="button" onClick={()=>setChannelFilter(v)}
@@ -5106,7 +5137,7 @@ export default function Dashboard({ onLogout }) {
               initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}}
               transition={{duration:0.22}}
             >
-              {tab==='overview'      && <OverviewTab      s={stats} onDrill={goDrill}/>}
+              {tab==='overview'      && <OverviewTab      s={stats} onDrill={goDrill} showCache={capsFor(role).cache}/>}
               {tab==='conversations' && <ConversationsTab s={stats} channelFilter={channelFilter} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill} onAuthError={handleLogout}/>}
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
               {tab==='cache'         && <CacheTab         s={stats}/>}
