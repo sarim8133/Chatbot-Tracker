@@ -4265,6 +4265,53 @@ function ExpensesTab({ role, phone, onAuthError }) {
     return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), total: m[k] }));
   }, [rows, dept, selEmp, splitsByExpense, byCat]);
 
+  // "This month vs last month" — read straight off `trend` (already one entry
+  // per month, ascending) rather than a separate computation.
+  const spendCompareMetrics = useMemo(() => {
+    const idx = trend.findIndex(t => t.month === month);
+    const cur  = idx >= 0 ? trend[idx].total : 0;
+    const prev = idx > 0 ? trend[idx - 1].total : 0;
+    return [{
+      label: isEmployee ? 'Your spend' : 'Total spend', kind: 'pct', current: cur, previous: prev,
+      format: fmtPKR, hint: `Total spend, ${monthLabel(month)} vs the month before`,
+    }];
+  }, [trend, month, isEmployee]);
+
+  // Approval turnaround: days from submission to approval, for APPROVED
+  // receipts only. approved_at/processed_at both live on wap_expenses already
+  // (no new fetch). A time-to-reject variant would need wap_expense_events'
+  // reject-kind row, which isn't bulk-fetched here — out of scope, see design
+  // spec 2026-07-30 §2.
+  const approvalTurnaround = useMemo(() => {
+    if (!rows) return [];
+    const m = {};
+    for (const r of rows) {
+      if (r.status !== 'approved' || !r.approved_at || !r.processed_at) continue;
+      const days = (new Date(r.approved_at) - new Date(r.processed_at)) / 86400000;
+      const k = (r.processed_at || '').slice(0, 7);
+      if (!k) continue;
+      if (!m[k]) m[k] = { sum: 0, n: 0 };
+      m[k].sum += days; m[k].n += 1;
+    }
+    return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), days: m[k].sum / m[k].n }));
+  }, [rows]);
+
+  // Status distribution across ALL receipts (not scoped to one month — this
+  // answers "how are we doing overall", not a monthly question). `flagged` is
+  // a separate boolean column, not a status value, so it's a percentage
+  // alongside the bar rather than a fifth bucket.
+  const statusSplit = useMemo(() => {
+    if (!rows) return null;
+    const counts = { logged: 0, pending_approval: 0, approved: 0, rejected: 0 };
+    let flaggedCount = 0;
+    for (const r of rows) {
+      if (counts[r.status] != null) counts[r.status]++;
+      if (r.flagged) flaggedCount++;
+    }
+    const total = rows.length;
+    return { counts, total, flaggedPct: total ? Math.round((flaggedCount / total) * 100) : 0 };
+  }, [rows]);
+
   // KPIs for the focused scope (month + dept + selEmp + category). Spend is the
   // sum of shares; the receipt count is physical receipts, so a split bill is one.
   const totalSpend = focusSharesCat.reduce((a, r) => a + r.amount, 0);
