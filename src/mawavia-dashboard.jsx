@@ -4282,6 +4282,11 @@ function ExpensesTab({ role, phone, onAuthError }) {
   // (no new fetch). A time-to-reject variant would need wap_expense_events'
   // reject-kind row, which isn't bulk-fetched here — out of scope, see design
   // spec 2026-07-30 §2.
+  //
+  // Deliberately reads raw `rows`, NOT `inScope`/`focusShares` — ignores the
+  // month AND the dept/employee filter, same as statusSplit below. A CEO
+  // metric like "how fast is finance approving receipts" shouldn't silently
+  // narrow to whichever employee happens to be selected elsewhere on the tab.
   const approvalTurnaround = useMemo(() => {
     if (!rows) return [];
     const m = {};
@@ -4296,10 +4301,11 @@ function ExpensesTab({ role, phone, onAuthError }) {
     return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), days: m[k].sum / m[k].n }));
   }, [rows]);
 
-  // Status distribution across ALL receipts (not scoped to one month — this
-  // answers "how are we doing overall", not a monthly question). `flagged` is
-  // a separate boolean column, not a status value, so it's a percentage
-  // alongside the bar rather than a fifth bucket.
+  // Status distribution across ALL receipts — not scoped to one month, and
+  // (like approvalTurnaround above) not scoped to the current dept/employee
+  // filter either. This answers "how are we doing overall", not a filtered
+  // question. `flagged` is a separate boolean column, not a status value, so
+  // it's a percentage alongside the bar rather than a fifth bucket.
   const statusSplit = useMemo(() => {
     if (!rows) return null;
     const counts = { logged: 0, pending_approval: 0, approved: 0, rejected: 0 };
