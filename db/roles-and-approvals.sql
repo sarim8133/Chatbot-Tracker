@@ -592,3 +592,237 @@ grant execute on function private.can_approve_over_limit()     to authenticated;
 -- is untouched, chat_all is still security_invoker, and the rep count
 -- resolves to 6 for every role that can see chats at all — not 8.
 -- ============================================================================
+
+
+-- ============================================================================
+-- Task 5 — expense + storage policies read from capability functions  (2026-07-30)
+--
+-- Tasks 2-4 (above) gave the six roles their capability functions, their role
+-- data, and repointed the chat/cache/identity policies onto those functions.
+-- This task does the same for expenses: it adds ONE new capability to the
+-- read rules — finance_viewer (a Finance records-keeper) sees APPROVED
+-- expenses. private.can_view_approved_expenses() already existed (Task 2) as
+-- a strict superset of can_view_all_expenses(), so the new branch only ever
+-- fires for finance_viewer; every other role's access is unchanged.
+--
+-- wap_expenses.status is CHECK-constrained to ('logged','rejected') only —
+-- 'approved' is not yet a legal value (Phase B adds it). The new
+-- `status = 'approved'` branches below are therefore inert in production
+-- today. That is expected and by design; they were proven correct by
+-- borrowing a role and relaxing the CHECK inside a transaction that was
+-- rolled back (Verification, Step 5).
+--
+-- Applied via TWO migrations (Supabase MCP apply_migration), not one:
+--   expense_policies_by_capability  — the intended change, §10-§12 below
+--   fix_wap_splits_read_recursion   — an unplanned same-day emergency
+--                                     follow-up, §13 below. Read that section
+--                                     before assuming this was a clean
+--                                     one-shot migration: the first one broke
+--                                     read access to wap_expenses for EVERY
+--                                     authenticated role, including dev and
+--                                     ceo, for the few minutes between the two
+--                                     migrations landing.
+-- ============================================================================
+
+
+-- ── 10. Policy names — none stale this time ─────────────────────────────────
+-- Checked live before writing the migration (the standing rule since Task 4
+-- §8 caught two stale names). This time every name the migration's
+-- `drop policy if exists` lines target matched a real, live policy exactly —
+-- nothing silently no-op'd:
+--   wap_expenses          wap_expenses_self_or_accountant, wap_expenses_service_only
+--   wap_expense_splits    wap_splits_self_or_accountant
+--   wap_allowed_senders   wap_senders_self_or_accountant, wap_senders_service_only
+--   storage.objects       receipts_read_own_or_admin (SELECT), receipts_delete_accountant (DELETE)
+-- Baseline counts: 33 total expenses, all status='logged' (0 'rejected' in
+-- the live data right now).
+
+
+-- ── 11. The new branch, and why storage had to move with it ────────────────
+-- wap_expenses_read gained one OR-branch:
+--   (status = 'approved' and private.can_view_approved_expenses())
+-- can_view_all_expenses() is a subset of can_view_approved_expenses() (Task 2
+-- capability matrix), so for dev/ceo/finance_manager/finance_admin this
+-- branch is redundant with the first one — it only ever changes the answer
+-- for finance_viewer, who matches no other branch (not all-expenses, not
+-- own user_id/phone, not a split they're party to).
+--
+-- wap_expense_splits and wap_allowed_senders got the parallel treatment: a
+-- split is readable if its parent expense is approved and the caller can view
+-- approved expenses; the sender roster opens to can_view_approved_expenses()
+-- the same way it already opened to can_view_all_expenses().
+--
+-- The bucket matters as much as the table. `receipts` is a PRIVATE bucket
+-- (db/expense-access-rls.sql §6) — its RLS gates the SIGNING of a download
+-- URL, not just the download itself (confirmed by the 2026-07-11 pen-test,
+-- db/expense-access-rls.sql §8: "Storage /object/sign for a stranger's
+-- receipt path -> refused"). Skipping the storage policy would have meant:
+-- finance_viewer's Expenses tab lists the approved rows correctly (the table
+-- policy is right), but every thumbnail 403s, because /object/sign for that
+-- path still runs through the OLD storage policy, which never heard of
+-- finance_viewer. The bulk "download all as ZIP" export signs each path
+-- through that same policy in a loop — it would silently come back short,
+-- one missing file per receipt the old policy refused to sign, not an
+-- obvious all-or-nothing failure.
+--
+-- storage.objects' policy keeps its own name, receipts_read_own_or_admin,
+-- unchanged, because renaming it isn't in scope here — only its body grew a
+-- third and fourth branch: an approved-expense-by-image_path branch mirroring
+-- the table policy, and a split-membership branch (join wap_expenses to
+-- wap_expense_splits on sender_phone) so a person named on a split can see
+-- the receipt image even if they're not the uploader.
+
+
+-- ── 12. Delete follows can_manage_expenses(), not the view capability ───────
+-- receipts_delete_accountant -> receipts_delete_manage: renamed because its
+-- old name baked in a role ("accountant") that no longer exists (same
+-- rationale as every other rename in this file — Task 2 §1). More important
+-- than the name: its gate is private.can_manage_expenses() — {dev,
+-- finance_admin} — NOT private.can_view_all_expenses() ({dev, ceo,
+-- finance_manager, finance_admin}) or private.can_view_approved_expenses()
+-- (adds finance_viewer on top of that). The CEO can see every receipt in the
+-- app and must not be able to destroy the underlying photo; finance_viewer,
+-- a records-keeper, must not be able to touch storage at all. Viewing and
+-- destroying are different capabilities on purpose, and after this task they
+-- are finally gated by two different functions instead of sharing one.
+
+
+-- ── 13. Unplanned mid-task incident: RLS infinite recursion, live for a few
+--       minutes on every authenticated role ─────────────────────────────────
+-- expense_policies_by_capability, as first applied, gave wap_splits_read this
+-- new branch for the finance_viewer case:
+--   or exists (
+--     select 1 from public.wap_expenses e
+--      where e.expense_id = wap_expense_splits.expense_id
+--        and e.status = 'approved' and private.can_view_approved_expenses()
+--   )
+-- That is a RAW reference from wap_expense_splits' policy to public.wap_expenses.
+-- wap_expenses_read already had a raw EXISTS against public.wap_expense_splits
+-- (pre-existing since db/expense-access-rls.sql, for the "your split exists"
+-- branch — never a problem on its own, because the old
+-- wap_splits_self_or_accountant never referenced wap_expenses back). Adding
+-- the new branch closed a cycle: evaluating RLS on wap_expenses requires
+-- expanding wap_expense_splits' policy, which now requires re-expanding
+-- wap_expenses' policy, forever.
+--
+-- Postgres detects this structurally at policy-expansion time, before any
+-- per-row OR short-circuit evaluation — so the error fired for EVERY reader,
+-- not only finance_viewer:
+--   ERROR: 42P17: infinite recursion detected in policy for relation "wap_expenses"
+-- Measured live, immediately after expense_policies_by_capability landed:
+-- Sarim (dev) and Habib (ceo) — whose access is fully granted by the FIRST
+-- OR-branch, can_view_all_expenses(), nowhere near the new one — both got
+-- 42P17 on a bare `select count(*) from public.wap_expenses`. This was a live
+-- break of the Expenses tab for every signed-in user, for the few minutes
+-- between the two migrations in this task.
+--
+-- Fix, applied as migration fix_wap_splits_read_recursion within minutes:
+-- give wap_expense_splits a SECURITY DEFINER helper that checks the parent's
+-- status WITHOUT a raw table reference, using the same RLS-bypass mechanism
+-- every private.* helper already relies on to read app_users directly (the
+-- function owner is exempt from the target table's RLS; this is what has let
+-- can_view_all_expenses() etc. read app_users.role safely all along):
+--
+--   create or replace function private.expense_is_approved(p_expense_id text)
+--   returns boolean language sql security definer stable set search_path = '' as $$
+--     select exists (
+--       select 1 from public.wap_expenses
+--        where expense_id = p_expense_id and status = 'approved'
+--     );
+--   $$;
+--
+-- wap_splits_read's new branch became:
+--   or (private.can_view_approved_expenses()
+--       and private.expense_is_approved(wap_expense_splits.expense_id))
+--
+-- This removes the reverse edge and restores the dependency graph to the
+-- one-directional DAG it was before this task (wap_expenses ->
+-- wap_expense_splits only, never back). Re-ran the Step 3 counts immediately
+-- after: Sarim/Habib/Mawavia all back to 33, Asad still 0 (Verification,
+-- Step 3). storage.objects' policy references both tables directly too, but
+-- never the reverse (neither table policy references storage.objects), so it
+-- was never part of the cycle and needed no change.
+--
+-- Lesson for future capability branches that cross wap_expenses <->
+-- wap_expense_splits: a raw table reference is only safe in the direction
+-- that already existed (splits -> nothing back). Any NEW branch that needs to
+-- read the OTHER table from inside one of these two policies should go
+-- through a SECURITY DEFINER helper, not a raw subquery, or it risks
+-- recreating this exact cycle.
+--
+--
+-- ============================================================================
+-- Verification — measured 2026-07-30 (Task 5)
+-- ============================================================================
+--
+-- Step 1 — baseline, before any change:
+--   total_expenses = 33, all status = 'logged' (0 'rejected')
+--   Policy names — see §10 above; every drop target matched a real policy,
+--   nothing stale.
+--
+-- Step 2 — expense_policies_by_capability applied (Supabase MCP
+-- apply_migration). Result: success (but see §13 — "success" at the DDL
+-- level, broken at the read level until the follow-up below).
+--
+-- Step 3 — impersonation counts, FIRST attempt (before the recursion fix):
+--   every one of Sarim / Habib / Mawavia / Asad -> ERROR 42P17 infinite
+--   recursion detected in policy for relation "wap_expenses"
+-- fix_wap_splits_read_recursion applied (Supabase MCP apply_migration, see
+-- §13). Result: success. Re-ran the same four counts:
+--   Sarim   (dev,           2a7c873e-959f-4727-81a7-25c757833db4) -> 33  (matches total)
+--   Habib   (ceo,           c7dd77aa-56fc-40fe-9343-dc2c1b2e2a47) -> 33  (matches total)
+--   Mawavia (finance_admin, dfc200b5-5ef8-4fce-8514-6c4ea753ce29) -> 33  (matches total)
+--   Asad    (employee,      fb9f85e3-97f5-423b-89f1-c388c16b232d) -> 0   (owns nothing yet)
+--
+-- Step 4 — probe row inside a rolled-back transaction (PROBE-T5-ASAD,
+-- sender_phone 923104309666, status 'logged' — a legal value, no CHECK
+-- relaxation needed for this step):
+--   Asad (employee, fb9f85e3-97f5-423b-89f1-c388c16b232d):
+--     asad_sees = 1, which = PROBE-T5-ASAD
+--   Khizar Hussain (employee, c8a48925-efe7-4032-8f82-79614d59c1cf):
+--     khizar_sees = 0
+-- Confirms the branch is doing real work, not just returning zero for two
+-- unrelated reasons: Asad sees exactly his own probe and nothing else;
+-- Khizar, a different employee, sees none of it. Both blocks rolled back;
+-- confirmed after: total = 33, probes_left (expense_id='PROBE-T5-ASAD') = 0.
+--
+-- Step 5 — finance_viewer probe, borrowing Khizar Hussain's account and
+-- relaxing wap_expenses_status_check, inside a transaction rolled back:
+--   viewer_sees = 3   (the 3 rows flipped to 'approved', not all 33)
+-- Confirmed after rollback: Khizar's role back to 'employee'; status counts
+-- back to logged=33 (0 approved/rejected); wap_expenses_status_check present,
+-- unchanged: CHECK ((status = ANY (ARRAY['logged'::text, 'rejected'::text]))).
+--
+-- Step 6 — the known gap for Task 6, recorded not fixed: impersonating Habib
+-- (ceo) and calling admin_delete_expense('PROBE-DOES-NOT-EXIST','probe')
+-- inside a rolled-back transaction:
+--   ERROR: P0002: no such expense: PROBE-DOES-NOT-EXIST
+-- Not 42501. The CEO got PAST admin_delete_expense's authorization check (it
+-- still gates on can_view_all_expenses(), which now includes ceo) and only
+-- failed because the probe id doesn't exist. Confirms the CEO currently holds
+-- delete rights he should not have — Task 6 closes this by moving the gate to
+-- can_manage_expenses().
+--
+-- Step 7 — get_advisors('security'): 0 ERROR-level. Every finding falls into
+-- an already-documented bucket (Task 4's Verification, above, lists the exact
+-- same set): the ten SECURITY DEFINER admin RPCs (WARN, reachable by
+-- authenticated / resolve_login_email also by anon — each re-checks its own
+-- authorization internally), the two always-true INSERT policies on
+-- chat_feedback and client_errors (by design), and rls_enabled_no_policy INFO
+-- on the four backup_20260728_* tables plus wap_expense_deletions (the last
+-- one deliberate: an accountant-equivalent role must not be able to read or
+-- erase the record of what they deleted). private.expense_is_approved() does
+-- not appear anywhere in the output — same reason none of the other
+-- private.* helpers do: the private schema is never exposed to PostgREST.
+--
+-- Net result: finance_viewer sees approved expenses (table, splits, sender
+-- roster, and signed storage URLs, all four consistently); every other
+-- role's access is unchanged (33/33/33/0 held before AND after, once the
+-- recursion fix landed); employee-to-employee isolation holds under a real
+-- probe row, not just an ambiguous zero; deletion still requires
+-- can_manage_expenses() and not mere visibility; and the CEO's-eligible-for-
+-- delete gap is confirmed (not fixed) for Task 6. The one thing that did NOT
+-- go to plan: expense_policies_by_capability as first written broke
+-- wap_expenses read access for everyone for a few minutes, fixed same-day by
+-- fix_wap_splits_read_recursion — see §13 for the full account.
+-- ============================================================================
