@@ -67,6 +67,9 @@ as $$
 -- computed in this function AND again in the client, which is how one person
 -- ended up as two reps: WhatsApp rows keyed on the phone, web rows on the
 -- display name. See db/2026-07-28-single-identity.sql.
+--
+-- SECURITY INVOKER is deliberate (db/dashboard-stats.sql:30): chat_all honours
+-- the caller, so a non-admin gets no rows and therefore no company-wide stats.
 with base as (
   select
     c."Timestamp"                                                        as ts,
@@ -262,6 +265,13 @@ revoke execute on function public.dashboard_stats(text) from anon;
 --   * Independent cross-check (raw count(distinct ident) over chat_all for the
 --     last-30 window, computed outside dashboard_stats()) = 5, matching
 --     active_reps_last30 exactly.
+--   * CEO account (role=ceo, the OTHER role in can_read_chats()'s {dev,ceo}
+--     set, and the one sharing this exact base/users code path with dev):
+--     trend_days=30, reps_per_day=5, user_count=6, active_reps_last30=5,
+--     active_reps_prev30=5, first_phone populated -- identical to the dev
+--     account, as expected (same underlying rows, same identity resolution).
+--     Added specifically because this is the code path that regressed once
+--     already (see below) and dev alone doesn't prove ceo sees the same fix.
 --   * Employee account (role=employee, gated to zero rows by
 --     private.can_read_chats() inside chat_all's RLS): user_count=0,
 --     active_reps_last30=0, active_reps_prev30=0, as expected.
