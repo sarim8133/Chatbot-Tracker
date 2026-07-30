@@ -597,6 +597,77 @@ const Delta = ({value}) => {
   );
 };
 
+// Percentage delta for period-over-period comparisons (vs `Delta` above, which
+// shows an absolute count difference like "today vs yesterday"). previous=0
+// has no meaningful % change, so it reads "new" instead of dividing by zero.
+const PctDelta = ({current, previous}) => {
+  if (previous === 0) {
+    return current > 0
+      ? <span className="mono text-[11px] font-semibold" style={{color:POS}}>new</span>
+      : <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
+  }
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
+  const up = pct > 0;
+  return (
+    <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold" style={{color: up ? POS : NEG}}>
+      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(pct)}%
+    </span>
+  );
+};
+
+// Percentage-POINT delta — for rate metrics (e.g. cache hit rate) where a
+// relative % change of a percentage reads as confusing next to the value
+// itself. `current`/`previous` are 0-1 fractions.
+const PpDelta = ({current, previous}) => {
+  const pp = Math.round((current - previous) * 100);
+  if (pp === 0) return <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
+  const up = pp > 0;
+  return (
+    <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold" style={{color: up ? POS : NEG}}>
+      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(pp)}pp
+    </span>
+  );
+};
+
+// Period-over-period stat row — "this window vs the one before it". Shared by
+// Overview (messages/active reps/hit rate) and Expenses (spend), so the visual
+// language and delta math live in exactly one place. `metrics`:
+// [{label, current, previous, format(v), hint, kind:'pct'|'pp'}].
+//
+// The grid-cols class is written as an explicit ternary, NOT
+// `sm:grid-cols-${metrics.length}` — Tailwind v4 scans source text
+// statically (the same trap already documented at OverviewTab's KPI ledger
+// panel, ~line 797), so a class built by runtime interpolation never reaches
+// the compiled stylesheet. This covers every call site in this plan (Overview
+// passes 3 metrics, Expenses passes 1).
+function PeriodCompare({ sub, metrics }) {
+  return (
+    <Panel className={`grid grid-cols-1 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 overflow-hidden ${
+      metrics.length >= 3 ? 'sm:grid-cols-3' : metrics.length === 2 ? 'sm:grid-cols-2' : ''}`}>
+      {metrics.map(m => (
+        <div key={m.label} className="p-6 flex flex-col justify-between gap-6">
+          <span className="flex items-center gap-1">
+            <Label>{m.label}</Label>
+            {m.hint && <HintIcon text={m.hint}/>}
+          </span>
+          <div>
+            <span className="mono text-[26px] leading-none font-bold tracking-tight text-zinc-900">
+              {m.format ? m.format(m.current) : m.current.toLocaleString()}
+            </span>
+            <div className="mt-2 flex items-center gap-2">
+              {m.kind === 'pp'
+                ? <PpDelta current={m.current} previous={m.previous}/>
+                : <PctDelta current={m.current} previous={m.previous}/>}
+              <span className="text-[11px] text-zinc-400">vs {sub}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </Panel>
+  );
+}
+
 // Circular avatar with deterministic pastel color per rep
 const Tag = ({number, lg=false}) => {
   const {bg, fg} = avatarColor(number);
