@@ -206,7 +206,9 @@ function demoStats() {
       count: Math.round(Math.random() * (u.count / 20)),
     })),
   }));
-  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate,topRepsDaily,activeRepsLast30:18,activeRepsPrev30:15};
+  // Active reps in a window are a subset of all-time reps, same invariant the
+  // real RPC enforces (db/dashboard-stats.sql) — must stay <= users.length.
+  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate,topRepsDaily,activeRepsLast30:4,activeRepsPrev30:3};
 }
 
 // ── Data Fetching ─────────────────────────────────────────────────────────────
