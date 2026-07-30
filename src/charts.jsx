@@ -12,7 +12,7 @@ import {
   Tooltip, ResponsiveContainer, Cell, CartesianGrid,
   PieChart, Pie,
 } from 'recharts';
-import { catColor, fmtPKR, fmtPKRk } from './categories';
+import { catColor, CAT_COLOR, fmtPKR, fmtPKRk } from './categories';
 import { useThemeColors } from './theme';
 
 // Recharts sets colors as SVG *attributes* (fill="#2258B8"), where a CSS var()
@@ -370,14 +370,23 @@ const RepLegend = ({ reps, palette }) => (
 export function RepActivityTrend({ data = [] }) {
   const c = useThemeColors();
   const [expanded, setExpanded] = useState(false);
-  const palette = [c.accent, c.ink, c.blue, c.pos, c.neg];
+  // Reuses the app's one validated colorblind-safe categorical set
+  // (src/categories.js) rather than theme tokens — c.pos/c.neg specifically
+  // are reserved for delta coloring elsewhere (mawavia-dashboard.jsx), so an
+  // arbitrary rep's line must not borrow "good"/"bad" semantics.
+  const palette = [CAT_COLOR.Food, CAT_COLOR.Fuel, CAT_COLOR.Travel, CAT_COLOR.Supplies, CAT_COLOR.Utilities];
 
   // Pivot [{date,label,reps:[{ident,name,count}]}] into one row per day with
-  // one column per rep — the shape Recharts' multi-<Line> wants.
+  // one column per rep — the shape Recharts' multi-<Line> wants. `reps` is
+  // ranked by total volume descending, so palette[0]/accent-equivalent lands
+  // on the same rep the adjacent "Top reps" bar chart highlights as #1.
   const { rows, reps } = useMemo(() => {
-    const names = new Map();
-    for (const day of data) for (const r of day.reps || []) names.set(r.ident, r.name || r.ident);
-    const reps = [...names.entries()].map(([ident, name]) => ({ ident, name }));
+    const totals = new Map();
+    for (const day of data) for (const r of day.reps || [])
+      totals.set(r.ident, { name: r.name || r.ident, total: (totals.get(r.ident)?.total || 0) + r.count });
+    const reps = [...totals.entries()]
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([ident, v]) => ({ ident, name: v.name }));
     const rows = data.map(day => {
       const row = { label: day.label };
       for (const r of day.reps || []) row[r.ident] = r.count;
@@ -395,7 +404,7 @@ export function RepActivityTrend({ data = [] }) {
         <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false}
           interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={30} allowDecimals={false}/>
-        <Tooltip content={<RepTrendTip/>}/>
+        <Tooltip content={<RepTrendTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         {reps.map((r,i)=>(
           <Line key={r.ident} type="monotone" dataKey={r.ident} name={r.name}
             stroke={palette[i % palette.length]} strokeWidth={2} dot={false}
