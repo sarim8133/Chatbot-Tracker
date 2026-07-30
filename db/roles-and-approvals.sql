@@ -1048,3 +1048,69 @@ grant execute on function private.can_approve_over_limit()     to authenticated;
 -- named, precise handoff rather than a forced CASCADE. Production is
 -- unchanged throughout: 33 expenses, 0 splits, before and after every step.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 6b. client_errors, and the retirement of private.is_admin()
+--     Applied via migration `client_errors_read_by_dev_and_retire_is_admin`.
+-- ============================================================================
+--
+-- The Task 6 handoff above named client_errors_admin_read as the last thing
+-- holding private.is_admin() alive. This closes it.
+--
+-- WHAT WAS ACTUALLY BROKEN. public.client_errors is the frontend error sink
+-- (window.onerror / unhandledrejection / React boundary crashes, POSTed by
+-- src/errlog.js). Its read policy gated on private.is_admin(), i.e. role =
+-- 'admin' -- a value no row has held since Task 3 renamed admin -> dev. So from
+-- Task 3 onward the log was readable by NOBODY, the dev included. Nothing
+-- errored. The log simply returned zero rows, which is indistinguishable from
+-- "the app has thrown no errors" -- the worst possible failure mode for a
+-- diagnostic tool, because it reads as good news.
+--
+-- WHY IT WAS MISSED. Task 4 swept the tables listed in db/security-rls.sql.
+-- client_errors was created 2026-07-16, after that file was written, and was
+-- never added to it. The list was the plan; the list was incomplete.
+--
+-- HOW IT WAS FOUND. Not by inspection -- by `drop function private.is_admin()`
+-- refusing with 2BP01 and naming the dependency. That is the whole value of
+-- attempting the drop: Postgres will not let a referenced function go, so a
+-- refused drop is a precise, machine-generated list of what you forgot. Any
+-- migration that retires a predicate should end with the drop for this reason,
+-- and should never use CASCADE, which would have silently deleted the policy
+-- and left the table world-readable to every authenticated user.
+--
+-- WHY is_dev() AND NOT can_read_chats(). This is a stack-trace sink for
+-- debugging the app, not a business report. The CEO reads analytics; he has no
+-- use for a React component stack, and handing him one would be noise at best.
+drop policy if exists client_errors_admin_read on public.client_errors;
+create policy client_errors_read on public.client_errors
+  for select to authenticated
+  using (private.is_dev());
+
+-- The drop SUCCEEDING is the proof that nothing else references it.
+drop function private.is_admin();
+
+-- ---------------------------------------------------------------------------
+-- Verified 2026-07-30, impersonating real accounts.
+--
+-- client_errors is empty in production, so a bare count proves nothing -- 0 is
+-- what both a working policy and a broken one return. Probed with a row
+-- inserted inside a rolled-back transaction instead:
+--
+--   dev (Sarim)  -> sees 1   (the probe row)
+--   ceo (Habib)  -> sees 0
+--
+-- Same reasoning applied to the employee expense checks earlier in this file:
+-- an empty result is only evidence when you have first put something there for
+-- it to fail to find.
+--
+-- private schema after the drop, 11 functions, is_admin gone:
+--   can_approve_expenses, can_approve_over_limit, can_manage_cache,
+--   can_manage_expenses, can_read_chats, can_view_all_expenses,
+--   can_view_approved_expenses, expense_is_approved, is_dev, my_phone, my_role
+--
+-- The insert policy (client_errors_insert, anon + authenticated, with check
+-- true) is deliberately untouched: errors can fire before login, so the sink
+-- must accept them without a JWT. Flood control is client-side -- see
+-- src/errlog.js.
+-- ============================================================================

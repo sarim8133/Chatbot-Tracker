@@ -43,8 +43,26 @@ create policy client_errors_insert
   to anon, authenticated
   with check (true);
 
--- Only admins can read the log — same gate as the other admin_read tables.
-create policy client_errors_admin_read
+-- Only devs can read the log.
+--
+-- REPOINTED 2026-07-30 (migration `client_errors_read_by_dev_and_retire_is_admin`).
+-- This policy used to gate on private.is_admin(), which tested role = 'admin' --
+-- a value no row has held since the six-role migration renamed admin -> dev. The
+-- policy was still there, still enabled, and matched NOBODY, so the frontend
+-- error log silently became unreadable to everyone including the dev. Nothing
+-- errored; the panel just showed nothing, which is indistinguishable from "no
+-- errors have happened".
+--
+-- It was missed because the role migration swept the tables listed in
+-- db/security-rls.sql, and this table was created later and never added to that
+-- list. Found only when `drop function private.is_admin()` refused, naming this
+-- policy as the last dependency -- which is exactly why that drop is worth
+-- attempting: a function that cannot be dropped is telling you what you forgot.
+--
+-- is_dev() rather than can_read_chats(): this is a stack-trace sink for
+-- debugging the app. The CEO reads business analytics, not React stack traces.
+-- Verified by probe: dev sees an inserted row, ceo sees 0.
+create policy client_errors_read
   on public.client_errors for select
   to authenticated
-  using (private.is_admin());
+  using (private.is_dev());
