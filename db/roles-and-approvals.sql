@@ -1314,3 +1314,47 @@ drop function private.is_admin();
 -- 0 flagged. (34 not 33: a real receipt -- Sarim, inDrive, 801 PKR -- arrived
 -- from the live app at 12:01 while this work was in progress.)
 -- ============================================================================
+
+
+-- ============================================================================
+-- 14-17. The client half of the approval workflow          (2026-07-30)
+-- ============================================================================
+--
+-- src/expenses-actions.js holds the RPC wrappers and the status/verb
+-- vocabulary. It surfaces the Postgres RAISE message verbatim rather than a
+-- generic failure, because these messages are written for the person reading
+-- them -- "only the finance manager can approve it" is a RULE to learn, not an
+-- error to retry, and flattening it into "Request failed" loses that.
+--
+-- THE REJECTED-ROW FILTER IS GONE. The tab fetched status=neq.rejected, which
+-- was right when 'rejected' only meant "the OCR produced garbage". It now also
+-- means "finance refused this", and a submitter who cannot see the refusal
+-- cannot act on it -- their receipt would simply vanish with no explanation.
+-- Rejected rows are now fetched and listed, but held out of inScope (and so out
+-- of every reduce()) and appended to the list separately. Visible, uncounted.
+--
+-- 'logged' renders as "Submitted", not "Logged": to the person who sent the
+-- photo it means "received, nothing has happened to it yet".
+--
+-- The status chips only appear when there is more than one status present.
+-- With everything still Submitted, a row of chips offers a choice that changes
+-- nothing.
+--
+-- SPLIT SAVE NOW RE-CHECKS THE FLAG. The over-limit flag is set at INSERT
+-- against the whole receipt total. Reassigning who owes what can take the payer
+-- back under their cap, so expense_recheck_limit() runs after both saving and
+-- clearing a split -- otherwise the flag stays accusing the wrong person. It is
+-- best-effort: the split itself has already committed, and a stale flag is a
+-- visible annoyance rather than lost money.
+--
+-- BudgetPanel needed NO change for the 0-means-no-limit rule: it already printed
+-- "no limit" and already skipped the over/near arithmetic when limit <= 0. The
+-- plan was wrong to list it as work.
+--
+-- Verified: build passes; both Tailwind grid templates reach the stylesheet;
+-- eslint unchanged at 161 pre-existing errors (0 added); advisors 0 ERROR, with
+-- the eight new expense_* RPCs appearing as the same SECURITY DEFINER WARN as
+-- every existing admin RPC, each re-checking its own capability internally.
+--
+-- NOT VERIFIED: any of this in a real browser. Needs a human at a keyboard.
+-- ============================================================================
