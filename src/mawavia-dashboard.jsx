@@ -961,14 +961,19 @@ function OverviewTab({s, onDrill, showCache}) {
         />
       </Suspense>
 
-      {s.topRepsDaily?.length > 0 && (
+      {/* top_reps_daily is NEVER [] for a zero-activity account — an empty
+          base still yields one day with reps:null (db/dashboard-stats.sql).
+          So the guard checks for actual rep data, not just array length. */}
+      {s.topRepsDaily?.some(d => d.reps?.length) && (
         <Panel className="p-6">
           <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Rep activity</h2>
-          <p className="text-[14px] text-zinc-500 mt-1 mb-5">Top 5 reps by volume, last 30 days</p>
+          <p className="text-[14px] text-zinc-500 mt-1">Top 5 reps by volume, last 30 days</p>
           <HelpNote>Daily message count for the 5 busiest reps this month — is activity concentrated in a few people or spread out?</HelpNote>
-          <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
-            <RepActivityTrend data={s.topRepsDaily}/>
-          </Suspense>
+          <div className="mt-4">
+            <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
+              <RepActivityTrend data={s.topRepsDaily}/>
+            </Suspense>
+          </div>
         </Panel>
       )}
 
