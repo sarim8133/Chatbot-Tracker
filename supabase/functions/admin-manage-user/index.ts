@@ -2,7 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // Admin-only user management: deactivate (ban login), activate (unban), or delete a
 // login. For employees it also flips their WhatsApp roster active flag. The caller's
-// JWT is verified and their admin role checked; an admin cannot deactivate/delete
+// JWT is verified and their dev role checked; a dev cannot deactivate/delete
 // their own account (no self-lockout).
 //
 // Deploy: supabase functions deploy admin-manage-user --no-verify-jwt
@@ -26,13 +26,17 @@ Deno.serve(async (req) => {
   if (!url || !serviceKey) return json({ error: 'Server misconfigured' }, 500);
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // --- authorize: caller must be an admin ---
+  // --- authorize: caller must be a dev ---
+  // 'dev' is the 2026-07-30 rename of 'admin'. This string and the CHECK
+  // constraint on app_users.role must move together: while they disagreed, this
+  // function 403'd for everyone (nobody holds 'admin' any more) and the Team tab
+  // could list and edit people but not create or deactivate them.
   const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (!jwt) return json({ error: 'Missing token' }, 401);
   const { data: u, error: uErr } = await admin.auth.getUser(jwt);
   if (uErr || !u?.user) return json({ error: 'Invalid session' }, 401);
   const { data: prof } = await admin.from('app_users').select('role').eq('user_id', u.user.id).maybeSingle();
-  if (prof?.role !== 'admin') return json({ error: 'Not authorized (admins only)' }, 403);
+  if (prof?.role !== 'dev') return json({ error: 'Not authorized (devs only)' }, 403);
 
   // --- input ---
   let b: Record<string, unknown>;
@@ -42,7 +46,7 @@ Deno.serve(async (req) => {
   if (!target) return json({ error: 'Missing target' }, 400);
   if (!['deactivate', 'activate', 'delete'].includes(action)) return json({ error: 'Invalid action' }, 400);
   if (target === u.user.id && action !== 'activate') {
-    return json({ error: "You can't deactivate or delete your own admin account." }, 400);
+    return json({ error: "You can't deactivate or delete your own dev account." }, 400);
   }
 
   // target's phone (to flip their WhatsApp roster too)

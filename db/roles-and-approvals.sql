@@ -1114,3 +1114,42 @@ drop function private.is_admin();
 -- must accept them without a JWT. Flood control is client-side -- see
 -- src/errlog.js.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 7. The Edge Functions (not SQL, but the same permission boundary)
+-- ============================================================================
+--
+-- supabase/functions/admin-create-user and admin-manage-user are the ONLY place
+-- outside Postgres that enforces the role model. Both hardcoded the literal
+-- 'admin', so from the moment Task 3 renamed admin -> dev they returned 403 to
+-- everyone, the dev included.
+--
+-- That left the Team tab HALF broken in a way that is easy to misread: the SQL
+-- side (admin_list_users, admin_set_role) had already moved to is_dev() in Task
+-- 3, so listing people and editing their roles kept working. Only "Add member"
+-- and deactivate/delete failed. A half-working panel reads as a flaky button,
+-- not as a permission model out of step with itself.
+--
+-- Lesson for the next rename: grep the Edge Functions in the SAME migration that
+-- changes the CHECK constraint. They cannot be migrated by SQL and they will not
+-- show up in any pg_policies or pg_proc scan.
+--
+--   admin-create-user  : role check -> 'dev'; role allow-list -> the six roles,
+--                        hoisted into a named ROLES const so the list appears once
+--   admin-manage-user  : role check -> 'dev'
+--
+-- Deployed 2026-07-30 with verify_jwt: false (create-user v4, manage-user v2).
+-- That flag is deliberate and is NOT a hole: these functions do custom auth
+-- internally, and browsers send an unauthenticated CORS preflight that would
+-- otherwise be rejected before reaching the handler.
+--
+-- Verified against the live endpoints:
+--   POST with no Authorization header  -> 401  (both)
+--   OPTIONS preflight                  -> 200  (both)
+--
+-- NOT verified: a real signed-in call. That needs a password, which this
+-- environment does not hold. The 401/200 pair proves the auth path is reached
+-- and the preflight is not blocked; it does not prove a dev's token is accepted.
+-- Confirm by adding a member from the Team tab.
+-- ============================================================================

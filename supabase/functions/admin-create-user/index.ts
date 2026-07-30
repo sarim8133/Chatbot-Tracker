@@ -6,10 +6,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // WhatsApp receipts (which need the roster row for the FK on
 // wap_expenses.sender_phone). A phone is required for every role because it is
 // the link to the bot — see the check below.
-// Admin-only: the caller's JWT is verified and
+// Dev-only: the caller's JWT is verified and
 // their role checked before anything is created. verify_jwt is disabled at the
 // platform layer because we do custom auth here (and browsers send an unauthenticated
-// CORS preflight); the admin check below is the real gate.
+// CORS preflight); the dev check below is the real gate.
 //
 // Deploy:  supabase functions deploy admin-create-user --no-verify-jwt
 // (or via the Supabase MCP deploy_edge_function with verify_jwt: false)
@@ -23,6 +23,7 @@ const json = (o: unknown, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const DOMAIN = '@hitech.local';
+const ROLES = ['dev', 'ceo', 'finance_manager', 'finance_admin', 'finance_viewer', 'employee'];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -33,13 +34,13 @@ Deno.serve(async (req) => {
   if (!url || !serviceKey) return json({ error: 'Server misconfigured' }, 500);
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // --- authorize: caller must be an admin ---
+  // --- authorize: caller must be a dev ---
   const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (!jwt) return json({ error: 'Missing token' }, 401);
   const { data: u, error: uErr } = await admin.auth.getUser(jwt);
   if (uErr || !u?.user) return json({ error: 'Invalid session' }, 401);
   const { data: prof } = await admin.from('app_users').select('role').eq('user_id', u.user.id).maybeSingle();
-  if (prof?.role !== 'admin') return json({ error: 'Not authorized (admins only)' }, 403);
+  if (prof?.role !== 'dev') return json({ error: 'Not authorized (devs only)' }, 403);
 
   // --- input ---
   let b: Record<string, unknown>;
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
   const invite = b.invite === true || b.invite === 'true';   // email an invite instead of setting a password
   const redirectTo = String(b.redirect_to || '').trim() || undefined;
 
-  if (!['admin', 'accountant', 'employee'].includes(role)) return json({ error: 'Pick a valid role' }, 400);
+  if (!ROLES.includes(role)) return json({ error: 'Pick a valid role' }, 400);
   if (!fullName) return json({ error: 'Name is required' }, 400);
   // Required for EVERY role, not just employees. The phone is what links a person
   // to the WhatsApp bot (see the whatsapp_members view), so a Team member without
