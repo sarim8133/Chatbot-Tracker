@@ -8,24 +8,20 @@
 // LibreOffice all agree on: no shared-strings table (cells carry inline
 // strings instead — fully valid OOXML, one less part to get wrong), one
 // worksheet per input sheet, a single default cell style.
-import { zipStore, saveBlob } from './export';
+import { zipStore, saveBlob, guardFormula } from './export';
 
 const XML_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 
 // XML text-node escaping. Distinct from export.js's csvCell escaping — a
-// different container with different special characters.
+// different container with different special characters. guardFormula
+// (imported above) is the one piece that ISN'T container-specific — it's an
+// Excel/Sheets formula-trigger rule, the same regardless of whether the cell
+// ends up in a CSV or an XLSX — so both writers share that one function
+// instead of carrying two copies that could drift out of sync.
 function xmlEscape(s) {
   return String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-}
-
-// Same rule as export.js's csvCell: a cell whose text starts with = + - @ (or
-// tab/CR) can execute as a formula when opened in Excel. Force it to plain
-// text with a leading apostrophe, except a bare negative number ("-1500"),
-// which must stay numeric-looking text so it still sums correctly.
-function guardFormula(s) {
-  return (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) ? `'${s}` : s;
 }
 
 // 0-indexed column number -> spreadsheet column letters ("A", "Z", "AA", ...).
@@ -115,8 +111,15 @@ function workbookRelsXML(n) {
  * Build an .xlsx Blob from `sheets: [{name, columns:[{label,get(row)}], rows}]`
  * — the same columns/get(row) shape export.js's exportCSV already takes, so a
  * chart's data feeds both without a second mapping.
+ *
+ * Requires sheets.length >= 1: OOXML requires a workbook to declare at least
+ * one <sheet>, so an empty array wouldn't throw here but would hand the
+ * caller a Blob that downloads fine and then fails to open in Excel — a
+ * worse failure than an exception. Guarded explicitly rather than left to
+ * surface as a corrupt download.
  */
 export async function buildXLSX(sheets) {
+  if (!sheets?.length) throw new Error('buildXLSX: at least one sheet is required');
   const taken = new Set();
   const names = sheets.map(s => safeSheetName(s.name, taken));
   const xml = (s) => new Blob([s], { type: 'application/xml' });
