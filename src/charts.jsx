@@ -560,6 +560,64 @@ function SpendTrend({ data }) {
   );
 }
 
+const DaysTip = ({active, payload, label}) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
+      <p className="mono text-[14px] font-bold text-zinc-900">{payload[0].value.toFixed(1)} days</p>
+    </div>
+  );
+};
+
+// Average days from submission (processed_at) to approval (approved_at), by
+// month. Approved receipts only — see ExpensesTab's approvalTurnaround useMemo
+// for why (mawavia-dashboard.jsx).
+export function ApprovalTurnaround({ data = [] }) {
+  const uid = useId();
+  const c = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
+
+  const mkChart = (sfx) => (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
+        <defs>
+          <linearGradient id={`${uid}at${sfx}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={c.accent} stopOpacity={0.14}/>
+            <stop offset="100%" stopColor={c.accent} stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false} tickFormatter={v=>`${v}d`}/>
+        <Tooltip content={<DaysTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
+        <Area type="monotone" dataKey="days" stroke={c.accent} strokeWidth={2}
+          fill={`url(#${uid}at${sfx})`} dot={false}
+          activeDot={{r:4,fill:c.accent,stroke:c.surface,strokeWidth:2}}/>
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+
+  return (
+    <>
+      <div className="relative">
+        <button onClick={()=>setExpanded(true)} aria-label="Expand chart" title="Click to expand"
+          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <Maximize2 size={14}/>
+        </button>
+        <div className="h-56" role="img" aria-label="Average days from receipt submission to approval, by month">
+          {data.length ? mkChart('p') : <EmptyChart label="Not enough approvals yet"/>}
+        </div>
+      </div>
+      <ChartModal title="Approval turnaround" sub="Average days from submission to approval, by month"
+        open={expanded} onClose={()=>setExpanded(false)}>
+        {data.length ? mkChart('m') : <EmptyChart label="Not enough approvals yet"/>}
+      </ChartModal>
+    </>
+  );
+}
+
 // Panel header with an enlarge button (same affordance as the Overview charts).
 // A plain function, not a component, so it isn't re-created on every render.
 const panelHead = (title, sub, onExpand) => (
