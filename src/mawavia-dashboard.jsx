@@ -18,6 +18,7 @@ import { exportCSV, buildCSV, saveBlob, safeName, zipStore } from './export';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { CAPS, capsFor, ROLE_CHOICES } from './caps';
+import { addRemark, setFlag, submitForApproval, approve, revokeApproval, reject, recheckLimit, STATUS_META, EVENT_VERB } from './expenses-actions';
 import { useTheme } from './theme';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -2938,14 +2939,45 @@ const parseItems = (v) => {
 };
 
 // One receipt row → expands into the "digital receipt" card built from OCR data.
-function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRows, onChanged }) {
+// One button style for every workflow action, so a row of six of them reads as
+// one control group. 44px min touch target (py-1.5 + text-[12px] ≈ 30px, so the
+// min-h carries it) — these sit on a phone in a list of receipts.
+const RowBtn = ({ children, onClick, disabled, busy, danger, title }) => (
+  <button type="button" onClick={onClick} disabled={disabled || busy} title={title}
+    className="text-[12px] px-2.5 py-1.5 min-h-[34px] rounded-md border bg-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:border-zinc-900"
+    style={danger ? { borderColor: 'var(--danger-border)', color: NEG } : { borderColor: 'var(--line)', color: 'var(--ink)' }}>
+    {children}
+  </button>
+);
+
+function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRows, onChanged,
+                     caps = {}, myUserId, myPhone, rowEvents = [] }) {
   const items = parseItems(r.items);
   const conf  = Math.round((Number(r.ai_confidence) || 0) * 100);
   const confColor = conf >= 85 ? POS : conf >= 70 ? 'var(--warn)' : NEG;
-  const [mode, setMode] = useState(null);        // null | 'split' | 'confirmDelete'
+  const [mode, setMode] = useState(null);        // null | 'split' | 'confirmDelete' | 'remark'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [draft, setDraft] = useState('');        // remark / rejection reason
   const shares = splitRows || [];
+
+  // Mirrors private.is_own_expense() so the UI doesn't offer a button the server
+  // will refuse. The server check is the real one — this only avoids showing an
+  // Approve button to the person whose receipt it is.
+  const isOwn = (myUserId && r.user_id === myUserId)
+             || (myPhone && r.sender_phone === myPhone);
+
+  const st = STATUS_META[r.status] || { label: r.status, tone: 'muted' };
+  const stColor = st.tone === 'pos' ? POS : st.tone === 'neg' ? NEG
+                : st.tone === 'warn' ? 'var(--warn)' : 'var(--muted)';
+
+  // Every workflow action goes through one busy/error path and refetches on
+  // success, so a row can never display a state the database does not hold.
+  const run = async (fn) => {
+    setBusy(true); setError('');
+    try { await fn(); setDraft(''); setMode(null); onChanged(); }
+    catch (e) { setError(e.message || 'That didn’t work.'); setBusy(false); }
+  };
 
   // Deleting a receipt destroys a financial record, so it asks first, in place,
   // naming what will go. The DB writes an audit row before the delete lands.
@@ -3014,6 +3046,18 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
             )}
           </p>
         </div>
+        {/* Status + flag badges. `shrink-0` on the amount and `flex-wrap` on the
+            row above keep these from pushing the total off a 320px screen —
+            they wrap under the vendor line instead. */}
+        {r.flagged && (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+                style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)' }}
+                title={r.flag_reason || 'Flagged for review'}>Flagged</span>
+        )}
+        {r.status !== 'logged' && (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+                style={{ color: stColor, border: `1px solid ${stColor}40` }}>{st.label}</span>
+        )}
         <span className="mono text-[13px] font-bold text-zinc-900 tabular-nums shrink-0">{fmtPKR(r.total)}</span>
         <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -3117,6 +3161,110 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
                       : <span className="inline-flex items-center gap-1 text-zinc-400"><ImageOff size={11} /> No image</span>}
                 </span>
               </div>
+
+              {/* Why it was flagged — the submitter sees this too, so it has to
+                  read as an explanation rather than an internal marker. */}
+              {r.flagged && r.flag_reason && (
+                <div className="mt-3 text-[12.5px] leading-snug rounded-md px-3 py-2"
+                     style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)' }}>
+                  {r.flag_reason}
+                </div>
+              )}
+
+              {/* Remarks & history. One chronological trail per receipt: remarks,
+                  flags and sign-offs. An employee sees only the entries finance
+                  marked visible — RLS decides that, not this component. */}
+              {rowEvents.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-zinc-200">
+                  <Label>Remarks &amp; history</Label>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {rowEvents.map(ev => (
+                      <li key={ev.id} className="text-[12.5px] leading-snug min-w-0">
+                        <span className="font-medium text-zinc-800">{ev.actor_name || 'Finance'}</span>
+                        <span className="text-zinc-500"> {EVENT_VERB[ev.kind] || ev.kind} · {fmtDay(ev.created_at)}</span>
+                        {/* break-words is load-bearing: a remark is free text and
+                            one 40-character unbroken string would otherwise push
+                            the panel wider than a 320px screen. */}
+                        {ev.body && <p className="text-zinc-700 break-words">{ev.body}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Approval workflow. Every button here is drawn from capsFor(),
+                  and every RPC behind it re-checks the same rule server-side —
+                  including "not your own receipt", which is why isOwn hides
+                  Approve/Reject rather than letting the server refuse them. */}
+              {(caps.manage || caps.approve) && mode === null && (
+                <div className="mt-3 pt-3 border-t border-zinc-200 flex flex-wrap items-center gap-2">
+                  {caps.manage && r.status === 'logged' && (
+                    <RowBtn busy={busy} onClick={e => { e.stopPropagation(); run(() => submitForApproval(r.expense_id)); }}>
+                      Send for approval
+                    </RowBtn>
+                  )}
+                  {caps.approve && r.status !== 'approved' && !isOwn && (
+                    <RowBtn busy={busy}
+                      disabled={r.flagged && !caps.approveOverLimit}
+                      title={r.flagged && !caps.approveOverLimit
+                        ? 'Flagged as over-limit — the finance manager approves this one'
+                        : 'Approve this expense'}
+                      onClick={e => { e.stopPropagation(); run(() => approve(r.expense_id)); }}>
+                      Approve
+                    </RowBtn>
+                  )}
+                  {caps.approveOverLimit && r.status === 'approved' && (
+                    <RowBtn busy={busy} onClick={e => { e.stopPropagation(); run(() => revokeApproval(r.expense_id)); }}>
+                      Revoke approval
+                    </RowBtn>
+                  )}
+                  {caps.manage && (
+                    <RowBtn busy={busy} onClick={e => { e.stopPropagation(); setMode('remark'); }}>
+                      Add remark
+                    </RowBtn>
+                  )}
+                  {caps.manage && (
+                    <RowBtn busy={busy} onClick={e => { e.stopPropagation(); run(() => setFlag(r.expense_id, !r.flagged)); }}>
+                      {r.flagged ? 'Clear flag' : 'Flag'}
+                    </RowBtn>
+                  )}
+                  {(caps.manage || caps.approve) && r.status !== 'rejected' && !isOwn && (
+                    <RowBtn busy={busy} danger onClick={e => { e.stopPropagation(); setMode('reject'); }}>
+                      Reject
+                    </RowBtn>
+                  )}
+                </div>
+              )}
+
+              {/* Remark and rejection both need free text; a rejection REQUIRES
+                  it, because the server refuses a reasonless rejection — the
+                  submitter has to be told what to fix. */}
+              {(mode === 'remark' || mode === 'reject') && (
+                <div className="mt-3 pt-3 border-t border-zinc-200" onClick={e => e.stopPropagation()}>
+                  <Label>{mode === 'reject' ? 'Why is this rejected?' : 'Remark'}</Label>
+                  <textarea rows={2} value={draft} onChange={e => setDraft(e.target.value)}
+                    placeholder={mode === 'reject'
+                      ? 'The submitter will see this'
+                      : 'The submitter will see this'}
+                    className="mt-1 w-full text-[13px] rounded-md border border-zinc-300 bg-surface px-2.5 py-1.5 outline-none focus:border-zinc-900" />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <RowBtn busy={busy} disabled={!draft.trim()}
+                      onClick={() => run(() => (mode === 'reject'
+                        ? reject(r.expense_id, draft.trim())
+                        : addRemark(r.expense_id, draft.trim(), true)))}>
+                      {mode === 'reject' ? 'Reject receipt' : 'Save remark'}
+                    </RowBtn>
+                    {mode === 'remark' && (
+                      <RowBtn busy={busy} disabled={!draft.trim()}
+                        title="Kept between finance — the submitter will not see it"
+                        onClick={() => run(() => addRemark(r.expense_id, draft.trim(), false))}>
+                        Save as internal
+                      </RowBtn>
+                    )}
+                    <RowBtn onClick={() => { setMode(null); setDraft(''); setError(''); }}>Cancel</RowBtn>
+                  </div>
+                </div>
+              )}
 
               {/* Accountant tools. Employees never see this block at all — and
                   the RPCs behind it re-check the role server-side regardless. */}
@@ -3238,6 +3386,12 @@ function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
         p_expense_id: receipt.expense_id,
         p_shares: filled.map(l => ({ phone: l.phone, share: round2(l.amount) })),
       });
+      // The over-limit flag was set at INSERT against the whole receipt total.
+      // Reassigning who owes what can take the payer back under their cap (or
+      // push someone else over), so the flag has to be re-evaluated or it stays
+      // accusing the wrong person. Best-effort: the split itself already saved,
+      // and a stale flag is a visible annoyance, not lost money.
+      try { await recheckLimit(receipt.expense_id); } catch { /* flag left as-is */ }
       onSaved();
     } catch (e) { setError(e.message || 'Could not save the split.'); }
     finally { setBusy(false); }
@@ -3248,6 +3402,7 @@ function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
     try {
       const token = await getAccessToken();
       await sbRpc(token, 'admin_clear_expense_split', { p_expense_id: receipt.expense_id });
+      try { await recheckLimit(receipt.expense_id); } catch { /* flag left as-is */ }
       onSaved();
     } catch (e) { setError(e.message || 'Could not clear the split.'); }
     finally { setBusy(false); }
@@ -3679,7 +3834,12 @@ function ReceiptDownloadMenu({ rows, splitsByExpense, scope, disabled }) {
   );
 }
 
-function ExpensesTab({ role, onAuthError }) {
+function ExpensesTab({ role, phone, onAuthError }) {
+  // Identity, only so the row can hide Approve/Reject on the viewer's OWN
+  // receipt. Not a permission check — private.is_own_expense() refuses it
+  // server-side either way; this just avoids offering a button that will fail.
+  const myUserId = currentUserId();
+  const myPhone = phone || null;
   // "Employee" here means "sees only their own receipts", which is now a
   // capability rather than a role name: finance_viewer is not an employee but is
   // equally restricted to a subset, and finance_manager is not a dev but sees
@@ -3689,6 +3849,8 @@ function ExpensesTab({ role, onAuthError }) {
   const [rows,   setRows]   = useState(null);
   const [splits, setSplits] = useState([]);
   const [team,   setTeam]   = useState([]);
+  const [events, setEvents] = useState([]);
+  const [statusSel, setStatus] = useState('all');
   const [err,    setErr]    = useState(false);
   const [monthSel, setMonthSel] = useState(null);
   const [dept,   setDept]   = useState('all');
@@ -3724,17 +3886,30 @@ function ExpensesTab({ role, onAuthError }) {
         // the WhatsApp roster. The roster is "who may submit by WhatsApp": it
         // contains entries that are nobody's account, and misses team members
         // who have never submitted. Both are wrong for charging money to.
-        const [ex, sp, team] = await Promise.all([
+        //
+        // `status=neq.rejected` is deliberately GONE. It went in when 'rejected'
+        // only ever meant "the OCR produced garbage". It now also means "finance
+        // refused this", and a submitter who cannot see the refusal cannot act
+        // on it — their receipt would simply vanish. Rejected rows are fetched
+        // and rendered; they are excluded from the TOTALS instead (see
+        // spendRows), so a refused receipt is visible without being counted as
+        // money spent.
+        const [ex, sp, team, ev] = await Promise.all([
           sbFetch(token, 'wap_expenses',
-            'select=expense_id,user_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status,sender_phone&status=neq.rejected&order=processed_at.desc&limit=2000'),
+            'select=expense_id,user_id,employee_name,department,category,total,subtotal,tax,currency,payment_method,vendor_name,date,processed_at,drive_link,image_path,ai_confidence,items,status,flagged,flag_reason,approved_by,approved_at,sender_phone&order=processed_at.desc&limit=2000'),
           sbFetch(token, 'wap_expense_splits',
             'select=expense_id,user_id,sender_phone,employee_name,share&limit=5000'),
           sbRpc(token, 'expense_team_members'),
+          // RLS scopes this: finance gets every trail, an employee gets only the
+          // entries marked visible_to_employee on receipts that are theirs.
+          sbFetch(token, 'wap_expense_events',
+            'select=id,expense_id,kind,body,actor_name,actor_role,created_at&order=created_at.desc&limit=2000'),
         ]);
         if (cancelled) return;
         setRows(ex.data);
         setSplits(sp.data);
         setTeam(Array.isArray(team) ? team : []);
+        setEvents(ev.data || []);
         setErr(false);
       } catch { if (!cancelled) { setErr(true); setRows([]); } }
     })();
@@ -3784,12 +3959,38 @@ function ExpensesTab({ role, onAuthError }) {
   const cat = catsPresent.includes(catSel) ? catSel : 'all';
 
   // Scope = current month + department filter (team). selEmp narrows further.
+  //
+  // Rejected receipts are fetched (so the submitter can see the refusal and its
+  // reason) but excluded from every money figure here — a receipt finance
+  // refused is not spend. They reappear in listRows below via the status chip,
+  // so nothing is hidden, it is only uncounted.
   const inScope = useMemo(() => {
     if (!rows) return [];
     return rows.filter(r =>
+      r.status !== 'rejected' &&
       (r.processed_at || '').slice(0, 7) === month &&
       (dept === 'all' || r.department === dept));
   }, [rows, month, dept]);
+
+  // Rejected rows for the current month/department, kept aside so they can be
+  // appended to the list without ever reaching a reduce().
+  const rejectedInScope = useMemo(() => {
+    if (!rows) return [];
+    return rows.filter(r =>
+      r.status === 'rejected' &&
+      (r.processed_at || '').slice(0, 7) === month &&
+      (dept === 'all' || r.department === dept));
+  }, [rows, month, dept]);
+
+  // expense_id → its event trail, newest first (the fetch already orders it).
+  const eventsByExpense = useMemo(() => {
+    const m = new Map();
+    for (const e of events) {
+      if (!m.has(e.expense_id)) m.set(e.expense_id, []);
+      m.get(e.expense_id).push(e);
+    }
+    return m;
+  }, [events]);
 
   // The same scope exploded per person, so a split lands on each participant.
   const inScopeShares = useMemo(
@@ -3935,7 +4136,28 @@ function ExpensesTab({ role, onAuthError }) {
   // The ledger honours the same focus — and so does the download, over the FULL
   // list rather than the 80 rows rendered below. The cap is a rendering budget,
   // not a scope: an accountant asking for July gets all of July.
-  const listRows = focusRows;
+  //
+  // Rejected rows rejoin here — they were held out of every money figure above,
+  // but the person who submitted one needs to see it and read why. Appended
+  // rather than merged in date order so a refusal is never buried mid-list.
+  const listRowsAll = useMemo(() => {
+    const rejected = selEmp
+      ? rejectedInScope.filter(r => personKey(r) === selEmp)
+      : rejectedInScope;
+    return [...focusRows, ...rejected];
+  }, [focusRows, rejectedInScope, selEmp]);
+
+  // Status filter. Same derived-not-stored shape as `cat` above: a status with
+  // no rows this month self-corrects to 'all', so the list can never be filtered
+  // into emptiness behind a chip that is no longer on screen to un-click.
+  const statusesPresent = useMemo(
+    () => [...new Set(listRowsAll.map(r => r.status))], [listRowsAll]);
+  const status = statusesPresent.includes(statusSel) ? statusSel : 'all';
+  const listRows = useMemo(
+    () => (status === 'all' ? listRowsAll : listRowsAll.filter(r => r.status === status)),
+    [listRowsAll, status]);
+  const pendingCount = useMemo(
+    () => listRowsAll.filter(r => r.status === 'pending_approval').length, [listRowsAll]);
 
   // One description of the current scope, used both for the line under the
   // heading and for the download filename — so the file on disk says exactly
@@ -4154,7 +4376,36 @@ function ExpensesTab({ role, onAuthError }) {
             </div>
             <p className="text-[13px] text-zinc-500 mt-1 mb-4">
               {scopeLabel} · <span className="mono tabular-nums">{listRows.length}</span> in view — click a row for the full receipt
+              {caps.approve && pendingCount > 0 && (
+                <> · <span style={{ color: 'var(--warn)' }}>
+                  <span className="mono tabular-nums">{pendingCount}</span> awaiting your approval
+                </span></>
+              )}
             </p>
+
+            {/* Status chips. Only shown when there is more than one status to
+                choose between — with everything still 'Submitted', a row of
+                chips is noise offering a choice that changes nothing.
+                `flex-wrap` so they drop to their own line at 320px rather than
+                squeezing the row above. */}
+            {statusesPresent.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-4" role="group" aria-label="Filter by approval status">
+                {['all', ...statusesPresent].map(s => {
+                  const active = status === s;
+                  const meta = s === 'all' ? { label: 'All' } : (STATUS_META[s] || { label: s });
+                  const n = s === 'all' ? listRowsAll.length : listRowsAll.filter(r => r.status === s).length;
+                  return (
+                    <button key={s} type="button" onClick={() => setStatus(s)}
+                      aria-pressed={active}
+                      className={`text-[12px] px-2.5 py-1.5 min-h-[32px] rounded-md border transition-colors ${
+                        active ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 bg-surface text-zinc-600 hover:border-zinc-900'}`}>
+                      {meta.label} <span className="mono tabular-nums opacity-70">{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {listRows.length === 0
               ? <p className="text-[13px] text-zinc-400 py-6 text-center">No receipts in this view.</p>
               : (
@@ -4165,10 +4416,14 @@ function ExpensesTab({ role, onAuthError }) {
                       open={openId === r.expense_id}
                       onToggle={() => setOpenId(id => id === r.expense_id ? null : r.expense_id)}
                       showEmployee={!isEmployee && !selEmp}
-                      canManage={!isEmployee}
+                      canManage={caps.manage}
                       team={selectableTeam}
                       splitRows={splitsByExpense.get(r.expense_id)}
                       onChanged={reload}
+                      caps={caps}
+                      myUserId={myUserId}
+                      myPhone={myPhone}
+                      rowEvents={eventsByExpense.get(r.expense_id) || []}
                     />
                   ))}
                   {listRows.length > 80 && (
@@ -5141,7 +5396,7 @@ export default function Dashboard({ onLogout }) {
               {tab==='conversations' && <ConversationsTab s={stats} channelFilter={channelFilter} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill} onAuthError={handleLogout}/>}
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
               {tab==='cache'         && <CacheTab         s={stats}/>}
-              {tab==='expenses'      && <ExpensesTab      role={role} onAuthError={handleLogout}/>}
+              {tab==='expenses'      && <ExpensesTab      role={role} phone={profile?.phone} onAuthError={handleLogout}/>}
               {tab==='team'          && <TeamTab          role={role} onAuthError={handleLogout}/>}
             </motion.div>
           ) : null}
