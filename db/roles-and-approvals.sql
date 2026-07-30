@@ -1358,3 +1358,50 @@ drop function private.is_admin();
 --
 -- NOT VERIFIED: any of this in a real browser. Needs a human at a keyboard.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 19. Spending limits get their own capability      (2026-07-30, same day)
+--     Migration: spending_limits_own_capability
+-- ============================================================================
+--
+-- Reported from the live UI: finance_viewer could change spending limits,
+-- including their own. Two separate faults, one in each layer.
+--
+-- SERVER. admin_set_spending_limit gated on can_manage_expenses() (dev +
+-- finance_admin). Wrong in BOTH directions:
+--   * finance_manager, whose entire job is approving spend, could not set the
+--     caps that decide what needs approving;
+--   * that gate is shared with split and delete, so it could not simply be
+--     widened for the manager without also handing them the power to destroy
+--     receipts.
+-- Hence a dedicated private.can_set_limits() = dev, finance_manager,
+-- finance_admin. finance_viewer is deliberately absent: a records-keeper must
+-- not be able to change the numbers they keep records of.
+--
+-- CLIENT. BudgetPanel took canManage={!isEmployee}, and isEmployee is derived as
+-- "sees neither all nor approved expenses" -- which finance_viewer fails, since
+-- they DO see approved ones. So they got the edit button. It now reads
+-- caps.setLimits. Note the server would have refused the write regardless; what
+-- leaked was the OFFER, not the permission. Still a bug: a button that always
+-- fails is worse than no button.
+--
+-- Verified by impersonation, both probes rolled back:
+--   finance_viewer  -> 42501 not authorized
+--   finance_manager -> 50000.00 (this is the half that was previously broken)
+--
+-- The live body was fetched with pg_get_functiondef and only the guard changed:
+-- db/expense-accountant-tools.sql holds a STALE plain-UPDATE version, and
+-- pasting it would have re-broken the on-demand roster upsert that lets a team
+-- member who has never used WhatsApp be given a cap.
+--
+-- ---------------------------------------------------------------------------
+-- Also fixed, same report: the workflow buttons were unreadable in dark mode.
+-- RowBtn used style={{ color: 'var(--ink)' }}, but --ink is a SURFACE fill
+-- ("the colour that owns the page"), #2E3641 in dark mode -- so dark-grey labels
+-- sat on a dark panel. The theme INVERTS the zinc scale for dark mode
+-- (index.css: zinc-700 -> #CDD3DB, zinc-900 -> near-white), so the fix is to use
+-- the zinc CLASSES the rest of the app's buttons already use rather than raw
+-- custom properties. Rule of thumb: --ink and --surface* are fills; text colour
+-- comes from the zinc scale.
+-- ============================================================================

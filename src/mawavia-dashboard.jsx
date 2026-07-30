@@ -2940,12 +2940,22 @@ const parseItems = (v) => {
 
 // One receipt row → expands into the "digital receipt" card built from OCR data.
 // One button style for every workflow action, so a row of six of them reads as
-// one control group. 44px min touch target (py-1.5 + text-[12px] ≈ 30px, so the
-// min-h carries it) — these sit on a phone in a list of receipts.
+// one control group. Matches the existing accountant tools (Split / Delete)
+// rather than inventing a second look.
+//
+// Colours come from the zinc CLASSES, not from inline custom properties. The
+// theme inverts the zinc scale in dark mode (index.css: zinc-700 -> #CDD3DB,
+// zinc-900 -> near-white), so these read correctly in both themes. The first
+// version of this used style={{ color: 'var(--ink)' }} — but --ink is a SURFACE
+// fill ("the colour that owns the page"), #2E3641 in dark mode, so the labels
+// came out dark-grey on a dark panel and were almost invisible.
 const RowBtn = ({ children, onClick, disabled, busy, danger, title }) => (
   <button type="button" onClick={onClick} disabled={disabled || busy} title={title}
-    className="text-[12px] px-2.5 py-1.5 min-h-[34px] rounded-md border bg-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:border-zinc-900"
-    style={danger ? { borderColor: 'var(--danger-border)', color: NEG } : { borderColor: 'var(--line)', color: 'var(--ink)' }}>
+    className={`text-[12px] px-2.5 py-1.5 min-h-[34px] rounded-md border bg-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+      danger
+        ? 'hover:opacity-80'
+        : 'border-zinc-300 text-zinc-700 hover:border-zinc-900 hover:text-zinc-900'}`}
+    style={danger ? { borderColor: 'var(--danger-border)', color: NEG } : undefined}>
     {children}
   </button>
 );
@@ -4349,13 +4359,17 @@ function ExpensesTab({ role, phone, onAuthError }) {
             />
           </Suspense>
 
-          {/* Monthly limits — the accountant sets them, an employee sees only
-              their own row (expense_team_members returns only them). */}
+          {/* Monthly limits. Everyone who can see the panel sees the numbers;
+              only dev / finance_manager / finance_admin can CHANGE them.
+              canManage was !isEmployee, which let finance_viewer edit caps —
+              including their own — when their whole role is keeping records of
+              what finance decided. private.can_set_limits() refuses them
+              server-side; this stops the button being offered at all. */}
           <BudgetPanel
             team={team}
             spendByPhone={spendByPhone}
             month={month}
-            canManage={!isEmployee}
+            canManage={caps.setLimits}
             onSaved={reload}
           />
 
