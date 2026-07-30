@@ -362,3 +362,233 @@ grant execute on function private.can_approve_over_limit()     to authenticated;
 -- his own rows), the Team panel is reachable by the dev only, and Sarim did
 -- not lose dev access at any point.
 -- ============================================================================
+
+
+-- ============================================================================
+-- Task 4 — repoint chat/cache/identity policies onto the capability functions  (2026-07-30)
+--
+-- Tasks 2 and 3 (above) gave the six roles their capability functions and their
+-- data. This is the task that actually reads private.can_read_chats() and
+-- private.can_manage_cache() from a live RLS policy — until now every policy
+-- gating n8n_chat_histories, chat_archive, web_chat_histories, semantic_cache
+-- and chat_feedback still said private.is_admin(), unchanged since
+-- db/security-rls.sql.
+--
+-- is_admin() checks `role = 'admin'`. After Task 3, no app_users row can hold
+-- that value any more — 'admin' isn't even in the new CHECK constraint's
+-- allow-list. So in the gap between Task 3 landing and this task landing,
+-- is_admin() was dead for every current human, including the dev: NOT ONLY
+-- could the CEO not read a single chat message, NEITHER could Sarim. Same
+-- shape of live gap Task 2 opened and Task 3 closed for expenses (Task 2 §4 /
+-- Task 3 Verification, above), repeating here for chat/cache/feedback.
+-- Measured below: the Step 1 probe returns 0 for the CEO, and Step 4 shows the
+-- dev was sitting in exactly the same hole until this migration ran.
+--
+-- Applied via migration `chat_and_cache_policies_by_capability` (Supabase MCP
+-- apply_migration).
+-- ============================================================================
+
+
+-- ── 7. Why chat and cache needed splitting into TWO predicates ─────────────
+-- All five tables shared one predicate, is_admin(). Moving them all to, say,
+-- is_dev() would have been a one-line change, but wrong on purpose: the CEO's
+-- job spec is "read the transcript (Conversations / Reps / Overview), not the
+-- cache internals" — one person, two different answers, on tables that used
+-- to share one gate. This task is the first place private.can_read_chats()
+-- (dev + ceo) and private.can_manage_cache() (dev only) do real work:
+--
+--   n8n_chat_histories, chat_archive, web_chat_histories  -> can_read_chats()
+--   semantic_cache                                        -> can_manage_cache()
+--   chat_feedback                                          -> can_read_chats()
+--     (it annotates the transcript — same reading audience, not the cache one)
+--
+-- Net effect for the CEO specifically: chats readable, semantic_cache empty.
+-- Measured in Step 3 below: chats = 407 (the full total), cache = 0.
+--
+--
+-- ── 8. Two policy names didn't match what the drop-old/create-new pattern
+--      assumed ─────────────────────────────────────────────────────────────
+-- The pattern used everywhere in this file (and in the migration this task
+-- applied) is `drop policy if exists admin_read on <table>`. That name is
+-- right for n8n_chat_histories, chat_archive and semantic_cache
+-- (db/security-rls.sql), and for app_users_admin_read (the 2026-07-28
+-- single-identity migration). It is NOT right for two tables whose own files
+-- gave the admin-read policy a longer, table-prefixed name:
+--
+--   web_chat_histories   real policy name is web_chat_admin_read   (db/web-chat.sql)
+--   chat_feedback         real policy name is chat_feedback_admin_read (db/chat-feedback.sql)
+--
+-- `drop policy if exists admin_read on public.web_chat_histories` is a silent
+-- no-op against a policy name that never existed on that table — Postgres
+-- does not error on a missing target, it just does nothing. Applied exactly
+-- as first drafted, this migration would have left web_chat_admin_read and
+-- chat_feedback_admin_read in place, is_admin()-gated, sitting alongside the
+-- new chats_read/feedback_read policies. Harmless today, because is_admin()
+-- now matches nobody (§ above) — but dead, misleading clutter that would
+-- silently un-deaden itself if 'admin' were ever reintroduced as a role
+-- value. Caught by querying pg_policies live BEFORE writing the migration
+-- rather than trusting the checked-in .sql files, which is what surfaced the
+-- mismatch. The migration actually applied drops BOTH names on both tables.
+--
+-- Also discovered while checking: the plan handed to this task described
+-- web_chat_histories as "RLS currently DISABLED." Live, it was already
+-- enabled — db/web-chat.sql's own migration (create_web_chat_histories) had
+-- turned it on and added web_chat_admin_read some time before this task ran.
+-- The `alter table ... enable row level security` line in the migration ran
+-- anyway; ENABLE ROW LEVEL SECURITY on an already-enabled table is a no-op,
+-- not an error. Nothing had to change in the migration on account of this,
+-- but the premise was stale, and grants were checked directly rather than
+-- assumed: anon holds zero privileges of any kind on web_chat_histories
+-- (confirmed via information_schema.role_table_grants — no anon row at all),
+-- so the plan's stop-condition ("if anon holds INSERT, stop") never came
+-- close to triggering.
+--
+--
+-- ── 9. Why app_users had to widen too — the rep re-splitting trap ──────────
+-- public.chat_all (db/2026-07-28-single-identity.sql) is a security_invoker
+-- view. Its LATERAL join resolves each row's ident/person_name/person_phone by
+-- matching against public.app_users — by user_id, falling back to phone,
+-- falling back to the email local-part. Because the view runs as the CALLER,
+-- that LATERAL join's SELECT against app_users is subject to the CALLER's
+-- app_users RLS, not the view owner's.
+--
+-- Until this task, the only non-self app_users policy was app_users_admin_read
+-- (is_admin()) — dead for the same reason as everything else in this task's
+-- preamble. So even once chats_read/can_read_chats() opened the three base
+-- tables, a caller pulling 400+ rows of chat history could still only match
+-- THEIR OWN app_users row inside that LATERAL join. Every other real person's
+-- rows fall through to chat_all's legacy fallback branches (bare phone
+-- number, or 'web:' + whatever display name was typed that session) — which
+-- is exactly how "three Mawavias, two Sarims" happened the first time
+-- (2026-07-28 migration, sections 6-7b). Shipping chats_read alone would have
+-- reintroduced that bug for the CEO, and for every future non-dev role, one
+-- task later.
+--
+-- So the same migration replaces app_users_admin_read with
+-- app_users_staff_read, gated on `can_read_chats() OR can_view_all_expenses()`
+-- — both capability functions get a say because they are two independent
+-- reasons to need the roster, not one: a chat reader needs names for the Reps
+-- tab, an expense viewer needs names to attribute receipts. The role sets
+-- overlap today (dev and ceo satisfy both), and can_read_chats()'s {dev,ceo}
+-- happens to be a strict subset of can_view_all_expenses()'s {dev,ceo,
+-- finance_manager,finance_admin} — so the OR is redundant AS OF TODAY — but
+-- both terms are kept so a future role added on only one side (a read-only
+-- transcript role that isn't also a finance role, say) doesn't require
+-- re-deriving this predicate from scratch.
+--
+-- THE NUMBER THAT PROVES IT: dashboard_stats()'s `users` array is built by
+-- grouping chat_all on `ident` (db/dashboard-stats.sql; db/2026-07-28-single-
+-- identity.sql §6) — one entry per resolved person. Measured at 6 on
+-- 2026-07-28 (5 rostered people + one deliberately de-rostered phone number
+-- kept on the books, "mawavia2" — see that file's section 3). If
+-- app_users_staff_read had NOT been added, the CEO's LATERAL join would
+-- resolve only Habib's own row, and reps would read 8 — not because there are
+-- 8 real people, but because every other person's WhatsApp number and web
+-- display name would each count as its own separate "rep." 6 vs 8 is not a
+-- rounding difference to shrug off; it is the exact signature of this bug,
+-- which is why the plan said stop and report rather than proceed if 8 came
+-- back. It did not — measured 6 for both the CEO and the dev (Verification
+-- Step 3 / Step 4, below).
+--
+--
+-- ============================================================================
+-- Verification — measured 2026-07-30 (Task 4)
+-- ============================================================================
+--
+-- Step 0 — policy names and grants, checked live BEFORE writing the migration
+-- (this is what caught §8's naming mismatch and §8's stale RLS-disabled
+-- premise, instead of trusting the checked-in .sql files):
+--   pg_policies on n8n_chat_histories / chat_archive / web_chat_histories /
+--   semantic_cache / chat_feedback / app_users -> exactly one SELECT policy
+--   per table beforehand, all private.is_admin():
+--     n8n_chat_histories   admin_read
+--     chat_archive          admin_read
+--     web_chat_histories    web_chat_admin_read       (+ web_chat_service_all, service_role, untouched)
+--     semantic_cache        admin_read
+--     chat_feedback          chat_feedback_admin_read   (+ chat_feedback_insert, untouched)
+--     app_users             app_users_admin_read       (+ app_users_self_read, untouched)
+--   relrowsecurity was already true on all six tables — web_chat_histories
+--   included, contrary to the plan's premise.
+--   information_schema.role_table_grants on web_chat_histories: anon holds NO
+--   privileges at all (zero rows returned); authenticated holds the usual
+--   table-level grant bundle (including insert/update/delete) but no
+--   INSERT/UPDATE/DELETE *policy* exists for it, so those grants are inert
+--   under RLS regardless. n8n's write path is the service_role key
+--   (web_chat_service_all, USING/WITH CHECK true), exactly as db/web-chat.sql
+--   documents. Confirmed safe to proceed — moot in the end, since RLS was
+--   already on and had been for some time.
+--
+-- Step 1 — failing probe, before the migration, impersonating Habib (ceo,
+-- c7dd77aa-56fc-40fe-9343-dc2c1b2e2a47):
+--   select count(*) from public.chat_all;                    -> 0
+--   (matched the plan's expectation exactly)
+--
+--   Superuser baseline, same moment:
+--     select count(*) from public.chat_all;                  -> 407
+--     select channel, count(*) ... group by channel;         -> web 287, whatsapp 120
+--
+-- Step 2 — migration `chat_and_cache_policies_by_capability` applied via the
+-- Supabase MCP apply_migration tool. SQL matched the plan exactly, plus the
+-- two extra `drop policy if exists` lines named in §8 (web_chat_admin_read,
+-- chat_feedback_admin_read). Result: success.
+--
+-- Step 3 — impersonating Habib (ceo):
+--   chats = 407   cache = 0   reps = 6
+--   chats matches the superuser total exactly. cache = 0: the CEO cannot read
+--   a single semantic_cache row. reps = 6, not 8 — the identity fix held.
+--
+-- Step 4 — impersonating Sarim (dev, 2a7c873e-959f-4727-81a7-25c757833db4):
+--   chats = 407   cache = 37   reps = 6
+--   Same chats total as the CEO, cache > 0 (the dev keeps Cache-tab access,
+--   and — per §Task-4-preamble — had actually LOST it since Task 3 landed,
+--   until this migration ran), reps = 6 (same roster resolution, same result).
+--
+-- Step 5 — impersonating Asad (employee, fb9f85e3-97f5-423b-89f1-c388c16b232d):
+--   chats = 0   cache = 0   people = 1
+--   Matches exactly: no transcript access, no cache access, and app_users
+--   still resolves to just his own row via the untouched app_users_self_read
+--   policy — app_users_staff_read simply doesn't match 'employee'.
+--
+--   Impersonating Mawavia (finance_admin, dfc200b5-5ef8-4fce-8514-6c4ea753ce29):
+--     chats = 0   people = 8
+--   No transcript access (finance_admin isn't in can_read_chats()'s role
+--   set), but people = 8: app_users_staff_read's can_view_all_expenses()
+--   branch matches finance_admin, so she still resolves names to attribute
+--   receipts — unchanged from what Task 3 already gave her, just re-derived
+--   through the new policy instead of the old is_admin() one.
+--
+-- Step 6 — select relname, reloptions from pg_class where relname = 'chat_all';
+--   -> {security_invoker=on}
+--   Unchanged, as expected: this migration never touches the view definition,
+--   only the RLS on the tables and roster feeding it, so there was no reset
+--   risk here — checked anyway per the standing rule at db/security-rls.sql
+--   (§3) and db/2026-07-28-single-identity.sql (§7a).
+--
+-- Step 7 — get_advisors('security') after the migration: 0 ERROR-level.
+-- Everything returned falls into an already-documented, pre-existing bucket:
+--   • WARN, SECURITY DEFINER admin RPCs reachable by authenticated (and, for
+--     resolve_login_email, also by anon): admin_clear_expense_split,
+--     admin_delete_expense, admin_list_users, admin_set_expense_split,
+--     admin_set_role, admin_set_spending_limit, expense_team_members,
+--     record_aup_acceptance, report_bad_answer, resolve_login_email. Every
+--     one re-checks its own capability inside the function body (is_admin()/
+--     is_dev()/auth.uid() is not null); resolve_login_email's anon exposure
+--     is the accepted tradeoff from the RLS pen-test (login has to resolve an
+--     identifier before a session exists).
+--   • WARN, always-true INSERT policies on chat_feedback and client_errors —
+--     by design (db/chat-feedback.sql: "they can only report what they saw").
+--   • INFO, rls_enabled_no_policy on the four backup_20260728_* tables —
+--     intentional lockout, see db/2026-07-28-single-identity.sql §8.
+--   • INFO, rls_enabled_no_policy on wap_expense_deletions — pre-existing,
+--     untouched by this task, same lint category as the backups above; not
+--     previously logged in this file because this is the first task here to
+--     run the advisors since that table was created.
+-- None of the four new policies (chats_read, cache_read, feedback_read,
+-- app_users_staff_read) appear anywhere in the advisor output.
+--
+-- Net result: the CEO reads the transcript and not the cache, the dev keeps
+-- both (and got Cache access BACK, having silently lost it since Task 3),
+-- employee isolation is untouched, finance_admin's expense-driven roster read
+-- is untouched, chat_all is still security_invoker, and the rep count
+-- resolves to 6 for every role that can see chats at all — not 8.
+-- ============================================================================
