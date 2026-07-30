@@ -4590,13 +4590,13 @@ function ExpensesTab({ role, phone, onAuthError }) {
 
           {!isEmployee && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="bg-surface border border-zinc-100 rounded-xl p-6 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)]">
+              <Panel className="p-6">
                 <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Approval turnaround</h2>
                 <p className="text-[13px] text-zinc-500 mt-1 mb-4">Average days from submission to approval</p>
                 <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
                   <ApprovalTurnaround data={approvalTurnaround}/>
                 </Suspense>
-              </div>
+              </Panel>
               {statusSplit && <StatusSplit {...statusSplit}/>}
             </div>
           )}
