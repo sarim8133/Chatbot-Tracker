@@ -196,7 +196,17 @@ function demoStats() {
     {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', from_cache:true,  cache_purged:0, user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
     {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', from_cache:false, cache_purged:0, user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
   ];
-  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate};
+  // Rep-activity-trend + period-comparison demo data. Names are inline (not a
+  // module-level helper) — demoStats() is the only place that needs them.
+  const demoRepNames = ['Ahsan','Bilal','Usman','Zain','Hamza'];
+  const topRepsDaily = volumeDaily.map(v => ({
+    date: v.date, label: v.label,
+    reps: users.slice(0,5).map((u,i) => ({
+      ident: u.number, name: demoRepNames[i] || 'Rep',
+      count: Math.round(Math.random() * (u.count / 20)),
+    })),
+  }));
+  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate,topRepsDaily,activeRepsLast30:18,activeRepsPrev30:15};
 }
 
 // ── Data Fetching ─────────────────────────────────────────────────────────────
@@ -303,6 +313,9 @@ function useData(onAuthError) {
         volumeDaily: withLabels(agg?.volume_daily), cacheDaily: withLabels(agg?.cache_daily),
         badResponses: fb.data,
         cacheHits, cacheMisses, hitRate: totalMsgs ? cacheHits/totalMsgs : 0,
+        topRepsDaily: withLabels(agg?.top_reps_daily),
+        activeRepsLast30: agg?.active_reps_last30 ?? 0,
+        activeRepsPrev30: agg?.active_reps_prev30 ?? 0,
       });
       setDemo(false);
     } catch {
