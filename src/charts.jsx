@@ -145,6 +145,16 @@ async function downloadChartPNG(host, title) {
   clone.setAttribute('height', String(h));
   if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
+  // The canvas above is always painted white, but the SVG's colours came from
+  // useThemeColors() at render time — in dark mode that's near-white labels
+  // (c.text) and pale grey-blue ticks (c.muted), tuned for a dark panel. Left
+  // alone they're unreadable on the white canvas, the same bug the print
+  // stylesheet works around for @media print. A PNG has no media query to
+  // hook, so it's fixed directly on the clone before rasterizing — every
+  // <text> forced dark, every grid line forced light, regardless of theme.
+  clone.querySelectorAll('text').forEach(t => { t.setAttribute('fill', '#3F3F46'); });
+  clone.querySelectorAll('.recharts-cartesian-grid line').forEach(l => { l.setAttribute('stroke', '#E4E4E7'); });
+
   const svgUrl = URL.createObjectURL(
     new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' })
   );
