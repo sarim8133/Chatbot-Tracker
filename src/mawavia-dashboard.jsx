@@ -8,13 +8,14 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl, signedReceiptUrls, receiptDownloadUrl, deleteReceiptImage } from './receipts';
 import { exportCSV, buildCSV, saveBlob, safeName, zipStore } from './export';
+import { exportXLSX } from './xlsx';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { CAPS, capsFor, ROLE_CHOICES } from './caps';
@@ -137,6 +138,104 @@ const localKey = d => {
   return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
 };
 const labelFromKey = k => { const [,m,d] = k.split('-'); return `${+d} ${MONTHS[+m-1]}`; };
+
+// ── Sheet builders for the "Excel" export ────────────────────────────────────
+// One sheet per chart, mirroring exactly what is on screen — the point of the
+// export is "send me that report", so a number in the file and the same number
+// on the panel must never disagree.
+//
+// The {label, get(row)} column shape is deliberately identical to exportCSV's,
+// so both writers share one mental model and xlsx.js's cellXML applies the same
+// formula-injection guard (guardFormula) that csvCell does. A vendor name is
+// OCR'd off a photo someone chose, so it is attacker-typed text in the most
+// literal sense — a formula can be written on a paper receipt.
+function buildOverviewSheets(s, periodMetrics) {
+  // The rep-activity chart is one line per rep, so the sheet is one COLUMN per
+  // rep. Names are collected across every day because a rep who sent nothing on
+  // day one still needs a column, or their later days shift into someone else's.
+  const repNames = new Map();
+  for (const day of s.topRepsDaily || []) for (const r of day.reps || []) repNames.set(r.ident, r.name || r.ident);
+  const repList = [...repNames.entries()];
+  return [
+    {
+      name: 'Message volume',
+      columns: [{label:'Date', get:r=>r.date}, {label:'Messages', get:r=>r.count}],
+      rows: s.volumeDaily || [],
+    },
+    {
+      name: 'Top reps',
+      columns: [{label:'Rep', get:r=>r.name}, {label:'Messages', get:r=>r.count}],
+      rows: (s.users || []).slice(0,5).map(u=>({name:repName(u.number).split(' ')[0], count:u.count})),
+    },
+    {
+      name: 'Rep activity',
+      columns: [
+        {label:'Date', get:r=>r.date},
+        // ?? 0, not ||: a rep with genuinely zero messages that day must read 0
+        // rather than blank, or the column silently looks like missing data.
+        ...repList.map(([ident,name]) => ({label:name, get:r => (r.reps||[]).find(x=>x.ident===ident)?.count ?? 0})),
+      ],
+      rows: s.topRepsDaily || [],
+    },
+    {
+      name: 'Period comparison',
+      columns: [
+        {label:'Metric', get:r=>r.label},
+        {label:'This 30 days', get:r=>r.format ? r.format(r.current) : r.current},
+        {label:'Previous 30 days', get:r=>r.format ? r.format(r.previous) : r.previous},
+      ],
+      rows: periodMetrics,
+    },
+  ];
+}
+
+function buildExpenseSheets({ byEmployee, byCategory, trend, spendCompareMetrics, approvalTurnaround, statusSplit }) {
+  return [
+    {
+      name: 'Spend by employee',
+      columns: [{label:'Employee', get:r=>r.name}, {label:'Total (PKR)', get:r=>r.total}],
+      rows: byEmployee,
+    },
+    {
+      name: 'Categories',
+      columns: [{label:'Category', get:r=>r.category}, {label:'Total (PKR)', get:r=>r.total}],
+      rows: byCategory,
+    },
+    {
+      name: 'Monthly spend',
+      columns: [{label:'Month', get:r=>r.label}, {label:'Total (PKR)', get:r=>r.total}],
+      rows: trend,
+    },
+    {
+      name: 'Spend comparison',
+      columns: [
+        {label:'Metric', get:r=>r.label},
+        {label:'This month', get:r=>r.format ? r.format(r.current) : r.current},
+        {label:'Last month', get:r=>r.format ? r.format(r.previous) : r.previous},
+      ],
+      rows: spendCompareMetrics,
+    },
+    {
+      name: 'Approval turnaround',
+      columns: [{label:'Month', get:r=>r.label}, {label:'Avg days', get:r=>Math.round(r.days*10)/10}],
+      rows: approvalTurnaround,
+    },
+    {
+      name: 'Status split',
+      // Flattened to label/count rows rather than one wide row, so the sheet
+      // reads top-to-bottom like the panel does. The flagged line is a
+      // percentage of the whole, not a fifth status — hence the parenthetical.
+      columns: [{label:'Status', get:r=>r.label}, {label:'Count', get:r=>r.count}],
+      rows: statusSplit ? [
+        {label: STATUS_META.logged.label, count: statusSplit.counts.logged},
+        {label: STATUS_META.pending_approval.label, count: statusSplit.counts.pending_approval},
+        {label: STATUS_META.approved.label, count: statusSplit.counts.approved},
+        {label: STATUS_META.rejected.label, count: statusSplit.counts.rejected},
+        {label: '(of which flagged)', count: `${statusSplit.flaggedPct}%`},
+      ] : [],
+    },
+  ];
+}
 
 // NOTE: this used to be computeGaps(), which flagged questions whose reply ran
 // under 20 chars. It was dead code in practice — the agent's NO RESULTS RULE
@@ -745,6 +844,52 @@ const ExportButton = ({exportFn, disabled=false, label='Export'}) => {
   );
 };
 
+// Export a whole tab's charts — PDF via the browser's print dialog, Excel via
+// a sheet-per-chart .xlsx. One control, both formats: a report reader wants
+// "send me the report," not five separate downloads (design spec, 2026-07-30).
+//
+// PDF is window.print() rather than a bundled PDF library. The print stylesheet
+// in index.css already hides the nav and every expand icon, so the browser's own
+// Save-as-PDF produces the panels a reader wants — at zero bytes of dependency
+// on a page that renders financial records.
+//
+// buildSheets is a FUNCTION, not an array: it runs on click, so the workbook is
+// built from what is on screen at that moment rather than being recomputed on
+// every render of a tab nobody is exporting.
+const ExportTabButton = ({ buildSheets, exportName }) => {
+  const ctx = useContext(ToastContext);
+  const [busy, setBusy] = useState(false);
+  const handlePdf = () => window.print();
+  const handleXlsx = async () => {
+    setBusy(true);
+    ctx?.pushToast({ state: 'preparing', msg: 'Preparing Excel export…' });
+    try {
+      await exportXLSX(exportName, buildSheets());
+      ctx?.pushToast({ state: 'done', msg: 'Export complete!' });
+    } catch (e) {
+      // A failed export must not leave the toast stuck on "Preparing…" for ever,
+      // which reads as a hung download rather than a failure.
+      ctx?.pushToast({ state: 'done', msg: e?.message || 'Could not build the Excel file.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="no-print inline-flex rounded-lg border border-zinc-300 overflow-hidden">
+      <button type="button" onClick={handlePdf}
+        aria-label="Export tab as PDF" title="Export as PDF (print)"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] bg-surface text-zinc-700 text-[12px] font-semibold border-r border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        <Printer size={13}/><span>PDF</span>
+      </button>
+      <button type="button" onClick={handleXlsx} disabled={busy}
+        aria-label="Export tab as Excel" title="Export as Excel (.xlsx)"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] bg-surface text-zinc-700 text-[12px] font-semibold hover:text-zinc-900 hover:bg-zinc-50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed">
+        <Download size={13}/><span>Excel</span>
+      </button>
+    </div>
+  );
+};
+
 // Inline SVG sparkline — single accent stroke, last point marked
 function Sparkline({data, w=128, h=36, color=ACCENT}) {
   if (!data?.length) return null;
@@ -943,6 +1088,10 @@ function OverviewTab({s, onDrill, showCache}) {
   ];
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+
+      <div className="flex justify-end">
+        <ExportTabButton exportName="overview-report" buildSheets={() => buildOverviewSheets(s, periodMetrics)}/>
+      </div>
 
       <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday{showCache ? '; "Cache" is answers served instantly without an AI call' : ''}.</HelpNote>
 
@@ -4414,6 +4563,15 @@ function ExpensesTab({ role, phone, onAuthError }) {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+      {/* Hidden with no receipts at all: an export of nothing is six empty
+          sheets, which reads as a broken file rather than an empty month. */}
+      {!noData && (
+        <div className="flex justify-end">
+          <ExportTabButton exportName="expenses-report" buildSheets={() => buildExpenseSheets({
+            byEmployee: byEmployeeShown, byCategory, trend, spendCompareMetrics, approvalTurnaround, statusSplit,
+          })}/>
+        </div>
+      )}
       <HelpNote>
         {isEmployee
           ? 'Your submitted receipts and spending. Only you and the accountant can see these.'
