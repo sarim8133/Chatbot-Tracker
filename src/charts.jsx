@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { catColor, CAT_COLOR, fmtPKR, fmtPKRk } from './categories';
 import { useThemeColors } from './theme';
+import { downloadChartPNG } from './chart-export';
 
 // Recharts sets colors as SVG *attributes* (fill="#2258B8"), where a CSS var()
 // does not resolve — the browser sees the literal string and paints nothing. So
@@ -114,81 +115,6 @@ const ExpandBtn = ({ onClick }) => (
     <Maximize2 size={14} />
   </button>
 );
-
-// ── Download one chart as a PNG ───────────────────────────────────────────────
-// Zero dependency, and none needed: Recharts writes every colour as an SVG
-// attribute (see the note at the top of this file), so a chart's <svg> is
-// already self-describing. Clone it, rasterize through a canvas at 2x, save.
-//
-// Two deliberate choices:
-//   • The canvas is painted white first. A dark-theme chart is transparent
-//     otherwise, and pasted into a document it reads as an empty box.
-//   • Fonts fall back. An <img> rendering an SVG is an isolated document — it
-//     cannot reach the web fonts the page loaded — so the PNG uses the system
-//     sans/mono. Glyph positions are absolute, so nothing shifts; only the
-//     typeface differs, which is not worth base64-ing two woff2 files for.
-const PNG_SCALE = 2;
-
-const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'chart';
-
-async function downloadChartPNG(host, title) {
-  const svg = host?.querySelector('svg');
-  if (!svg) return;
-
-  const box = svg.getBoundingClientRect();
-  const w = Math.max(1, Math.round(box.width));
-  const h = Math.max(1, Math.round(box.height));
-
-  const clone = svg.cloneNode(true);
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  clone.setAttribute('width', String(w));
-  clone.setAttribute('height', String(h));
-  if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
-
-  // The canvas above is always painted white, but the SVG's colours came from
-  // useThemeColors() at render time — in dark mode that's near-white labels
-  // (c.text) and pale grey-blue ticks (c.muted), tuned for a dark panel. Left
-  // alone they're unreadable on the white canvas, the same bug the print
-  // stylesheet works around for @media print. A PNG has no media query to
-  // hook, so it's fixed directly on the clone before rasterizing — every
-  // <text> forced dark, every grid line forced light, regardless of theme.
-  clone.querySelectorAll('text').forEach(t => { t.setAttribute('fill', '#3F3F46'); });
-  clone.querySelectorAll('.recharts-cartesian-grid line').forEach(l => { l.setAttribute('stroke', '#E4E4E7'); });
-
-  const svgUrl = URL.createObjectURL(
-    new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' })
-  );
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error('Could not render the chart.'));
-      i.src = svgUrl;
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = w * PNG_SCALE;
-    canvas.height = h * PNG_SCALE;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    const png = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    if (!png) throw new Error('Could not encode the image.');
-
-    const href = URL.createObjectURL(png);
-    const a = document.createElement('a');
-    a.href = href;
-    a.download = `${slug(title)}-${new Date().toISOString().slice(0, 10)}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(href), 0);
-  } finally {
-    URL.revokeObjectURL(svgUrl);
-  }
-}
 
 // Sits next to ExpandBtn. `hostRef` points at the element wrapping the chart;
 // the first <svg> inside it is what gets saved.
@@ -329,7 +255,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
               <ExpandBtn onClick={() => setExpanded('volume')} />
             </div>
           </div>
-          <div ref={volumeRef} className="h-64" role="img"
+          <div ref={volumeRef} data-chart-host className="h-64" role="img"
             aria-label={`Message volume over ${view.length} days, ${total} messages total`}>
             {view.length ? mkVolume('p') : (
               <div className="h-full flex items-center justify-center">
@@ -351,7 +277,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
               <ExpandBtn onClick={() => setExpanded('reps')} />
             </div>
           </div>
-          <div ref={repsRef} className="h-64" role="img" aria-label="Top reps ranked by message volume">
+          <div ref={repsRef} data-chart-host className="h-64" role="img" aria-label="Top reps ranked by message volume">
             {mkReps()}
           </div>
         </div>
@@ -427,7 +353,7 @@ export function HitRateTrend({ data = [] }) {
           <DownloadBtn hostRef={hostRef} title="Cache hit rate" disabled={!data.length} />
           <ExpandBtn onClick={() => setExpanded(true)} />
         </div>
-        <div ref={hostRef} className="h-56" role="img" aria-label="Cache hit rate per day over time">
+        <div ref={hostRef} data-chart-host className="h-56" role="img" aria-label="Cache hit rate per day over time">
           {mkChart('p')}
         </div>
       </div>
@@ -529,7 +455,7 @@ export function RepActivityTrend({ data = [] }) {
           <DownloadBtn hostRef={hostRef} title="Rep activity" disabled={!rows.length}/>
           <ExpandBtn onClick={()=>setExpanded(true)}/>
         </div>
-        <div ref={hostRef} className="h-56" role="img" aria-label="Message volume per day for the top 5 reps, last 30 days">
+        <div ref={hostRef} data-chart-host className="h-56" role="img" aria-label="Message volume per day for the top 5 reps, last 30 days">
           {mkChart()}
         </div>
         <RepLegend reps={reps} palette={palette}/>
@@ -746,7 +672,7 @@ export function ApprovalTurnaround({ data = [] }) {
           <DownloadBtn hostRef={hostRef} title="Approval turnaround" disabled={!data.length}/>
           <ExpandBtn onClick={()=>setExpanded(true)}/>
         </div>
-        <div ref={hostRef} className="h-56" role="img" aria-label="Average days from receipt submission to approval, by month">
+        <div ref={hostRef} data-chart-host className="h-56" role="img" aria-label="Average days from receipt submission to approval, by month">
           {data.length ? mkChart('p') : <EmptyChart label="Not enough approvals yet"/>}
         </div>
       </div>
@@ -805,14 +731,14 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
           : onSelectCategory ? 'Share of spend — click a category to filter'
           : 'Share of spend by category',
         () => setExpanded('cat'), catRef, byCategory.length > 0)}
-      <div ref={catRef} className="h-72">{donut}</div>
+      <div ref={catRef} data-chart-host className="h-72">{donut}</div>
     </div>
   );
 
   const trendPanel = (
     <div className={panelCls}>
       {panelHead('Monthly spend trend', trendSub, () => setExpanded('trend'), trendRef, trend.length > 0)}
-      <div ref={trendRef} className="h-56" role="img" aria-label="Monthly spend trend">{spendTrend}</div>
+      <div ref={trendRef} data-chart-host className="h-56" role="img" aria-label="Monthly spend trend">{spendTrend}</div>
     </div>
   );
 
@@ -859,7 +785,7 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
                 : empHidden > 0 ? `Top ${topN} of ${byEmployee.length} — enlarge or search for the rest`
                 : 'Click a bar to drill into one employee',
               () => setExpanded('emp'), empRef, empTop.length > 0)}
-            <div ref={empRef} className="h-72" role="img" aria-label="Spend by employee">{empBars(empTop)}</div>
+            <div ref={empRef} data-chart-host className="h-72" role="img" aria-label="Spend by employee">{empBars(empTop)}</div>
           </div>
           {donutPanel}
         </div>

@@ -16,6 +16,7 @@ import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl, signedReceiptUrls, receiptDownloadUrl, deleteReceiptImage } from './receipts';
 import { exportCSV, buildCSV, saveBlob, safeName, zipStore } from './export';
 import { exportXLSX } from './xlsx';
+import { snapshotChartsForPrint } from './chart-export';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { CAPS, capsFor, ROLE_CHOICES } from './caps';
@@ -861,7 +862,15 @@ const ExportButton = ({exportFn, disabled=false, label='Export'}) => {
 const ExportTabButton = ({ buildSheets, exportName }) => {
   const ctx = useContext(ToastContext);
   const [busy, setBusy] = useState(false);
-  const handlePdf = () => window.print();
+  // Swap every chart's live SVG for a pre-rendered snapshot before printing —
+  // see snapshotChartsForPrint() in chart-export.js for why: window.print()
+  // races Recharts' resize-driven re-render, and charts can print blank.
+  const handlePdf = async () => {
+    const restore = await snapshotChartsForPrint();
+    const cleanup = () => { restore(); window.removeEventListener('afterprint', cleanup); };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  };
   const handleXlsx = async () => {
     setBusy(true);
     ctx?.pushToast({ state: 'preparing', msg: 'Preparing Excel export…' });

@@ -328,17 +328,16 @@ body, .theme-fade {
     print-color-adjust: exact !important;
   }
 
-  /* Recharts writes axis/label colours as inline SVG attributes from
-     useThemeColors(), which read the variables at RENDER time — long before the
-     print stylesheet applies. So the block above cannot reach them, and dark
-     mode's pale-grey ticks would still print pale grey. Forced here instead.
-     Every <text> inside a chart is targeted, not just axis ticks: value labels,
-     axis titles and the donut's category text are separate Recharts classes and
-     each one was its own shade of unreadable grey on paper. */
-  .recharts-wrapper text,
-  .recharts-surface text,
-  .recharts-label,
-  .recharts-legend-item-text { fill: #3F3F46 !important; color: #3F3F46 !important; }
+  /* Belt-and-suspenders for chart text: every chart panel is replaced with a
+     pre-rendered, already-dark-forced <img> snapshot before printing (see
+     ExportTabButton.handlePdf / snapshotChartsForPrint in charts.jsx) — the
+     real fix for grey text, since it forces colour BEFORE rasterizing rather
+     than hoping a CSS rule reaches an SVG that isn't in the DOM at capture
+     time. This rule only matters as a fallback for a live SVG that wasn't
+     swapped (snapshotting failed, or the page was printed with a plain
+     Ctrl+P instead of the export button) — `svg text` rather than a Recharts
+     class name so it isn't tied to internals that changed across versions. */
+  svg text { fill: #3F3F46 !important; color: #3F3F46 !important; }
   .recharts-cartesian-grid line { stroke: #E4E4E7 !important; }
 
   /* Keep a chart and its heading together. Without this a panel splits across
