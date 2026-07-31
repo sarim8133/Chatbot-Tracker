@@ -33,6 +33,27 @@
 --
 -- Applied 2026-07-23 via Supabase MCP migration `create_dashboard_stats_rpc`.
 -- This file is the checked-in record; the live schema is the source of truth.
+--
+-- UPDATE 2026-07-28 (migration `dashboard_stats_reads_chat_all_identity`, NOT
+-- previously recorded in this file -- see db/2026-07-28-single-identity.sql
+-- for the full identity-unification story): `base` now reads ident/name/phone
+-- straight off chat_all's already-resolved columns instead of re-deriving
+-- identity inline. Re-deriving it here was the second half of the "one person
+-- = two reps" bug -- WhatsApp rows keyed on phone, web rows on display name,
+-- computed independently in this function AND in the client.
+--
+-- This gap in the file (a live migration never checked in here) is exactly
+-- how a later change, `dashboard_stats_rep_trends` (2026-07-30), came to be
+-- built from this stale checked-in copy instead of the live function and
+-- briefly reintroduced the bug in production -- measured live: user_count 6
+-- became 10, active_reps_last30 5 became 9, on the same test account, before
+-- being caught by review and fixed same-session via migration
+-- `fix_dashboard_stats_rep_trends_identity_regression`. The lesson, stated
+-- plainly for whoever edits this function next: introspect the LIVE function
+-- (`select pg_get_functiondef('public.dashboard_stats(text)'::regprocedure)`)
+-- before writing a CREATE OR REPLACE, never trust this file's body to be
+-- current on its own -- only the header comments and the "Applied via"
+-- migration trail are guaranteed to be kept up to date going forward.
 -- ============================================================================
 
 create or replace function public.dashboard_stats(p_channel text default null)
@@ -42,6 +63,13 @@ stable
 security invoker
 set search_path = ''
 as $$
+-- Identity is resolved once, in the chat_all view, and read here. It used to be
+-- computed in this function AND again in the client, which is how one person
+-- ended up as two reps: WhatsApp rows keyed on the phone, web rows on the
+-- display name. See db/2026-07-28-single-identity.sql.
+--
+-- SECURITY INVOKER is deliberate (db/dashboard-stats.sql:30): chat_all honours
+-- the caller, so a non-admin gets no rows and therefore no company-wide stats.
 with base as (
   select
     c."Timestamp"                                                        as ts,
@@ -50,15 +78,16 @@ with base as (
     extract(hour from c."Timestamp" at time zone 'Asia/Karachi')::int    as hr,
     btrim(coalesce(c."User_Message", ''))                                as q,
     btrim(coalesce(c."AI_Response", ''))                                 as a,
-    c."Name"                                                             as nm,
+    -- Roster name over the per-row one. c."Name" is free text written by
+    -- whichever channel handled the message -- the JWT email local-part on web,
+    -- the sender's own WhatsApp profile name on WhatsApp -- so for a rep who
+    -- uses both, "most recent Name" would flip the label between 'smsarim6'
+    -- and 'Sarim' depending on where they last spoke.
+    coalesce(c.person_name, c."Name")                                    as nm,
     c.from_cache                                                         as cached,
     c.channel                                                            as ch,
-    -- Web rows have no phone: identify them by display name, matching the
-    -- client's `web:` prefix so grouping/filtering/CSV stay uniform.
-    case when c.channel = 'web' or c."User_Number" is null
-         then 'web:' || coalesce(nullif(btrim(c."Name"), ''), 'Website user')
-         else c."User_Number"::text
-    end                                                                  as ident
+    c.ident                                                              as ident,
+    c.person_phone                                                       as ph
   from public.chat_all c
   where p_channel is null or c.channel = p_channel
 ),
@@ -125,10 +154,12 @@ topq as (
   ) t
 ),
 -- Ranked reps. The client kept up to 50 messages each but only ever read the most
--- recent question, so only that is returned.
+-- recent question, so only that is returned. `phone` is the roster number: once a
+-- rep is merged across channels their identity is a uuid, so without this the
+-- rep card and the CSV would have no number to show.
 users as (
   select jsonb_agg(jsonb_build_object(
-           'number', ident, 'name', nm, 'channel', ch,
+           'number', ident, 'name', nm, 'channel', ch, 'phone', ph,
            'count', cnt, 'lastActive', last_active, 'lastQuestion', last_q) order by cnt desc) as v
   from (
     select ident,
@@ -136,12 +167,51 @@ users as (
            max(ts)  as last_active,
            (array_agg(nm order by ts desc) filter (where nullif(btrim(coalesce(nm,'')),'') is not null))[1] as nm,
            (array_agg(ch order by ts desc))[1] as ch,
+           (array_agg(ph order by ts desc) filter (where ph is not null))[1] as ph,
            (array_agg(nullif(q,'') order by ts desc) filter (where nullif(q,'') is not null))[1] as last_q
     from base
     group by ident
     order by count(*) desc
     limit 500
   ) u
+),
+-- ── Added 2026-07-30: rep-activity-trend + period-comparison ────────────────
+-- Top-5-by-volume reps, per day, over a SEPARATE 30-day window from `span`
+-- (which floors at 90) -- a 5-line-times-90-day payload is needless weight for
+-- a trend chart nobody reads back more than a month on.
+trend_span as (
+  select greatest(coalesce((select first_day from totals), (select t from today)),
+                  (select t from today) - 29) as from_d,
+         (select t from today) as to_d
+),
+top5 as (
+  select ident,
+         (array_agg(nm order by ts desc) filter (where nullif(btrim(coalesce(nm,'')),'') is not null))[1] as nm
+  from base
+  where d >= (select from_d from trend_span)
+  group by ident
+  order by count(*) desc
+  limit 5
+),
+top_reps_daily as (
+  select jsonb_agg(jsonb_build_object('date', to_char(g.d,'YYYY-MM-DD'), 'reps', reps.v) order by g.d) as v
+  from generate_series((select from_d from trend_span), (select to_d from trend_span), interval '1 day') g(d)
+  cross join lateral (
+    select jsonb_agg(jsonb_build_object(
+             'ident', t.ident, 'name', t.nm, 'count', coalesce(x.n, 0)) order by t.ident) as v
+    from top5 t
+    left join (select ident, d, count(*) n from base group by ident, d) x
+      on x.ident = t.ident and x.d = g.d::date
+  ) reps
+),
+-- True distinct-rep counts for two 30-day windows -- NOT a per-day array,
+-- because summing a per-day distinct count double-counts a rep active on more
+-- than one day.
+active_reps as (
+  select
+    count(distinct ident) filter (where d >= (select t from today) - 29)                                   as last30,
+    count(distinct ident) filter (where d >= (select t from today) - 59 and d < (select t from today) - 29) as prev30
+  from base
 )
 select jsonb_build_object(
   'total_msgs',   (select total_msgs   from totals),
@@ -155,12 +225,83 @@ select jsonb_build_object(
   'cache_daily',  coalesce((select cache  from daily), '[]'::jsonb),
   'heat',         coalesce((select v from heat), '[]'::jsonb),
   'top_questions',coalesce((select v from topq), '[]'::jsonb),
-  'users',        coalesce((select v from users), '[]'::jsonb)
+  'users',        coalesce((select v from users), '[]'::jsonb),
+  'top_reps_daily',     coalesce((select v from top_reps_daily), '[]'::jsonb),
+  'active_reps_last30', coalesce((select last30 from active_reps), 0),
+  'active_reps_prev30', coalesce((select prev30 from active_reps), 0)
 );
 $$;
 
 comment on function public.dashboard_stats(text) is
-  'Dashboard aggregates computed server-side over the whole of chat_all. Replaces client-side derivation from a 500-row fetch, which silently turned every metric into "the last 500 messages". Day/hour buckets are Asia/Karachi. SECURITY INVOKER so chat_all RLS still applies.';
+  'Dashboard aggregates computed server-side over the whole of chat_all. Replaces client-side derivation from a 500-row fetch, which silently turned every metric into "the last 500 messages". Day/hour buckets are Asia/Karachi. SECURITY INVOKER so chat_all RLS still applies. Reads resolved identity (ident/person_name/person_phone) from chat_all -- see db/2026-07-28-single-identity.sql. 2026-07-30: added top_reps_daily (rep-activity-trend, top 5 reps, last 30 days) and active_reps_last30/prev30 (true distinct-rep counts for period-comparison).';
 
 grant execute on function public.dashboard_stats(text) to authenticated;
 revoke execute on function public.dashboard_stats(text) from anon;
+
+-- ============================================================================
+-- 2026-07-30 — rep-activity-trend + active-rep window scalars
+-- ----------------------------------------------------------------------------
+-- Added two new keys, no existing key touched:
+--   top_reps_daily      -- top-5-by-volume reps, per day, over their own last-30
+--                           window (`trend_span`, separate from the 90-day-floored
+--                           `span` the volume/cache trend uses -- a 5-line-times-
+--                           90-day payload is needless weight for a trend chart
+--                           nobody reads back more than a month on).
+--   active_reps_last30  -- true count(distinct ident) over [today-29, today]
+--   active_reps_prev30  -- true count(distinct ident) over [today-59, today-30)
+--
+-- Why active_reps is two scalars, not a per-day array: summing a per-day
+-- distinct-count array across a 30-day window double-counts any rep active on
+-- more than one day -- it sums "rep-days," not distinct reps in the window.
+-- Each scalar here is a single count(distinct ident) over its whole window,
+-- correct by construction.
+--
+-- Verified via Supabase MCP execute_sql, each check in its own rolled-back
+-- transaction, impersonating real app_users rows:
+--   * private.can_read_chats() baseline call executes without error.
+--   * Dev account (role=dev): trend_days=30, reps_per_day=5, user_count=6,
+--     active_reps_last30=5, active_reps_prev30=5 -- both <= user_count as
+--     expected.
+--   * Independent cross-check (raw count(distinct ident) over chat_all for the
+--     last-30 window, computed outside dashboard_stats()) = 5, matching
+--     active_reps_last30 exactly.
+--   * CEO account (role=ceo, the OTHER role in can_read_chats()'s {dev,ceo}
+--     set, and the one sharing this exact base/users code path with dev):
+--     trend_days=30, reps_per_day=5, user_count=6, active_reps_last30=5,
+--     active_reps_prev30=5, first_phone populated -- identical to the dev
+--     account, as expected (same underlying rows, same identity resolution).
+--     Added specifically because this is the code path that regressed once
+--     already (see below) and dev alone doesn't prove ceo sees the same fix.
+--   * Employee account (role=employee, gated to zero rows by
+--     private.can_read_chats() inside chat_all's RLS): user_count=0,
+--     active_reps_last30=0, active_reps_prev30=0, as expected.
+--
+-- REGRESSION, CAUGHT AND FIXED SAME SESSION: the first pass at this migration
+-- (`dashboard_stats_rep_trends`) was built from this file's checked-in `base`/
+-- `users` CTEs, which were stale -- they never picked up the 2026-07-28
+-- identity-resolution fix (see the header note above this function). That
+-- silently reintroduced the "one person = two reps" bug application-wide:
+-- user_count measured 10 instead of 6, active_reps_last30 measured 9 instead
+-- of 5, on the same dev test account, in the same rolled-back-transaction
+-- pattern. Caught by the spec-compliance review (which introspected the live
+-- function via pg_get_functiondef and diffed it against the true prior
+-- version pulled from supabase_migrations.schema_migrations, rather than
+-- trusting this file), fixed via a same-day follow-up migration
+-- `fix_dashboard_stats_rep_trends_identity_regression` that restores the
+-- correct base/users CTEs and keeps the 2026-07-30 additions unchanged. The
+-- numbers recorded above are from the FIXED, currently-live function.
+--
+-- One planning assumption corrected by measurement: for an empty `base` (the
+-- employee case, or any dev/ceo account with zero rows), top_reps_daily comes
+-- back as a ONE-element array (today, reps: null), not an empty array. This
+-- is not a bug in the new CTEs -- `trend_span` reuses the exact
+-- greatest(coalesce(first_day, today), today - N) shape the pre-existing
+-- `span` CTE already uses for volume_daily/cache_daily, and that CTE has the
+-- identical property (confirmed: volume_daily also comes back length 1, not
+-- 0, for the same empty-base employee call). coalesce(first_day, today) maps
+-- a null first_day to today, and greatest(today, today-N) is today, so the
+-- one-day generate_series is inherent to a pattern already live and verified
+-- since 2026-07-23 -- not something this change introduced. Recorded here
+-- rather than silently normalized because a future consumer of
+-- top_reps_daily should not assume "empty base => empty array."
+-- ============================================================================

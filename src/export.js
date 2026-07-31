@@ -13,22 +13,29 @@
 // real ceiling is the phone's memory long before the format's.
 
 // ── CSV ───────────────────────────────────────────────────────────────────────
+// Neutralize spreadsheet formula injection (CWE-1236): a cell starting with
+// = + - @ (or tab/CR) can execute as a formula when opened in Excel/Sheets.
+// Prefix with an apostrophe so it's forced to plain text.
+//
+// This matters more here than anywhere else in the app: vendor names are OCR'd
+// off a photo the submitter chose, so the text in that cell is attacker-typed
+// in the most literal sense — someone can write a formula on a paper receipt.
+//
+// The plain-number exemption is load-bearing for the receipt export: a refund
+// exports as "-1500", which the guard would otherwise quote into text and
+// silently drop out of every SUM() in the accountant's spreadsheet. A leading
+// minus followed by nothing but digits cannot be a formula.
+//
+// Shared with xlsx.js's cell writer — the trigger characters are an Excel/
+// Sheets formula-engine property, not something specific to CSV's container,
+// so both writers guard against the same rule from this one place.
+export function guardFormula(s) {
+  return (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) ? `'${s}` : s;
+}
+
 // Quote fields containing commas, quotes, or newlines (double internal quotes).
 export const csvCell = v => {
-  let s = v == null ? '' : String(v);
-  // Neutralize spreadsheet formula injection (CWE-1236): a cell starting with
-  // = + - @ (or tab/CR) can execute as a formula when opened in Excel/Sheets.
-  // Prefix with an apostrophe so it's forced to plain text.
-  //
-  // This matters more here than anywhere else in the app: vendor names are OCR'd
-  // off a photo the submitter chose, so the text in that cell is attacker-typed
-  // in the most literal sense — someone can write a formula on a paper receipt.
-  //
-  // The plain-number exemption is load-bearing for the receipt export: a refund
-  // exports as "-1500", which the guard would otherwise quote into text and
-  // silently drop out of every SUM() in the accountant's spreadsheet. A leading
-  // minus followed by nothing but digits cannot be a formula.
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
+  const s = guardFormula(v == null ? '' : String(v));
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

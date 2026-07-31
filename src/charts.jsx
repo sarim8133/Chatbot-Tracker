@@ -8,11 +8,11 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Maximize2, X } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
   Tooltip, ResponsiveContainer, Cell, CartesianGrid,
   PieChart, Pie,
 } from 'recharts';
-import { catColor, fmtPKR, fmtPKRk } from './categories';
+import { catColor, CAT_COLOR, fmtPKR, fmtPKRk } from './categories';
 import { useThemeColors } from './theme';
 
 // Recharts sets colors as SVG *attributes* (fill="#2258B8"), where a CSS var()
@@ -106,7 +106,7 @@ const ExpandBtn = ({ onClick }) => (
     onClick={onClick}
     aria-label="Expand chart"
     title="Click to expand"
-    className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0"
+    className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0"
   >
     <Maximize2 size={14} />
   </button>
@@ -145,7 +145,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   // Each call site needs its own gradient ID (panel vs modal are both mounted).
   const mkVolume = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={view} margin={{top:6,right:6,bottom:0,left:-20}}>
+      <AreaChart data={view} margin={{top:6,right:6,bottom:0,left:4}}>
         <defs>
           <linearGradient id={`${uid}af${sfx}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor={c.accent} stopOpacity={0.14}/>
@@ -153,7 +153,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false}/>
         <Tooltip content={<ChartTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="count"
@@ -286,10 +286,11 @@ export function HitRateTrend({ data = [] }) {
   const [expanded, setExpanded] = useState(false);
   const uid = useId();
   const c = useThemeColors();
+  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
   const mkChart = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:-12}}>
+      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
         <defs>
           <linearGradient id={`${uid}rf${sfx}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor={c.accent} stopOpacity={0.16}/>
@@ -297,7 +298,7 @@ export function HitRateTrend({ data = [] }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={24} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={38} domain={[0,1]} tickFormatter={v=>`${Math.round(v*100)}%`}/>
         <Tooltip content={<RateTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="rate"
@@ -315,7 +316,7 @@ export function HitRateTrend({ data = [] }) {
           onClick={() => setExpanded(true)}
           aria-label="Expand chart"
           title="Click to expand"
-          className="absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <Maximize2 size={14} />
         </button>
@@ -330,6 +331,105 @@ export function HitRateTrend({ data = [] }) {
         onClose={() => setExpanded(false)}
       >
         {mkChart('m')}
+      </ChartModal>
+    </>
+  );
+}
+
+// ── Rep activity trend (Overview tab, lazily loaded) ──────────────────────────
+const RepTrendTip = ({active, payload, label}) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-1">{label}</p>
+      {payload.map(p => (
+        <div key={p.dataKey} className="flex items-center gap-1.5 text-[12px]">
+          <span className="w-2 h-2 rounded-sm shrink-0" style={{background:p.stroke}}/>
+          <span className="text-zinc-700">{p.name}</span>
+          <span className="mono font-semibold text-zinc-900 ml-auto">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const RepLegend = ({ reps, palette }) => (
+  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+    {reps.map((r,i) => (
+      <span key={r.ident} className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+        <span className="w-2 h-2 rounded-sm shrink-0" style={{background:palette[i % palette.length]}}/>
+        {r.name}
+      </span>
+    ))}
+  </div>
+);
+
+// One line per rep — the top 5 by volume, from dashboard_stats()'s
+// top_reps_daily (db/dashboard-stats.sql). Never color-alone (the codebase's
+// relief rule, see src/categories.js): every line is also named in the legend.
+export function RepActivityTrend({ data = [] }) {
+  const c = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+  // Reuses the app's one validated colorblind-safe categorical set
+  // (src/categories.js) rather than theme tokens — c.pos/c.neg specifically
+  // are reserved for delta coloring elsewhere (mawavia-dashboard.jsx), so an
+  // arbitrary rep's line must not borrow "good"/"bad" semantics.
+  const palette = [CAT_COLOR.Food, CAT_COLOR.Fuel, CAT_COLOR.Travel, CAT_COLOR.Supplies, CAT_COLOR.Utilities];
+
+  // Pivot [{date,label,reps:[{ident,name,count}]}] into one row per day with
+  // one column per rep — the shape Recharts' multi-<Line> wants. `reps` is
+  // ranked by total volume descending, so palette[0]/accent-equivalent lands
+  // on the same rep the adjacent "Top reps" bar chart highlights as #1.
+  const { rows, reps } = useMemo(() => {
+    const totals = new Map();
+    for (const day of data) for (const r of day.reps || [])
+      totals.set(r.ident, { name: r.name || r.ident, total: (totals.get(r.ident)?.total || 0) + r.count });
+    const reps = [...totals.entries()]
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([ident, v]) => ({ ident, name: v.name }));
+    const rows = data.map(day => {
+      const row = { label: day.label };
+      for (const r of day.reps || []) row[r.ident] = r.count;
+      return row;
+    });
+    return { rows, reps };
+  }, [data]);
+
+  const tickEvery = Math.max(0, Math.ceil(rows.length/8)-1);
+
+  const mkChart = () => (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={rows} margin={{top:6,right:6,bottom:0,left:4}}>
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false}
+          interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={30} allowDecimals={false}/>
+        <Tooltip content={<RepTrendTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
+        {reps.map((r,i)=>(
+          <Line key={r.ident} type="monotone" dataKey={r.ident} name={r.name}
+            stroke={palette[i % palette.length]} strokeWidth={2} dot={false}
+            activeDot={{r:4, stroke:c.surface, strokeWidth:2}}/>
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+
+  return (
+    <>
+      <div className="relative">
+        <button onClick={()=>setExpanded(true)} aria-label="Expand chart" title="Click to expand"
+          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <Maximize2 size={14}/>
+        </button>
+        <div className="h-56" role="img" aria-label="Message volume per day for the top 5 reps, last 30 days">
+          {mkChart()}
+        </div>
+        <RepLegend reps={reps} palette={palette}/>
+      </div>
+      <ChartModal title="Rep activity" sub="Message volume per day, top 5 reps, last 30 days"
+        open={expanded} onClose={()=>setExpanded(false)}>
+        {mkChart()}
+        <RepLegend reps={reps} palette={palette}/>
       </ChartModal>
     </>
   );
@@ -439,9 +539,10 @@ function CategoryDonut({ data, selected, onSelect }) {
 function SpendTrend({ data }) {
   const uid = useId();
   const c = useThemeColors();
+  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -6 }}>
+      <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 4 }}>
         <defs>
           <linearGradient id={`${uid}sp`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={c.accent} stopOpacity={0.14} />
@@ -449,13 +550,71 @@ function SpendTrend({ data }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4" />
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} minTickGap={20} />
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={20} padding={{left:12,right:12}} />
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
         <Tooltip content={<MoneyTip />} cursor={{ stroke: c.ink, strokeWidth: 1, strokeDasharray: '3 3' }} />
         <Area type="monotone" dataKey="total" stroke={c.accent} strokeWidth={2}
           fill={`url(#${uid}sp)`} dot={false} activeDot={{ r: 4, fill: c.accent, stroke: c.surface, strokeWidth: 2 }} />
       </AreaChart>
     </ResponsiveContainer>
+  );
+}
+
+const DaysTip = ({active, payload, label}) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
+      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
+      <p className="mono text-[14px] font-bold text-zinc-900">{payload[0].value.toFixed(1)} days</p>
+    </div>
+  );
+};
+
+// Average days from submission (processed_at) to approval (approved_at), by
+// month. Approved receipts only — see ExpensesTab's approvalTurnaround useMemo
+// for why (mawavia-dashboard.jsx).
+export function ApprovalTurnaround({ data = [] }) {
+  const uid = useId();
+  const c = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
+
+  const mkChart = (sfx) => (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
+        <defs>
+          <linearGradient id={`${uid}at${sfx}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={c.accent} stopOpacity={0.14}/>
+            <stop offset="100%" stopColor={c.accent} stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false} tickFormatter={v=>`${v}d`}/>
+        <Tooltip content={<DaysTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
+        <Area type="monotone" dataKey="days" stroke={c.accent} strokeWidth={2}
+          fill={`url(#${uid}at${sfx})`} dot={false}
+          activeDot={{r:4,fill:c.accent,stroke:c.surface,strokeWidth:2}}/>
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+
+  return (
+    <>
+      <div className="relative">
+        <button onClick={()=>setExpanded(true)} aria-label="Expand chart" title="Click to expand"
+          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <Maximize2 size={14}/>
+        </button>
+        <div className="h-56" role="img" aria-label="Average days from receipt submission to approval, by month">
+          {data.length ? mkChart('p') : <EmptyChart label="Not enough approvals yet"/>}
+        </div>
+      </div>
+      <ChartModal title="Approval turnaround" sub="Average days from submission to approval, by month"
+        open={expanded} onClose={()=>setExpanded(false)}>
+        {data.length ? mkChart('m') : <EmptyChart label="Not enough approvals yet"/>}
+      </ChartModal>
+    </>
   );
 }
 

@@ -8,13 +8,14 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
 import { CATS, catColor, fmtPKR } from './categories';
 import { validateImage, compressImage, imageFromClipboard, extractReceipt, saveReceipt, signedReceiptUrl, signedReceiptUrls, receiptDownloadUrl, deleteReceiptImage } from './receipts';
 import { exportCSV, buildCSV, saveBlob, safeName, zipStore } from './export';
+import { exportXLSX } from './xlsx';
 import { MAX_MS, LIVE_METER_MS, LIVE_METER_BARS, WAVEFORM_RES, BAR_PITCH, isRecordingSupported, createRecorder, blobToWav16k, blobToBase64, isProbablySilent, computeWaveform } from './voice';
 import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { CAPS, capsFor, ROLE_CHOICES } from './caps';
@@ -69,7 +70,9 @@ const PER_PAGE = 25;
 // Charts live in a lazily-loaded chunk so Recharts doesn't block first paint.
 const ChartsRow = lazy(() => import('./charts'));
 const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTrend})));
+const RepActivityTrend = lazy(() => import('./charts').then(m=>({default:m.RepActivityTrend})));
 const ExpenseCharts = lazy(() => import('./charts').then(m=>({default:m.ExpenseCharts})));
+const ApprovalTurnaround = lazy(() => import('./charts').then(m=>({default:m.ApprovalTurnaround})));
 const ChartsFallback = () => (
   <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-4">
     <div className="h-[300px] rounded-xl bg-surface border border-zinc-100 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] animate-pulse"/>
@@ -136,6 +139,104 @@ const localKey = d => {
 };
 const labelFromKey = k => { const [,m,d] = k.split('-'); return `${+d} ${MONTHS[+m-1]}`; };
 
+// ── Sheet builders for the "Excel" export ────────────────────────────────────
+// One sheet per chart, mirroring exactly what is on screen — the point of the
+// export is "send me that report", so a number in the file and the same number
+// on the panel must never disagree.
+//
+// The {label, get(row)} column shape is deliberately identical to exportCSV's,
+// so both writers share one mental model and xlsx.js's cellXML applies the same
+// formula-injection guard (guardFormula) that csvCell does. A vendor name is
+// OCR'd off a photo someone chose, so it is attacker-typed text in the most
+// literal sense — a formula can be written on a paper receipt.
+function buildOverviewSheets(s, periodMetrics) {
+  // The rep-activity chart is one line per rep, so the sheet is one COLUMN per
+  // rep. Names are collected across every day because a rep who sent nothing on
+  // day one still needs a column, or their later days shift into someone else's.
+  const repNames = new Map();
+  for (const day of s.topRepsDaily || []) for (const r of day.reps || []) repNames.set(r.ident, r.name || r.ident);
+  const repList = [...repNames.entries()];
+  return [
+    {
+      name: 'Message volume',
+      columns: [{label:'Date', get:r=>r.date}, {label:'Messages', get:r=>r.count}],
+      rows: s.volumeDaily || [],
+    },
+    {
+      name: 'Top reps',
+      columns: [{label:'Rep', get:r=>r.name}, {label:'Messages', get:r=>r.count}],
+      rows: (s.users || []).slice(0,5).map(u=>({name:repName(u.number).split(' ')[0], count:u.count})),
+    },
+    {
+      name: 'Rep activity',
+      columns: [
+        {label:'Date', get:r=>r.date},
+        // ?? 0, not ||: a rep with genuinely zero messages that day must read 0
+        // rather than blank, or the column silently looks like missing data.
+        ...repList.map(([ident,name]) => ({label:name, get:r => (r.reps||[]).find(x=>x.ident===ident)?.count ?? 0})),
+      ],
+      rows: s.topRepsDaily || [],
+    },
+    {
+      name: 'Period comparison',
+      columns: [
+        {label:'Metric', get:r=>r.label},
+        {label:'This 30 days', get:r=>r.format ? r.format(r.current) : r.current},
+        {label:'Previous 30 days', get:r=>r.format ? r.format(r.previous) : r.previous},
+      ],
+      rows: periodMetrics,
+    },
+  ];
+}
+
+function buildExpenseSheets({ byEmployee, byCategory, trend, spendCompareMetrics, approvalTurnaround, statusSplit }) {
+  return [
+    {
+      name: 'Spend by employee',
+      columns: [{label:'Employee', get:r=>r.name}, {label:'Total (PKR)', get:r=>r.total}],
+      rows: byEmployee,
+    },
+    {
+      name: 'Categories',
+      columns: [{label:'Category', get:r=>r.category}, {label:'Total (PKR)', get:r=>r.total}],
+      rows: byCategory,
+    },
+    {
+      name: 'Monthly spend',
+      columns: [{label:'Month', get:r=>r.label}, {label:'Total (PKR)', get:r=>r.total}],
+      rows: trend,
+    },
+    {
+      name: 'Spend comparison',
+      columns: [
+        {label:'Metric', get:r=>r.label},
+        {label:'This month', get:r=>r.format ? r.format(r.current) : r.current},
+        {label:'Last month', get:r=>r.format ? r.format(r.previous) : r.previous},
+      ],
+      rows: spendCompareMetrics,
+    },
+    {
+      name: 'Approval turnaround',
+      columns: [{label:'Month', get:r=>r.label}, {label:'Avg days', get:r=>Math.round(r.days*10)/10}],
+      rows: approvalTurnaround,
+    },
+    {
+      name: 'Status split',
+      // Flattened to label/count rows rather than one wide row, so the sheet
+      // reads top-to-bottom like the panel does. The flagged line is a
+      // percentage of the whole, not a fifth status — hence the parenthetical.
+      columns: [{label:'Status', get:r=>r.label}, {label:'Count', get:r=>r.count}],
+      rows: statusSplit ? [
+        {label: STATUS_META.logged.label, count: statusSplit.counts.logged},
+        {label: STATUS_META.pending_approval.label, count: statusSplit.counts.pending_approval},
+        {label: STATUS_META.approved.label, count: statusSplit.counts.approved},
+        {label: STATUS_META.rejected.label, count: statusSplit.counts.rejected},
+        {label: '(of which flagged)', count: `${statusSplit.flaggedPct}%`},
+      ] : [],
+    },
+  ];
+}
+
 // NOTE: this used to be computeGaps(), which flagged questions whose reply ran
 // under 20 chars. It was dead code in practice — the agent's NO RESULTS RULE
 // makes it answer "I couldn't find [model] in our catalog…" (~90 chars), so
@@ -196,7 +297,19 @@ function demoStats() {
     {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', from_cache:true,  cache_purged:0, user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
     {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', from_cache:false, cache_purged:0, user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
   ];
-  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate};
+  // Rep-activity-trend + period-comparison demo data. Names are inline (not a
+  // module-level helper) — demoStats() is the only place that needs them.
+  const demoRepNames = ['Ahsan','Bilal','Usman','Zain','Hamza'];
+  const topRepsDaily = volumeDaily.map(v => ({
+    date: v.date, label: v.label,
+    reps: users.slice(0,5).map((u,i) => ({
+      ident: u.number, name: demoRepNames[i] || 'Rep',
+      count: Math.round(Math.random() * (u.count / 20)),
+    })),
+  }));
+  // Active reps in a window are a subset of all-time reps, same invariant the
+  // real RPC enforces (db/dashboard-stats.sql) — must stay <= users.length.
+  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate,topRepsDaily,activeRepsLast30:4,activeRepsPrev30:3};
 }
 
 // ── Data Fetching ─────────────────────────────────────────────────────────────
@@ -303,6 +416,9 @@ function useData(onAuthError) {
         volumeDaily: withLabels(agg?.volume_daily), cacheDaily: withLabels(agg?.cache_daily),
         badResponses: fb.data,
         cacheHits, cacheMisses, hitRate: totalMsgs ? cacheHits/totalMsgs : 0,
+        topRepsDaily: withLabels(agg?.top_reps_daily),
+        activeRepsLast30: agg?.active_reps_last30 ?? 0,
+        activeRepsPrev30: agg?.active_reps_prev30 ?? 0,
       });
       setDemo(false);
     } catch {
@@ -582,6 +698,117 @@ const Delta = ({value}) => {
   );
 };
 
+// Percentage delta for period-over-period comparisons (vs `Delta` above, which
+// shows an absolute count difference like "today vs yesterday"). previous=0
+// has no meaningful % change, so it reads "new" instead of dividing by zero.
+const PctDelta = ({current, previous}) => {
+  if (current == null || previous == null) return null;
+  if (previous === 0) {
+    return current > 0
+      ? <span className="mono text-[11px] font-semibold" style={{color:POS}}>new</span>
+      : <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
+  }
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
+  const up = pct > 0;
+  return (
+    <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold" style={{color: up ? POS : NEG}}>
+      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(pct)}%
+    </span>
+  );
+};
+
+// Percentage-POINT delta — for rate metrics (e.g. cache hit rate) where a
+// relative % change of a percentage reads as confusing next to the value
+// itself. `current`/`previous` are 0-1 fractions.
+const PpDelta = ({current, previous}) => {
+  if (current == null || previous == null) return null;
+  const pp = Math.round((current - previous) * 100);
+  if (pp === 0) return <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
+  const up = pp > 0;
+  return (
+    <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold" style={{color: up ? POS : NEG}}>
+      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(pp)}pp
+    </span>
+  );
+};
+
+// Period-over-period stat row — "this window vs the one before it". Shared by
+// Overview (messages/active reps/hit rate) and Expenses (spend), so the visual
+// language and delta math live in exactly one place. `metrics`:
+// [{label, current, previous, format(v), hint, kind:'pct'|'pp'}].
+//
+// The grid-cols class is written as an explicit ternary, NOT
+// `sm:grid-cols-${metrics.length}` — Tailwind v4 scans source text
+// statically (the same trap already documented at OverviewTab's KPI ledger
+// panel, ~line 797), so a class built by runtime interpolation never reaches
+// the compiled stylesheet. This covers every call site in this plan (Overview
+// passes 3 metrics, Expenses passes 1).
+function PeriodCompare({ sub, metrics }) {
+  return (
+    <Panel className={`grid grid-cols-1 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 overflow-hidden ${
+      metrics.length >= 3 ? 'sm:grid-cols-3' : metrics.length === 2 ? 'sm:grid-cols-2' : ''}`}>
+      {metrics.map(m => (
+        <div key={m.label} className="p-6 flex flex-col justify-between gap-6">
+          <span className="flex items-center gap-1">
+            <Label>{m.label}</Label>
+            {m.hint && <HintIcon text={m.hint}/>}
+          </span>
+          <div>
+            <span className="mono text-[26px] leading-none font-bold tracking-tight text-zinc-900">
+              {m.format ? m.format(m.current) : (m.current ?? 0).toLocaleString()}
+            </span>
+            <div className="mt-2 flex items-center gap-2">
+              {m.kind === 'pp'
+                ? <PpDelta current={m.current} previous={m.previous}/>
+                : <PctDelta current={m.current} previous={m.previous}/>}
+              <span className="text-[11px] text-zinc-400">vs {sub}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </Panel>
+  );
+}
+
+// Status distribution — same visual language as CacheTab's "Cache vs AI"
+// proportion bar. Four buckets from wap_expenses.status; `flagged` is a
+// separate boolean column (a flagged receipt can still end up approved), so
+// it's a callout beside the bar, not a fifth bucket.
+function StatusSplit({ counts, total, flaggedPct }) {
+  const order = ['logged','pending_approval','approved','rejected'];
+  const toneColor = (tone) => tone === 'pos' ? POS : tone === 'neg' ? NEG
+    : tone === 'warn' ? 'var(--warn)' : 'var(--muted)';
+  return (
+    <Panel className="p-6">
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <Label>Status</Label>
+        <span className="mono text-[11px] text-zinc-500 tabular-nums">{flaggedPct}% ever flagged</span>
+      </div>
+      {total === 0 ? (
+        <p className="mono text-[11px] uppercase tracking-widest text-zinc-400 py-4 text-center">No receipts yet</p>
+      ) : (
+        <>
+          <div className="h-2.5 flex rounded-full overflow-hidden bg-zinc-100"
+            role="img" aria-label={order.map(k => `${Math.round((counts[k]/total)*100)}% ${STATUS_META[k].label}`).join(', ')}>
+            {order.map(k => counts[k] > 0 && (
+              <div key={k} style={{ width: `${(counts[k]/total)*100}%`, background: toneColor(STATUS_META[k].tone) }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+            {order.map(k => (
+              <span key={k} className="flex items-center gap-1.5 text-[12px] text-zinc-600">
+                <span className="w-2 h-2 rounded-sm shrink-0" style={{background:toneColor(STATUS_META[k].tone)}}/>
+                {STATUS_META[k].label} <span className="mono text-zinc-400">{counts[k]}</span>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
 // Circular avatar with deterministic pastel color per rep
 const Tag = ({number, lg=false}) => {
   const {bg, fg} = avatarColor(number);
@@ -614,6 +841,52 @@ const ExportButton = ({exportFn, disabled=false, label='Export'}) => {
       <Download size={13}/>
       <span>{label}</span>
     </button>
+  );
+};
+
+// Export a whole tab's charts — PDF via the browser's print dialog, Excel via
+// a sheet-per-chart .xlsx. One control, both formats: a report reader wants
+// "send me the report," not five separate downloads (design spec, 2026-07-30).
+//
+// PDF is window.print() rather than a bundled PDF library. The print stylesheet
+// in index.css already hides the nav and every expand icon, so the browser's own
+// Save-as-PDF produces the panels a reader wants — at zero bytes of dependency
+// on a page that renders financial records.
+//
+// buildSheets is a FUNCTION, not an array: it runs on click, so the workbook is
+// built from what is on screen at that moment rather than being recomputed on
+// every render of a tab nobody is exporting.
+const ExportTabButton = ({ buildSheets, exportName }) => {
+  const ctx = useContext(ToastContext);
+  const [busy, setBusy] = useState(false);
+  const handlePdf = () => window.print();
+  const handleXlsx = async () => {
+    setBusy(true);
+    ctx?.pushToast({ state: 'preparing', msg: 'Preparing Excel export…' });
+    try {
+      await exportXLSX(exportName, buildSheets());
+      ctx?.pushToast({ state: 'done', msg: 'Export complete!' });
+    } catch (e) {
+      // A failed export must not leave the toast stuck on "Preparing…" for ever,
+      // which reads as a hung download rather than a failure.
+      ctx?.pushToast({ state: 'done', msg: e?.message || 'Could not build the Excel file.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="no-print inline-flex rounded-lg border border-zinc-300 overflow-hidden">
+      <button type="button" onClick={handlePdf}
+        aria-label="Export tab as PDF" title="Export as PDF (print)"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] bg-surface text-zinc-700 text-[12px] font-semibold border-r border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        <Printer size={13}/><span>PDF</span>
+      </button>
+      <button type="button" onClick={handleXlsx} disabled={busy}
+        aria-label="Export tab as Excel" title="Export as Excel (.xlsx)"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] bg-surface text-zinc-700 text-[12px] font-semibold hover:text-zinc-900 hover:bg-zinc-50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed">
+        <Download size={13}/><span>Excel</span>
+      </button>
+    </div>
   );
 };
 
@@ -776,6 +1049,34 @@ function OverviewTab({s, onDrill, showCache}) {
   const total  = useCountUp(s.totalMsgs);
   const peak   = heatPeak(s.heat);
   const [heatExpanded, setHeatExpanded] = useState(false);
+  // "This 30 days vs the 30 before" — messages/hit-rate sum correctly across
+  // days from the existing 90-day arrays; active reps is a true distinct count
+  // computed server-side (see db/dashboard-stats.sql — summing a per-day
+  // distinct count would double-count a rep active on more than one day).
+  const periodMetrics = useMemo(() => {
+    const vol = s.volumeDaily || [];
+    const cd  = s.cacheDaily  || [];
+    const n = vol.length;
+    const sumCount = (arr, from, to) => arr.slice(Math.max(0,from), Math.max(0,to)).reduce((a,b)=>a+(b.count??0),0);
+    const curMsgs  = sumCount(vol, n-30, n);
+    const prevMsgs = sumCount(vol, n-60, n-30);
+    const cdSlice = (from,to) => cd.slice(Math.max(0,from), Math.max(0,to));
+    const rateOf = (rows) => {
+      const hits  = rows.reduce((a,r)=>a+(r.hits??0),0);
+      const total = rows.reduce((a,r)=>a+(r.total??0),0);
+      return total ? hits/total : 0;
+    };
+    const curRate  = rateOf(cdSlice(n-30, n));
+    const prevRate = rateOf(cdSlice(n-60, n-30));
+    return [
+      {label:'Messages', kind:'pct', current:curMsgs, previous:prevMsgs,
+        format:v=>v.toLocaleString(), hint:'Total messages, this 30 days vs the 30 before'},
+      {label:'Active reps', kind:'pct', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
+        format:v=>v.toLocaleString(), hint:'Distinct reps who messaged Hi Tech AI, this 30 days vs the 30 before'},
+      {label:'Hit rate', kind:'pp', current:curRate, previous:prevRate,
+        format:v=>`${Math.round(v*100)}%`, hint:'Cache hit rate, this 30 days vs the 30 before'},
+    ];
+  }, [s.volumeDaily, s.cacheDaily, s.activeRepsLast30, s.activeRepsPrev30]);
   const ledger = [
     {label:'Today',       value:s.todayCount, delta, hint:'Messages today, compared with yesterday'},
     {label:'Active reps', value:s.userCount,         hint:'Reps who messaged Hi Tech AI in this period'},
@@ -787,6 +1088,10 @@ function OverviewTab({s, onDrill, showCache}) {
   ];
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+
+      <div className="flex justify-end">
+        <ExportTabButton exportName="overview-report" buildSheets={() => buildOverviewSheets(s, periodMetrics)}/>
+      </div>
 
       <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday{showCache ? '; "Cache" is answers served instantly without an AI call' : ''}.</HelpNote>
 
@@ -834,6 +1139,8 @@ function OverviewTab({s, onDrill, showCache}) {
         ))}
       </Panel>
 
+      <PeriodCompare sub="the previous 30 days" metrics={periodMetrics}/>
+
       {/* Charts row — lazy-loaded (Recharts in its own async chunk) */}
       <Suspense fallback={<ChartsFallback/>}>
         <ChartsRow
@@ -841,6 +1148,22 @@ function OverviewTab({s, onDrill, showCache}) {
           topReps={s.users.slice(0,5).map(u=>({name:repName(u.number).split(' ')[0],count:u.count}))}
         />
       </Suspense>
+
+      {/* top_reps_daily is NEVER [] for a zero-activity account — an empty
+          base still yields one day with reps:null (db/dashboard-stats.sql).
+          So the guard checks for actual rep data, not just array length. */}
+      {s.topRepsDaily?.some(d => d.reps?.length) && (
+        <Panel className="p-6">
+          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Rep activity</h2>
+          <p className="text-[14px] text-zinc-500 mt-1">Top 5 reps by volume, last 30 days</p>
+          <HelpNote>Daily message count for the 5 busiest reps this month — is activity concentrated in a few people or spread out?</HelpNote>
+          <div className="mt-4">
+            <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
+              <RepActivityTrend data={s.topRepsDaily}/>
+            </Suspense>
+          </div>
+        </Panel>
+      )}
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -4130,6 +4453,59 @@ function ExpensesTab({ role, phone, onAuthError }) {
     return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), total: m[k] }));
   }, [rows, dept, selEmp, splitsByExpense, byCat]);
 
+  // "This month vs last month" — read straight off `trend` (already one entry
+  // per month, ascending) rather than a separate computation.
+  const spendCompareMetrics = useMemo(() => {
+    const idx = trend.findIndex(t => t.month === month);
+    const cur  = idx >= 0 ? trend[idx].total : 0;
+    const prev = idx > 0 ? trend[idx - 1].total : 0;
+    return [{
+      label: isEmployee ? 'Your spend' : 'Total spend', kind: 'pct', current: cur, previous: prev,
+      format: fmtPKR, hint: `Total spend, ${monthLabel(month)} vs the month before`,
+    }];
+  }, [trend, month, isEmployee]);
+
+  // Approval turnaround: days from submission to approval, for APPROVED
+  // receipts only. approved_at/processed_at both live on wap_expenses already
+  // (no new fetch). A time-to-reject variant would need wap_expense_events'
+  // reject-kind row, which isn't bulk-fetched here — out of scope, see design
+  // spec 2026-07-30 §2.
+  //
+  // Deliberately reads raw `rows`, NOT `inScope`/`focusShares` — ignores the
+  // month AND the dept/employee filter, same as statusSplit below. A CEO
+  // metric like "how fast is finance approving receipts" shouldn't silently
+  // narrow to whichever employee happens to be selected elsewhere on the tab.
+  const approvalTurnaround = useMemo(() => {
+    if (!rows) return [];
+    const m = {};
+    for (const r of rows) {
+      if (r.status !== 'approved' || !r.approved_at || !r.processed_at) continue;
+      const days = (new Date(r.approved_at) - new Date(r.processed_at)) / 86400000;
+      const k = (r.processed_at || '').slice(0, 7);
+      if (!k) continue;
+      if (!m[k]) m[k] = { sum: 0, n: 0 };
+      m[k].sum += days; m[k].n += 1;
+    }
+    return Object.keys(m).sort().map(k => ({ month: k, label: monthLabel(k), days: m[k].sum / m[k].n }));
+  }, [rows]);
+
+  // Status distribution across ALL receipts — not scoped to one month, and
+  // (like approvalTurnaround above) not scoped to the current dept/employee
+  // filter either. This answers "how are we doing overall", not a filtered
+  // question. `flagged` is a separate boolean column, not a status value, so
+  // it's a percentage alongside the bar rather than a fifth bucket.
+  const statusSplit = useMemo(() => {
+    if (!rows) return null;
+    const counts = { logged: 0, pending_approval: 0, approved: 0, rejected: 0 };
+    let flaggedCount = 0;
+    for (const r of rows) {
+      if (counts[r.status] != null) counts[r.status]++;
+      if (r.flagged) flaggedCount++;
+    }
+    const total = rows.length;
+    return { counts, total, flaggedPct: total ? Math.round((flaggedCount / total) * 100) : 0 };
+  }, [rows]);
+
   // KPIs for the focused scope (month + dept + selEmp + category). Spend is the
   // sum of shares; the receipt count is physical receipts, so a split bill is one.
   const totalSpend = focusSharesCat.reduce((a, r) => a + r.amount, 0);
@@ -4187,6 +4563,15 @@ function ExpensesTab({ role, phone, onAuthError }) {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+      {/* Hidden with no receipts at all: an export of nothing is six empty
+          sheets, which reads as a broken file rather than an empty month. */}
+      {!noData && (
+        <div className="flex justify-end">
+          <ExportTabButton exportName="expenses-report" buildSheets={() => buildExpenseSheets({
+            byEmployee: byEmployeeShown, byCategory, trend, spendCompareMetrics, approvalTurnaround, statusSplit,
+          })}/>
+        </div>
+      )}
       <HelpNote>
         {isEmployee
           ? 'Your submitted receipts and spending. Only you and the accountant can see these.'
@@ -4341,6 +4726,8 @@ function ExpensesTab({ role, phone, onAuthError }) {
             ))}
           </Panel>
 
+          <PeriodCompare sub="the month before" metrics={spendCompareMetrics}/>
+
           {/* Charts */}
           <Suspense fallback={<ChartsFallback />}>
             <ExpenseCharts
@@ -4358,6 +4745,19 @@ function ExpensesTab({ role, phone, onAuthError }) {
               onSelectCategory={catsPresent.length > 1 ? (c => setCat(c || 'all')) : undefined}
             />
           </Suspense>
+
+          {!isEmployee && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <Panel className="p-6">
+                <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Approval turnaround</h2>
+                <p className="text-[13px] text-zinc-500 mt-1 mb-4">Average days from submission to approval</p>
+                <Suspense fallback={<div className="h-56 rounded bg-zinc-50 animate-pulse"/>}>
+                  <ApprovalTurnaround data={approvalTurnaround}/>
+                </Suspense>
+              </Panel>
+              {statusSplit && <StatusSplit {...statusSplit}/>}
+            </div>
+          )}
 
           {/* Monthly limits. Everyone who can see the panel sees the numbers;
               only dev / finance_manager / finance_admin can CHANGE them.
