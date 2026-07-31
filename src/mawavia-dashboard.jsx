@@ -1301,7 +1301,7 @@ function OverviewTab({s, onDrill, showCache}) {
                 </p>
               </div>
               <button onClick={() => setHeatExpanded(true)} aria-label="Expand heatmap" title="Click to expand"
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 mt-0.5">
+                className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 mt-0.5">
                 <Maximize2 size={14}/>
               </button>
             </div>
@@ -4603,8 +4603,19 @@ function ExpensesTab({ role, phone, onAuthError }) {
         </Panel>
       ) : (
         <>
+          {/* Print-only scope statement. On screen the <select>s below say it;
+              on paper a <select> reading "All departments" looks like an
+              unfilled form field, not a statement about what the report
+              covers — so print gets a plain sentence instead of the controls. */}
+          <p className="print-only text-[13px] text-zinc-600 mb-2">
+            <span className="font-semibold text-zinc-900">{monthLabel(month)}</span>
+            {' · Department: '}{dept !== 'all' ? dept : 'All departments'}
+            {' · Category: '}{cat !== 'all' ? cat : 'All categories'}
+            {selEmp ? ` · Employee: ${selEmpName}` : ''}
+          </p>
+
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="no-print flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-1.5">
               <Label>Month</Label>
               <select value={month || ''} onChange={e => { setMonthSel(e.target.value); setOpenId(null); }}

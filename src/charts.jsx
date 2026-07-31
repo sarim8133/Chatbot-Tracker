@@ -3,10 +3,10 @@
 // on the charting library. Self-contained: duplicates a few small constants on
 // purpose to avoid a circular import with the dashboard entry.
 
-import { useState, useMemo, useEffect, useId } from 'react';
+import { useState, useMemo, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Maximize2, X } from 'lucide-react';
+import { Maximize2, X, Download } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
   Tooltip, ResponsiveContainer, Cell, CartesianGrid,
@@ -32,7 +32,10 @@ const ChartTip = ({active, payload, label}) => {
   );
 };
 
-const panelCls = "bg-surface border border-zinc-100 rounded-xl p-6 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)]";
+// print-block (index.css) keeps a panel whole on one printed page. These panels
+// are plain divs rather than the dashboard's <Panel>, so they did not inherit it
+// and every chart here split across the page fold in a PDF export.
+const panelCls = "print-block bg-surface border border-zinc-100 rounded-xl p-6 shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)]";
 
 const PRESETS = [
   {k:'7',   label:'7D',  days:7},
@@ -112,12 +115,101 @@ const ExpandBtn = ({ onClick }) => (
   </button>
 );
 
+// ── Download one chart as a PNG ───────────────────────────────────────────────
+// Zero dependency, and none needed: Recharts writes every colour as an SVG
+// attribute (see the note at the top of this file), so a chart's <svg> is
+// already self-describing. Clone it, rasterize through a canvas at 2x, save.
+//
+// Two deliberate choices:
+//   • The canvas is painted white first. A dark-theme chart is transparent
+//     otherwise, and pasted into a document it reads as an empty box.
+//   • Fonts fall back. An <img> rendering an SVG is an isolated document — it
+//     cannot reach the web fonts the page loaded — so the PNG uses the system
+//     sans/mono. Glyph positions are absolute, so nothing shifts; only the
+//     typeface differs, which is not worth base64-ing two woff2 files for.
+const PNG_SCALE = 2;
+
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'chart';
+
+async function downloadChartPNG(host, title) {
+  const svg = host?.querySelector('svg');
+  if (!svg) return;
+
+  const box = svg.getBoundingClientRect();
+  const w = Math.max(1, Math.round(box.width));
+  const h = Math.max(1, Math.round(box.height));
+
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('width', String(w));
+  clone.setAttribute('height', String(h));
+  if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  const svgUrl = URL.createObjectURL(
+    new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' })
+  );
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('Could not render the chart.'));
+      i.src = svgUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w * PNG_SCALE;
+    canvas.height = h * PNG_SCALE;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const png = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (!png) throw new Error('Could not encode the image.');
+
+    const href = URL.createObjectURL(png);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = `${slug(title)}-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 0);
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+}
+
+// Sits next to ExpandBtn. `hostRef` points at the element wrapping the chart;
+// the first <svg> inside it is what gets saved.
+const DownloadBtn = ({ hostRef, title, disabled = false }) => {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={disabled || busy}
+      onClick={async () => {
+        setBusy(true);
+        try { await downloadChartPNG(hostRef?.current, title); }
+        finally { setBusy(false); }
+      }}
+      aria-label={`Download ${title} as an image`}
+      title="Download as image (PNG)"
+      className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0 disabled:opacity-35 disabled:cursor-not-allowed"
+    >
+      <Download size={14} />
+    </button>
+  );
+};
+
 // ── Message Volume + Top Reps ─────────────────────────────────────────────────
 export default function ChartsRow({ volumeDaily = [], topReps }) {
   const [range,    setRange]    = useState('14');
   const [from,     setFrom]     = useState('');
   const [to,       setTo]       = useState('');
   const [expanded, setExpanded] = useState(null); // 'volume' | 'reps' | null
+  const volumeRef = useRef(null);
+  const repsRef   = useRef(null);
   // Unique prefix per component instance — prevents gradient ID collisions when
   // both the panel chart and the modal chart are mounted at the same time.
   const uid = useId();
@@ -191,7 +283,11 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
                 {view.length}-day window · {total.toLocaleString()} msgs
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            {/* no-print: on paper the range presets and the two date inputs are
+                unfilled form controls. The window they select is already stated
+                in plain words in the sub-heading above ("14-day window · N msgs"),
+                which is what a printed report should carry. */}
+            <div className="no-print flex flex-wrap items-center gap-2">
               {/* range presets */}
               <div className="inline-flex rounded-xl border border-zinc-300 overflow-hidden">
                 {PRESETS.map(p=>{
@@ -219,10 +315,11 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
                     className="flex items-center justify-center w-6 h-6 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">✕</button>
                 )}
               </div>
+              <DownloadBtn hostRef={volumeRef} title="Message volume" disabled={!view.length} />
               <ExpandBtn onClick={() => setExpanded('volume')} />
             </div>
           </div>
-          <div className="h-64" role="img"
+          <div ref={volumeRef} className="h-64" role="img"
             aria-label={`Message volume over ${view.length} days, ${total} messages total`}>
             {view.length ? mkVolume('p') : (
               <div className="h-full flex items-center justify-center">
@@ -239,9 +336,12 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
               <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Top reps</h2>
               <p className="text-[13px] text-zinc-500 mt-1">By volume</p>
             </div>
-            <ExpandBtn onClick={() => setExpanded('reps')} />
+            <div className="flex items-center gap-0.5 shrink-0">
+              <DownloadBtn hostRef={repsRef} title="Top reps" disabled={!topReps?.length} />
+              <ExpandBtn onClick={() => setExpanded('reps')} />
+            </div>
           </div>
-          <div className="h-64" role="img" aria-label="Top reps ranked by message volume">
+          <div ref={repsRef} className="h-64" role="img" aria-label="Top reps ranked by message volume">
             {mkReps()}
           </div>
         </div>
@@ -284,6 +384,7 @@ const RateTip = ({active, payload, label}) => {
 
 export function HitRateTrend({ data = [] }) {
   const [expanded, setExpanded] = useState(false);
+  const hostRef = useRef(null);
   const uid = useId();
   const c = useThemeColors();
   const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
@@ -312,15 +413,11 @@ export function HitRateTrend({ data = [] }) {
   return (
     <>
       <div className="relative">
-        <button
-          onClick={() => setExpanded(true)}
-          aria-label="Expand chart"
-          title="Click to expand"
-          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-        >
-          <Maximize2 size={14} />
-        </button>
-        <div className="h-56" role="img" aria-label="Cache hit rate per day over time">
+        <div className="absolute top-0 right-0 z-10 flex items-center gap-0.5">
+          <DownloadBtn hostRef={hostRef} title="Cache hit rate" disabled={!data.length} />
+          <ExpandBtn onClick={() => setExpanded(true)} />
+        </div>
+        <div ref={hostRef} className="h-56" role="img" aria-label="Cache hit rate per day over time">
           {mkChart('p')}
         </div>
       </div>
@@ -370,6 +467,7 @@ const RepLegend = ({ reps, palette }) => (
 export function RepActivityTrend({ data = [] }) {
   const c = useThemeColors();
   const [expanded, setExpanded] = useState(false);
+  const hostRef = useRef(null);
   // Reuses the app's one validated colorblind-safe categorical set
   // (src/categories.js) rather than theme tokens — c.pos/c.neg specifically
   // are reserved for delta coloring elsewhere (mawavia-dashboard.jsx), so an
@@ -417,11 +515,11 @@ export function RepActivityTrend({ data = [] }) {
   return (
     <>
       <div className="relative">
-        <button onClick={()=>setExpanded(true)} aria-label="Expand chart" title="Click to expand"
-          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-          <Maximize2 size={14}/>
-        </button>
-        <div className="h-56" role="img" aria-label="Message volume per day for the top 5 reps, last 30 days">
+        <div className="absolute top-0 right-0 z-10 flex items-center gap-0.5">
+          <DownloadBtn hostRef={hostRef} title="Rep activity" disabled={!rows.length}/>
+          <ExpandBtn onClick={()=>setExpanded(true)}/>
+        </div>
+        <div ref={hostRef} className="h-56" role="img" aria-label="Message volume per day for the top 5 reps, last 30 days">
           {mkChart()}
         </div>
         <RepLegend reps={reps} palette={palette}/>
@@ -596,6 +694,7 @@ export function ApprovalTurnaround({ data = [] }) {
   const uid = useId();
   const c = useThemeColors();
   const [expanded, setExpanded] = useState(false);
+  const hostRef = useRef(null);
   const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
   // One approved month draws no line — see the same note in SpendTrend. A single
@@ -633,11 +732,11 @@ export function ApprovalTurnaround({ data = [] }) {
   return (
     <>
       <div className="relative">
-        <button onClick={()=>setExpanded(true)} aria-label="Expand chart" title="Click to expand"
-          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-          <Maximize2 size={14}/>
-        </button>
-        <div className="h-56" role="img" aria-label="Average days from receipt submission to approval, by month">
+        <div className="absolute top-0 right-0 z-10 flex items-center gap-0.5">
+          <DownloadBtn hostRef={hostRef} title="Approval turnaround" disabled={!data.length}/>
+          <ExpandBtn onClick={()=>setExpanded(true)}/>
+        </div>
+        <div ref={hostRef} className="h-56" role="img" aria-label="Average days from receipt submission to approval, by month">
           {data.length ? mkChart('p') : <EmptyChart label="Not enough approvals yet"/>}
         </div>
       </div>
@@ -649,15 +748,20 @@ export function ApprovalTurnaround({ data = [] }) {
   );
 }
 
-// Panel header with an enlarge button (same affordance as the Overview charts).
-// A plain function, not a component, so it isn't re-created on every render.
-const panelHead = (title, sub, onExpand) => (
+// Panel header with download + enlarge buttons (same affordance as the Overview
+// charts). A plain function, not a component, so it isn't re-created on every
+// render. `hostRef`/`downloadTitle` are what the PNG export reads; omit them and
+// the header renders with the enlarge button alone.
+const panelHead = (title, sub, onExpand, hostRef, hasData = true) => (
   <div className="flex items-start justify-between gap-3 mb-5">
-    <div>
+    <div className="min-w-0">
       <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">{title}</h2>
       <p className="text-[13px] text-zinc-500 mt-1">{sub}</p>
     </div>
-    <ExpandBtn onClick={onExpand} />
+    <div className="flex items-center gap-0.5 shrink-0">
+      {hostRef && <DownloadBtn hostRef={hostRef} title={title} disabled={!hasData} />}
+      <ExpandBtn onClick={onExpand} />
+    </div>
   </div>
 );
 
@@ -665,6 +769,9 @@ const panelHead = (title, sub, onExpand) => (
 // selects but never prints — `selectedEmployeeName` is what the titles show.
 export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [], trend = [], selectedEmployee = null, selectedEmployeeName = '', onSelectEmployee, selectedCategory = null, onSelectCategory, topN = 14 }) {
   const [expanded, setExpanded] = useState(null); // 'emp' | 'cat' | 'trend'
+  const empRef   = useRef(null);
+  const catRef   = useRef(null);
+  const trendRef = useRef(null);
 
   const empTop = byEmployee.slice(0, topN);
   const empHidden = byEmployee.length - empTop.length;
@@ -687,15 +794,15 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
         selectedCategory ? `Showing ${selectedCategory} — click it again to clear`
           : onSelectCategory ? 'Share of spend — click a category to filter'
           : 'Share of spend by category',
-        () => setExpanded('cat'))}
-      <div className="h-72">{donut}</div>
+        () => setExpanded('cat'), catRef, byCategory.length > 0)}
+      <div ref={catRef} className="h-72">{donut}</div>
     </div>
   );
 
   const trendPanel = (
     <div className={panelCls}>
-      {panelHead('Monthly spend trend', trendSub, () => setExpanded('trend'))}
-      <div className="h-56" role="img" aria-label="Monthly spend trend">{spendTrend}</div>
+      {panelHead('Monthly spend trend', trendSub, () => setExpanded('trend'), trendRef, trend.length > 0)}
+      <div ref={trendRef} className="h-56" role="img" aria-label="Monthly spend trend">{spendTrend}</div>
     </div>
   );
 
@@ -741,8 +848,8 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
               selectedEmployee ? 'Showing one employee — click their bar to clear'
                 : empHidden > 0 ? `Top ${topN} of ${byEmployee.length} — enlarge or search for the rest`
                 : 'Click a bar to drill into one employee',
-              () => setExpanded('emp'))}
-            <div className="h-72" role="img" aria-label="Spend by employee">{empBars(empTop)}</div>
+              () => setExpanded('emp'), empRef, empTop.length > 0)}
+            <div ref={empRef} className="h-72" role="img" aria-label="Spend by employee">{empBars(empTop)}</div>
           </div>
           {donutPanel}
         </div>
