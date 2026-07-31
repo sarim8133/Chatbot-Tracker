@@ -272,3 +272,16 @@ body, .theme-fade {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Print export (Overview / Expenses "PDF" button, or a manual Ctrl+P) ──────
+   Hides interactive chrome so a print / Save-as-PDF shows the panels a report
+   reader actually wants, not the nav bar, filter widgets, or expand icons.
+   Pure @media print — unlike vercel.json's CSP/Permissions-Policy headers
+   (prod-only), this renders identically in `vite dev` and production, so it's
+   directly testable locally. */
+@media print {
+  header, .no-print { display: none !important; }
+  body, .bg-paper { background: #fff !important; }
+  main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+  .app-scale { zoom: 1 !important; }
+}

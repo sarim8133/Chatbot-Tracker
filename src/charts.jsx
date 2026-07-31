@@ -106,7 +106,7 @@ const ExpandBtn = ({ onClick }) => (
     onClick={onClick}
     aria-label="Expand chart"
     title="Click to expand"
-    className="flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0"
+    className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0"
   >
     <Maximize2 size={14} />
   </button>
@@ -316,7 +316,7 @@ export function HitRateTrend({ data = [] }) {
           onClick={() => setExpanded(true)}
           aria-label="Expand chart"
           title="Click to expand"
-          className="absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          className="no-print absolute top-0 right-0 z-10 flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <Maximize2 size={14} />
         </button>
