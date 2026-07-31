@@ -540,6 +540,25 @@ function SpendTrend({ data }) {
   const uid = useId();
   const c = useThemeColors();
   const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
+
+  // A trend needs two points to draw a line. With a single month of history the
+  // AreaChart draws a zero-length segment and, with dot={false}, nothing visible
+  // at all — which reads as a broken chart rather than as "you have one month of
+  // data". One bar shows the same number on the same axes and looks deliberate.
+  if (data.length === 1) {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 4 }}>
+          <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4" />
+          <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} />
+          <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
+          <Tooltip content={<MoneyTip />} cursor={{ fill: `${c.ink}0A` }} />
+          <Bar dataKey="total" fill={c.accent} radius={[3, 3, 0, 0]} maxBarSize={56} />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 4 }}>
@@ -579,8 +598,19 @@ export function ApprovalTurnaround({ data = [] }) {
   const [expanded, setExpanded] = useState(false);
   const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
+  // One approved month draws no line — see the same note in SpendTrend. A single
+  // bar is the honest rendering: it shows the number instead of an empty frame.
   const mkChart = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
+      {data.length === 1 ? (
+        <BarChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
+          <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
+          <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false}/>
+          <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false} tickFormatter={v=>`${v}d`}/>
+          <Tooltip content={<DaysTip/>} cursor={{fill:`${c.ink}0A`}}/>
+          <Bar dataKey="days" fill={c.accent} radius={[3,3,0,0]} maxBarSize={56}/>
+        </BarChart>
+      ) : (
       <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
         <defs>
           <linearGradient id={`${uid}at${sfx}`} x1="0" y1="0" x2="0" y2="1">
@@ -596,6 +626,7 @@ export function ApprovalTurnaround({ data = [] }) {
           fill={`url(#${uid}at${sfx})`} dot={false}
           activeDot={{r:4,fill:c.accent,stroke:c.surface,strokeWidth:2}}/>
       </AreaChart>
+      )}
     </ResponsiveContainer>
   );
 

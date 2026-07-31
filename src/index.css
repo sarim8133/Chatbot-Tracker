@@ -284,4 +284,50 @@ body, .theme-fade {
   body, .bg-paper { background: #fff !important; }
   main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
   .app-scale { zoom: 1 !important; }
+
+  /* PRINT IS ALWAYS LIGHT — paper is white, so the dark theme must not follow
+     the page onto it. The theme is entirely variable-driven, and dark mode
+     INVERTS the zinc scale (zinc-900 becomes near-white, zinc-500 a pale grey),
+     so a dark-mode print came out as grey-on-white body text with barely-visible
+     headings. Resetting the tokens here flips every panel, label and border back
+     without touching a single component.
+     Values are copied from :root and Tailwind's default zinc/slate — the dark
+     block overrides the scale, so the scale has to be restored too, not just the
+     semantic tokens. */
+  [data-theme="dark"] {
+    color-scheme: light;
+
+    --paper: #F1F5F9;  --surface: #FFFFFF;  --surface-2: #FAFAFA;
+    --line: #E4E4E7;   --text: #18181B;     --muted: #71717A;
+    --ink: #1E293B;    --on-ink: #FFFFFF;
+    --accent: #F5471D; --accent-dark: #D63A12;
+    --blue: #2258B8;   --pos: #16794C;
+    --neg: #B91C1C;    --neg-solid: #B91C1C;
+    --warn: #B45309;   --warn-text: #92400E;
+    --danger-bg: #FEF2F2;  --danger-border: #FECACA;  --danger-text: #991B1B;
+    --success-bg: #F0FDF4; --success-border: #BBF7D0; --success-text: #14532D;
+    --info-bg: #EFF6FF;
+
+    --color-zinc-50:  #FAFAFA;  --color-zinc-100: #F4F4F5;
+    --color-zinc-200: #E4E4E7;  --color-zinc-300: #D4D4D8;
+    --color-zinc-400: #A1A1AA;  --color-zinc-500: #71717A;
+    --color-zinc-600: #52525B;  --color-zinc-700: #3F3F46;
+    --color-zinc-800: #27272A;  --color-zinc-900: #18181B;
+    --color-zinc-950: #09090B;
+    --color-slate-100: #F1F5F9; --color-slate-200: #E2E8F0;
+    --color-slate-300: #CBD5E1;
+  }
+
+  /* Recharts writes axis/label colours as inline SVG attributes from
+     useThemeColors(), which read the variables at RENDER time — long before the
+     print stylesheet applies. So the block above cannot reach them, and dark
+     mode's pale-grey ticks would still print pale grey. Forced here instead. */
+  .recharts-cartesian-axis-tick text,
+  .recharts-label,
+  .recharts-legend-item-text { fill: #3F3F46 !important; color: #3F3F46 !important; }
+  .recharts-cartesian-grid line { stroke: #E4E4E7 !important; }
+
+  /* Keep a chart and its heading together. Without this a panel splits across
+     the page fold and you get a legend on page 2 with nothing above it. */
+  .print-block { break-inside: avoid; page-break-inside: avoid; }
 }

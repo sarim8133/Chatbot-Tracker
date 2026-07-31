@@ -592,6 +592,8 @@ function ContentModal({ title, sub, open, onClose, children }) {
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
 // Soft-shadow card — depth through shadow, not a heavy border
+// print-block keeps a panel and its chart together on one printed page. It lives
+// on the primitive rather than on each panel so nothing new has to remember it.
 const Panel = ({children, className='', hover=false, ...rest}) => (
   <motion.div
     variants={fadeUp}
@@ -599,7 +601,7 @@ const Panel = ({children, className='', hover=false, ...rest}) => (
       boxShadow:'0 4px 24px -4px rgba(30,41,59,0.16)',
       transition:{duration:0.15}
     } : undefined}
-    className={`bg-surface border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
+    className={`print-block bg-surface border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
     {...rest}
   >
     {children}
@@ -1165,8 +1167,12 @@ function OverviewTab({s, onDrill, showCache}) {
         </Panel>
       )}
 
-      {/* Bottom row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Bottom row.
+          no-print on the whole row: Most asked and Bad responses are working
+          tools — you click a topic to drill into Conversations, or a flagged
+          reply to go fix a prompt. Neither survives being printed, and a PDF
+          report is for the numbers, not the queue. */}
+      <div className="no-print grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Most asked — ledger rows, leader bar in accent */}
         <Panel className="p-6">
@@ -1225,8 +1231,9 @@ function OverviewTab({s, onDrill, showCache}) {
       </div>
 
       {/* Bad responses — replies the reps flagged. Replaces "Knowledge gaps", which
-          keyed on short replies and, measured over 128 turns, never once fired. */}
-      <Panel className="p-6">
+          keyed on short replies and, measured over 128 turns, never once fired.
+          no-print: see the note on the row above. */}
+      <Panel className="no-print p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Bad responses</h2>
