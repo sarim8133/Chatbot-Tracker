@@ -5755,10 +5755,11 @@ export default function Dashboard({ onLogout }) {
       </header>
 
       {/* ── Page ──
-          The body renders 25% larger than the header on desktop — see .app-scale
-          in index.css for why that lives here instead of in the browser's own zoom
-          (short version: browser zoom enlarges the nav too, and the nav is the one
-          strip with no room to spare).
+          The body renders 12.5% larger than the header on desktop (was 25%,
+          dialled back 10% on request) — see .app-scale in index.css for why
+          that lives here instead of in the browser's own zoom (short version:
+          browser zoom enlarges the nav too, and the nav is the one strip with
+          no room to spare).
 
           Chat is the one tab that opts out. Its enlarged panel is position:fixed
           and sized from --app-header-h and 100dvh, all real viewport pixels that a
@@ -5768,11 +5769,11 @@ export default function Dashboard({ onLogout }) {
           content, or everything just gets more cramped inside a box the same size.
 
           The extra top padding rides the SAME breakpoint as the scale (xl is
-          1280px, exactly where --app-scale becomes 1.25) because it exists to pay
-          for it. The gap between the header rule and the page title held its ratio
-          when the body grew — but the header did NOT grow, so a 25%-larger title
-          now crowds a nav bar that stayed put, and the old gap reads as cramped.
-          It only needs the correction where the scale is live. */}
+          1280px, exactly where --app-scale becomes 1.125) because it exists to
+          pay for it. The gap between the header rule and the page title held its
+          ratio when the body grew — but the header did NOT grow, so a larger
+          title now crowds a nav bar that stayed put, and the old gap reads as
+          cramped. It only needs the correction where the scale is live. */}
       <main className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-8 xl:pt-12 pb-8${tab === 'chat' ? '' : ' app-scale'}`}>
 
         {/* Backend unreachable — sample data is showing. Make it unmistakable. */}
