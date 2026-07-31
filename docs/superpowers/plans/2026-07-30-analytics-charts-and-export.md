@@ -1713,3 +1713,40 @@ git commit -m "chore: lint/build fixes from final verification pass"
 ```
 
 (Skip this step entirely if Step 4 was already clean — don't create an empty commit.)
+
+---
+
+## Status — completed 2026-07-30
+
+All 13 tasks implemented on `worktree-analytics-charts-export` (21 commits) and merged to `main`.
+The checkboxes above were never ticked because the plan was committed to `main` *after* the worktree
+was cut, so the worktree had no copy of this file to tick. Go by the commits, not the boxes.
+
+Verified:
+- `npm run build` clean on `main` after the merge.
+- Lint unchanged — the 7 `react-hooks/set-state-in-effect` errors and 1 `exhaustive-deps` warning are
+  all pre-existing (lines 438, 504, 1400, 1405, 4994, 5290, 5485, 5566), none in code this work added.
+  Note Task 13 Step 4 expected `npm run lint` to exit 0; it cannot, and could not before this work.
+- Print rules compile into `dist/assets/index-*.css`, and `no-print` is applied to every expand
+  button — the shared `ExpandBtn`, `HitRateTrend`'s standalone one, and the two added in Tasks 5/8.
+- `.xlsx` writer validated against an INDEPENDENT strict reader (.NET `System.IO.Compression`
+  + `System.Xml`), not just its own round-trip:
+    * 8 correct OOXML entries; `xl/worksheets/sheet1.xml` parses as well-formed XML
+    * sheet names sanitised — illegal `/[]*?:\` characters stripped, truncated to 31 chars,
+      duplicates de-duplicated
+    * `-1500` stays a NUMERIC cell (`<v>`), so it still sums — the negative-number exemption
+      carried over from csvCell correctly
+    * `=cmd|' /c calc'!A1` is apostrophe-prefixed to inert text (CWE-1236 guard shared via
+      guardFormula)
+    * `محمد حبیب` preserved intact; `Tom & "Jerry" <Ltd>` XML-escapes and round-trips exactly
+    * `buildXLSX([])` throws rather than emitting a workbook Excel would refuse to open
+
+NOT verified — both need a human at a keyboard, neither could be done from this environment:
+- Task 13 Steps 1-2: the 320/360/412px mobile pass and the dark-theme pass over every new panel.
+  This matters more than usual here: the export control is a new two-button group that sits in the
+  same header row as existing filters, and the status-split bar relies on --warn/--pos/--neg/--muted
+  all resolving visibly against the dark panel background.
+- Task 13 Step 3: RLS re-verification of the new `dashboard_stats()` fields
+  (`top_reps_daily`, `active_reps_last30`, `active_reps_prev30`) as a **ceo** and a **finance_admin**.
+  Expected: ceo full data, finance_admin empty — `can_read_chats()` is {dev, ceo} only.
+  The Supabase MCP connection dropped before this could be run.
