@@ -23,6 +23,19 @@ import { downloadChartPNG } from './chart-export';
 const MONO = "'Spline Sans Mono', ui-monospace, monospace";
 const mkTick = (c) => ({ fill: c.muted, fontSize: 10, fontFamily: MONO });
 
+// Every X-axis below uses interval="preserveStartEnd", not a computed skip
+// count. Recharts has two entirely different code paths for `interval`
+// (node_modules/recharts/.../cartesian/getTicks.js): a NUMBER takes an early
+// return into getNumberIntervalTicks(), which blindly shows every Nth label
+// with no idea how wide the chart actually is — `minTickGap` is silently
+// ignored on that path. A STRING mode like "preserveStartEnd" takes the real
+// path, which measures each label's rendered width against the chart's own
+// pixel viewBox and thins labels to respect minTickGap. The old numeric
+// version was tuned assuming ~8 labels fit, which is true on a wide desktop
+// panel and false on a 320px phone — the labels overlapped because nothing
+// was ever checking the actual width. The string mode is the only one that
+// makes minTickGap real, so it's correct at every screen size for free.
+
 const ChartTip = ({active, payload, label}) => {
   if (!active || !payload?.length) return null;
   return (
@@ -164,7 +177,6 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   },[volumeDaily, range, from, to, customActive]);
 
   const total     = view.reduce((a,b)=>a+b.count,0);
-  const tickEvery = Math.max(0, Math.ceil(view.length/8)-1);
   const minDate   = volumeDaily[0]?.date;
   const maxDate   = volumeDaily[volumeDaily.length-1]?.date;
 
@@ -181,7 +193,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false}/>
         <Tooltip content={<ChartTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="count"
@@ -323,7 +335,6 @@ export function HitRateTrend({ data = [] }) {
   const hostRef = useRef(null);
   const uid = useId();
   const c = useThemeColors();
-  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
   const mkChart = (sfx) => (
     <ResponsiveContainer width="100%" height="100%">
@@ -335,7 +346,7 @@ export function HitRateTrend({ data = [] }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={24} padding={{left:12,right:12}}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={38} domain={[0,1]} tickFormatter={v=>`${Math.round(v*100)}%`}/>
         <Tooltip content={<RateTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="rate"
@@ -429,14 +440,12 @@ export function RepActivityTrend({ data = [] }) {
     return { rows, reps };
   }, [data]);
 
-  const tickEvery = Math.max(0, Math.ceil(rows.length/8)-1);
-
   const mkChart = () => (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={rows} margin={{top:6,right:6,bottom:0,left:4}}>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
         <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false}
-          interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+          interval="preserveStartEnd" minTickGap={16} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={30} allowDecimals={false}/>
         <Tooltip content={<RepTrendTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         {reps.map((r,i)=>(
@@ -573,7 +582,6 @@ function CategoryDonut({ data, selected, onSelect }) {
 function SpendTrend({ data }) {
   const uid = useId();
   const c = useThemeColors();
-  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
   // A trend needs two points to draw a line. With a single month of history the
   // AreaChart draws a zero-length segment and, with dot={false}, nothing visible
@@ -603,7 +611,7 @@ function SpendTrend({ data }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4" />
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={20} padding={{left:12,right:12}} />
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={20} padding={{left:12,right:12}} />
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={52} tickFormatter={fmtPKRk} />
         <Tooltip content={<MoneyTip />} cursor={{ stroke: c.ink, strokeWidth: 1, strokeDasharray: '3 3' }} />
         <Area type="monotone" dataKey="total" stroke={c.accent} strokeWidth={2}
@@ -631,7 +639,6 @@ export function ApprovalTurnaround({ data = [] }) {
   const c = useThemeColors();
   const [expanded, setExpanded] = useState(false);
   const hostRef = useRef(null);
-  const tickEvery = Math.max(0, Math.ceil(data.length/8)-1);
 
   // One approved month draws no line — see the same note in SpendTrend. A single
   // bar is the honest rendering: it shows the number instead of an empty frame.
@@ -654,7 +661,7 @@ export function ApprovalTurnaround({ data = [] }) {
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval={tickEvery} minTickGap={16} padding={{left:12,right:12}}/>
+        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} padding={{left:12,right:12}}/>
         <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={34} allowDecimals={false} tickFormatter={v=>`${v}d`}/>
         <Tooltip content={<DaysTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
         <Area type="monotone" dataKey="days" stroke={c.accent} strokeWidth={2}
