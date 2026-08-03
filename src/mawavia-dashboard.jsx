@@ -5318,10 +5318,25 @@ function ChangePasswordModal({ open, onClose }) {
   const [showPw, setShowPw]   = useState(false);
   const [showPw2, setShowPw2] = useState(false);
 
+  // Deliberately depends on `open` ALONE, not `onClose` too. The dashboard
+  // polls stats every 30s (useData's background refresh) and re-renders the
+  // whole app on every tick; the caller passes onClose as `()=>setPwOpen(false)`,
+  // a fresh inline function every render. With onClose in this array, every
+  // 30-second poll counted as a dependency change and re-ran the reset below —
+  // wiping out whatever password the user was mid-typing, on a timer, while
+  // the modal just sat there open. This must only fire on the actual
+  // closed→open transition.
   useEffect(() => {
     if (!open) return;
     setCur(''); setPw(''); setPw2(''); setErr(''); setDone(false); setBusy(false);
     setShowCur(false); setShowPw(false); setShowPw2(false);
+  }, [open]);
+
+  // Escape-to-close is safe to depend on onClose: re-registering the same
+  // listener on every render costs nothing and always calls the current
+  // onClose, unlike the reset above it doesn't destroy anything by re-running.
+  useEffect(() => {
+    if (!open) return;
     const onKey = e => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
