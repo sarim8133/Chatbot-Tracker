@@ -1201,11 +1201,17 @@ function OverviewTab({s, onDrill, showCache}) {
                   </span>
                   <span className="mono text-[11px] text-zinc-500 shrink-0 tabular-nums">{q.count}</span>
                 </div>
+                {/* scaleX, not width: up to 6 of these animate at once on every
+                    Overview mount, and animating `width` forces a layout reflow
+                    on every frame per bar — 6x that, every frame. scaleX is a
+                    transform, so the GPU composites it with no reflow at all.
+                    Same visual result: the track is full-width and clipped by
+                    overflow-hidden, origin-left keeps the growth direction. */}
                 <div className="mt-1.5 h-[3px] bg-zinc-100 overflow-hidden">
                   <motion.div
-                    initial={{width:0}} animate={{width:`${(q.count/s.maxQ)*100}%`}}
+                    initial={{scaleX:0}} animate={{scaleX:q.count/s.maxQ}}
                     transition={{duration:0.7,delay:i*0.06,ease:[0.22,1,0.36,1]}}
-                    className="h-full" style={{background: i===0 ? ACCENT : INK}}/>
+                    className="h-full w-full origin-left" style={{background: i===0 ? ACCENT : INK}}/>
                 </div>
                 {q.variants>1 && (
                   <p className="text-[11px] text-zinc-400 mt-1">{q.variants} phrasings merged</p>
