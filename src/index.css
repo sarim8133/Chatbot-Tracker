@@ -341,6 +341,20 @@ body, .theme-fade {
   svg text { fill: #3F3F46 !important; color: #3F3F46 !important; }
   .recharts-cartesian-grid line { stroke: #E4E4E7 !important; }
 
+  /* Chart panels stack single-column on mobile (grid-cols-1, with the 2-column
+     layout behind an `lg:` prefix — a VIEWPORT-width media query). Printing
+     from a phone ("Save as PDF" in Chrome for Android) does not reliably widen
+     that viewport the way desktop Chrome's print preview does, so `lg:` never
+     activates and the PDF got the same single narrow column as the phone
+     screen, just stretched onto Letter-size paper — small charts padded by a
+     lot of white space. `interval="preserveStartEnd"` (charts.jsx) already
+     made the axis labels correct at whatever width a chart actually renders
+     at; this is the other half — forcing the width itself, unconditionally,
+     regardless of which device's viewport triggered the print. */
+  .print-grid-vol      { grid-template-columns: 1.9fr 1fr !important; }
+  .print-grid-team     { grid-template-columns: 1.6fr 1fr !important; }
+  .print-grid-personal { grid-template-columns: 1fr 1fr !important; }
+
   /* Keep a chart and its heading together. Without this a panel splits across
      the page fold and you get a legend on page 2 with nothing above it. */
   .print-block {

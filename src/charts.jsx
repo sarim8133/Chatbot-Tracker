@@ -220,7 +220,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-5">
+      <div className="print-grid-vol grid grid-cols-1 lg:grid-cols-[1.9fr_1fr] gap-5">
 
         {/* Message volume — range-selectable area chart */}
         <div className={panelCls}>
@@ -773,7 +773,7 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
   if (mode === 'personal') {
     return (
       <>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+        <div className="print-grid-personal grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
           {donutPanel}
           {trendPanel}
         </div>
@@ -785,7 +785,7 @@ export function ExpenseCharts({ mode = 'team', byEmployee = [], byCategory = [],
   return (
     <>
       <div className="space-y-5">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 items-stretch">
+        <div className="print-grid-team grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 items-stretch">
           <div className={panelCls}>
             {panelHead('Spend by employee',
               selectedEmployee ? 'Showing one employee — click their bar to clear'

@@ -9,7 +9,7 @@
 //
 // Zero dependency, and none needed: Recharts writes every colour as an SVG
 // attribute (see charts.jsx's top-of-file note), so a chart's <svg> is already
-// self-describing. Clone it, rasterize through a canvas at 2x.
+// self-describing. Clone it, rasterize through a canvas.
 //
 // Two deliberate choices:
 //   • The canvas is painted white first. A dark-theme chart is transparent
@@ -19,6 +19,20 @@
 //     sans/mono. Glyph positions are absolute, so nothing shifts; only the
 //     typeface differs, which is not worth base64-ing two woff2 files for.
 const PNG_SCALE = 2;
+
+// The print snapshot (below) uses a higher scale than the plain download.
+// It's captured from whatever the chart's on-screen size happens to be at
+// the moment "PDF" is clicked, then displayed at print size via CSS
+// width:100%/height:100% — on desktop those two sizes are close, but on a
+// phone printing "Save as PDF" (Chrome for Android does not reliably widen
+// its print viewport the way desktop Chrome's print preview does, see the
+// print-grid-* comment in index.css) the SOURCE is a narrow single-column
+// mobile chart while the DISPLAY becomes a much wider print panel. Capturing
+// at a plain 2x is fine when source and display are close in size; stretched
+// ~2-3x wider on top of that, it reads as a blurry, low-resolution image
+// "blown up" to fill the page — which is exactly what a phone print showed.
+// A higher base scale leaves enough real pixels that the stretch stays sharp.
+const PRINT_SCALE = 4;
 
 async function rasterizeSVG(svg, scale = PNG_SCALE) {
   const box = svg.getBoundingClientRect();
@@ -112,7 +126,7 @@ export async function snapshotChartsForPrint() {
     const svg = host.querySelector('svg');
     if (!svg) return; // e.g. an empty-state host with no chart mounted
     try {
-      const canvas = await rasterizeSVG(svg);
+      const canvas = await rasterizeSVG(svg, PRINT_SCALE);
       const img = document.createElement('img');
       img.src = canvas.toDataURL('image/png');
       img.alt = '';
