@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -1854,21 +1854,88 @@ async function chatWebhookHeaders() {
   return h;
 }
 
-// Normalize n8n's webhook response → { text, images, from_cache }. The cloned
+// Documents the agent attached to a reply (a comparison PDF, a proposal). n8n sends
+// a RELATIVE url — "/webhook/hitech-web-doc?session_id=…" — which we keep relative and
+// resolve against the chat webhook's origin at fetch time, so the editor's
+// /webhook-test/ path works the same as prod. Anything absolute is dropped: a
+// malformed (or tampered) agent turn must not be able to point a chip off-host.
+function cleanDocuments(docs) {
+  if (!Array.isArray(docs)) return [];
+  return docs
+    .filter(d => d && typeof d.name === 'string' && d.name.trim()
+                   && typeof d.url === 'string' && d.url.startsWith('/'))
+    .map(d => ({ kind: d.kind === 'proposal' ? 'proposal' : 'pdf', name: d.name.trim(), url: d.url }));
+}
+
+// Fetch a document and hand it to the browser as a download.
+//
+// The endpoint validates the Supabase JWT and scopes the lookup to that user_id, so
+// nobody can pull someone else's statement by guessing a session id. That also means
+// it can't be reached by NAVIGATION — <a download> and window.open() both 401,
+// because browsers don't attach Authorization to navigations. Hence: fetch with the
+// header, then save the blob.
+async function downloadDocument(doc) {
+  let token;
+  // getAccessToken() refreshes a nearly-expired JWT, so the usual cause of a 401 is
+  // handled before the request rather than reported after it.
+  try { token = await getAccessToken(); }
+  catch { throw new Error('Your session expired — sign in again to download this.'); }
+
+  const res = await fetch(new URL(doc.url, N8N_CHAT_WEBHOOK).href, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.status === 401) throw new Error('Your session expired — sign in again to download this.');
+  // Expected occasionally: the agent sets the attachment flag from conversation
+  // history, and this webhook is the thing that actually checks. A wrong flag costs
+  // one failed fetch, never a wrong document.
+  if (res.status === 404) {
+    let detail = '';
+    try { detail = (await res.json())?.detail || ''; } catch { /* non-JSON body */ }
+    throw new Error(detail || 'No document is available for this answer yet.');
+  }
+  if (!res.ok) throw new Error(`Couldn’t fetch the document (HTTP ${res.status}).`);
+
+  // Prefer the filename the server put on the response: `doc.name` is built on the
+  // turn the rep ASKS for the export, where the agent's own pdf_content is null (the
+  // reply is a bare confirmation), so it falls back to a generic "HiTech Document".
+  // The renderer knows the real title. Reading this cross-origin needs
+  // `Access-Control-Expose-Headers: Content-Disposition` on the n8n response — until
+  // that's set the header reads as null here and we fall back, which is the old
+  // behaviour, so this is safe either way.
+  saveBlob(await res.blob(), filenameFromResponse(res) || doc.name);
+}
+
+// Pull the filename out of a Content-Disposition header. Handles RFC 5987
+// (`filename*=UTF-8''…`, which is what a name with spaces or an em dash arrives as)
+// before the plain `filename=` form.
+function filenameFromResponse(res) {
+  const cd = res.headers.get('content-disposition');
+  if (!cd) return '';
+  const ext = /filename\*=(?:UTF-8|utf-8)''([^;]+)/.exec(cd);
+  if (ext) { try { return decodeURIComponent(ext[1]).trim(); } catch { /* malformed escape */ } }
+  const plain = /filename="?([^";]+)"?/.exec(cd);
+  return plain ? plain[1].trim() : '';
+}
+
+// Normalize n8n's webhook response → { text, images, documents, from_cache }. The cloned
 // workflow answers with { reply, images }, but we check the other common field
 // names too so a tweak to the "Respond to Webhook" node won't break the UI.
 async function parseChatReply(res) {
   const raw = await res.text();
   let data = null;
   try { data = JSON.parse(raw); } catch { /* plain-text response */ }
-  if (data == null) return { text: raw.trim() || '(empty response)', images: [], from_cache: false };
+  if (data == null) return { text: raw.trim() || '(empty response)', images: [], documents: [], from_cache: false };
   const obj = Array.isArray(data) ? (data[0] ?? {}) : data;
-  if (typeof obj === 'string') return { text: obj, images: [], from_cache: false };
+  if (typeof obj === 'string') return { text: obj, images: [], documents: [], from_cache: false };
   const t = obj.reply ?? obj.output ?? obj.response ?? obj.text ?? obj.message ?? obj.answer ?? obj.AI_Response ?? '';
   const imgs = obj.images ?? obj.image_urls ?? [];
   return {
     text: (typeof t === 'string' && t) ? t : JSON.stringify(obj),
     images: Array.isArray(imgs) ? imgs.filter(u => typeof u === 'string' && u.startsWith('https://')) : [],
+    // Usually empty — and ALWAYS empty on a cache hit, since the flag lives on the
+    // agent turn and a cached answer never runs it.
+    documents: cleanDocuments(obj.documents),
     from_cache: !!(obj.from_cache ?? obj.cached),
     // Post-Romanizer text for voice notes (see n8n's "Respond Success" node); empty
     // string for a typed message, which the browser just ignores.
@@ -2253,6 +2320,51 @@ function ChatThreadSkeleton() {
   );
 }
 
+// Attachment chips under an answer — one per document the agent produced. Each
+// carries its own busy/error state: on a thread with two attachments, a 404 on one
+// must not blank the other. Full-width and 44px tall so it's a comfortable tap
+// target on a 360px phone, with the filename truncating rather than wrapping.
+function DocumentChips({ docs }) {
+  const [busy, setBusy] = useState(null);   // url of the one being fetched
+  const [err,  setErr]  = useState(null);   // { url, msg }
+
+  const get = async doc => {
+    if (busy) return;
+    setBusy(doc.url); setErr(null);
+    try { await downloadDocument(doc); }
+    catch (e) { setErr({ url: doc.url, msg: e.message }); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 w-full">
+      {docs.map(doc => (
+        <div key={doc.url} className="w-full">
+          <button
+            type="button" onClick={() => get(doc)} disabled={!!busy}
+            title={`Download ${doc.name}`}
+            className="flex items-center gap-2 w-full min-h-[44px] px-3 py-2 rounded-xl border border-zinc-200 bg-surface text-left transition-shadow hover:shadow-[0_4px_16px_-4px_rgba(30,41,59,0.18)] disabled:opacity-60 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          >
+            {busy === doc.url
+              ? <RefreshCw size={15} className="shrink-0 animate-spin text-zinc-500"/>
+              : <FileText  size={15} className="shrink-0" style={{color:BLUE}}/>}
+            <span className="flex-1 min-w-0">
+              <span className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                {doc.kind === 'proposal' ? 'Proposal' : 'PDF'}
+              </span>
+              <span className="block text-[13px] font-medium text-zinc-800 truncate">{doc.name}</span>
+            </span>
+            <Download size={14} className="shrink-0 text-zinc-400"/>
+          </button>
+          {err?.url === doc.url && (
+            <p className="mt-1 px-1 text-[12px]" style={{color:'var(--danger-text)'}}>{err.msg}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ChatBubble({ m, question, sessionId }) {
   const isUser = m.role === 'user';
   return (
@@ -2289,6 +2401,7 @@ function ChatBubble({ m, question, sessionId }) {
             ))}
           </div>
         )}
+        {!isUser && m.documents?.length > 0 && <DocumentChips docs={m.documents}/>}
         {/* Not on error bubbles — a failed request is already logged by errlog.js,
             and asking "what went wrong?" about a network error is just noise. */}
         {!isUser && !m.error && <BadAnswerButton m={m} question={question} sessionId={sessionId}/>}
@@ -2667,8 +2780,8 @@ function ChatTab({ active }) {
           text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
-      const { text: reply, images, from_cache } = await parseChatReply(res);
-      setMessages(m => [...m, { role:'assistant', text: reply, images, from_cache, ts:Date.now() }]);
+      const { text: reply, images, documents, from_cache } = await parseChatReply(res);
+      setMessages(m => [...m, { role:'assistant', text: reply, images, documents, from_cache, ts:Date.now() }]);
     } catch {
       // fetch itself threw → the request never completed (network down, wrong URL,
       // or a genuine CORS block where no response is readable).
@@ -2861,8 +2974,8 @@ function ChatTab({ active }) {
           text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
-      const { text: reply, images, from_cache } = await parseChatReply(res);
-      setMessages(m => [...m, { role:'assistant', text: reply, images, from_cache, ts:Date.now() }]);
+      const { text: reply, images, documents, from_cache } = await parseChatReply(res);
+      setMessages(m => [...m, { role:'assistant', text: reply, images, documents, from_cache, ts:Date.now() }]);
     } catch {
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
         text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
