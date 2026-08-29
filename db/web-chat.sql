@@ -68,3 +68,18 @@ CREATE OR REPLACE VIEW chat_all AS
          'web'::text AS channel FROM web_chat_histories;
 ALTER VIEW chat_all SET (security_invoker = on);
 GRANT SELECT ON chat_all TO authenticated;
+
+-- ============================================================================
+-- 2026-08-29 — from_cache column dropped
+-- ----------------------------------------------------------------------------
+-- web_chat_histories.from_cache (created NOT NULL DEFAULT false, above) is
+-- gone -- the semantic cache was retired site-wide. The chat_all view already
+-- shown above is superseded and dead (see db/2026-07-28-single-identity.sql,
+-- which is the source of truth for chat_all as of 2026-07-28, and which
+-- dropped from_cache from its own definition the same day as this).
+--
+-- If this file is ever re-run against a fresh database, the CREATE TABLE above
+-- will still create a from_cache column that no longer matches production --
+-- run db/2026-08-29-remove-cache-step3.sql after it to bring a fresh table in
+-- line with the live schema.
+-- ============================================================================

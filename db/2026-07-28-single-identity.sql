@@ -152,10 +152,16 @@ create index if not exists chat_archive_user_id_idx on public.chat_archive(user_
 --
 -- Three appended columns: ident (the person), person_name (roster name),
 -- person_phone (roster number, so a rep merged across channels still shows one).
+--
+-- UPDATE 2026-08-29 (db/2026-08-29-remove-cache-step2.sql): from_cache dropped
+-- from every branch -- the semantic cache was retired site-wide. See that
+-- file's own header for why this had to be a drop-and-recreate (CASCADE) of
+-- the view rather than another CREATE OR REPLACE: removing a column is the one
+-- thing CREATE OR REPLACE VIEW cannot do.
 create or replace view public.chat_all as
 select
   r."Timestamp", r."User_Message", r."AI_Response", r."User_Number",
-  r.unq_id, r."Name", r.from_cache, r.channel, r.user_id,
+  r.unq_id, r."Name", r.channel, r.user_id,
   -- user_id is the stamp n8n writes; the two lookups in the lateral below cover
   -- rows written before the backfill or by a workflow not yet updated, which
   -- would otherwise key on free text and re-split the same human into a second
@@ -174,22 +180,19 @@ from (
    SELECT n8n_chat_histories."Timestamp", n8n_chat_histories."User_Message",
       n8n_chat_histories."AI_Response", n8n_chat_histories."User_Number",
       n8n_chat_histories.unq_id, n8n_chat_histories."Name",
-      n8n_chat_histories.from_cache, 'whatsapp'::text AS channel,
-      n8n_chat_histories.user_id
+      'whatsapp'::text AS channel, n8n_chat_histories.user_id
      FROM n8n_chat_histories
   UNION ALL
    SELECT chat_archive."Timestamp", chat_archive."User_Message",
       chat_archive."AI_Response", chat_archive."User_Number",
       chat_archive.unq_id, chat_archive."Name",
-      chat_archive.from_cache, 'whatsapp'::text AS channel,
-      chat_archive.user_id
+      'whatsapp'::text AS channel, chat_archive.user_id
      FROM chat_archive
   UNION ALL
    SELECT web_chat_histories."Timestamp", web_chat_histories."User_Message",
       web_chat_histories."AI_Response", NULL::bigint AS "User_Number",
       web_chat_histories.unq_id, web_chat_histories."Name",
-      web_chat_histories.from_cache, 'web'::text AS channel,
-      web_chat_histories.user_id
+      'web'::text AS channel, web_chat_histories.user_id
      FROM web_chat_histories
 ) r
 -- LATERAL ... limit 1, not a three-way OR join: a row matching two ways would
