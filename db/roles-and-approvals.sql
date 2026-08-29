@@ -1405,3 +1405,15 @@ drop function private.is_admin();
 -- custom properties. Rule of thumb: --ink and --surface* are fills; text colour
 -- comes from the zinc scale.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 2026-08-29 — private.can_manage_cache() dropped
+-- ----------------------------------------------------------------------------
+-- Gated nothing but semantic_cache's own RLS policy (confirmed by grep: every
+-- other reference in this file is this function's own definition or the
+-- table listing that names it). The semantic cache was retired entirely --
+-- see db/2026-08-29-remove-cache-step2.sql. private.can_read_chats() is
+-- untouched and still gates n8n_chat_histories, chat_archive,
+-- web_chat_histories and chat_feedback exactly as Task 4 above left it.
+-- ============================================================================

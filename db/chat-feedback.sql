@@ -11,18 +11,20 @@
 -- So the signal now comes from the reps: a dislike button under each assistant
 -- reply. Dislike-only — there is no "like", because only failures are
 -- actionable. A bare vote is not actionable either, so every row carries the
--- whole exchange plus:
---   • reason     — a preset tag, so a 👎 becomes a category instead of a mood
---   • from_cache — decides the fix. A disliked LIVE answer means fix the prompt
---                  or the RAG; a disliked CACHED answer means the semantic_cache
---                  row has to go, and until it does, no prompt fix will appear
---                  to work at all.
+-- whole exchange plus reason — a preset tag, so a 👎 becomes a category
+-- instead of a mood.
 --
 -- Applied 2026-07-21 via Supabase MCP migration `create_chat_feedback`.
--- Amended 2026-07-26 via `purge_semantic_cache_on_bad_answer` — that last step
--- is no longer manual; see section 2.
 -- This file is the checked-in record; the live schema is the source of truth.
 -- See src/feedback.js (reason tags + submit) and the Bad responses panel.
+--
+-- UPDATE 2026-08-29: from_cache and cache_purged both dropped — the semantic
+-- cache was retired site-wide. See the update note at the end of this file for
+-- the full change and db/2026-08-29-remove-cache-step2.sql for the migration.
+-- (Between 2026-07-26 and 2026-08-29, from_cache decided the fix: a disliked
+-- LIVE answer meant fix the prompt or RAG; a disliked CACHED one meant the
+-- semantic_cache row had to go too, or a prompt fix would look like it did
+-- nothing. That distinction no longer applies — every reply is live now.)
 -- ============================================================================
 
 create table if not exists public.chat_feedback (
@@ -33,12 +35,12 @@ create table if not exists public.chat_feedback (
   turn_ts      timestamptz,                  -- when the disliked reply was shown
   user_message text,                         -- the question that produced it
   ai_response  text,                         -- the reply, verbatim as displayed
-  from_cache   boolean not null default false,
   reason       text not null,                -- preset tag, see src/feedback.js
   note         text,                         -- optional free-text detail
   user_name    text,
-  user_id      uuid,
-  cache_purged integer not null default 0  -- semantic_cache rows this report evicted
+  user_id      uuid
+  -- from_cache and cache_purged (semantic-cache purge bookkeeping) dropped
+  -- 2026-08-29 -- see the update note at the end of this file.
 );
 
 comment on table public.chat_feedback is
@@ -57,7 +59,7 @@ create policy chat_feedback_insert
   with check (true);
 
 -- Reading the reports is analytics — admin-only, same gate as the other
--- admin_read tables (web_chat_histories, semantic_cache, client_errors...).
+-- admin_read tables (web_chat_histories, client_errors...).
 drop policy if exists chat_feedback_admin_read on public.chat_feedback;
 create policy chat_feedback_admin_read
   on public.chat_feedback for select
@@ -69,36 +71,29 @@ revoke all on public.chat_feedback from anon;
 
 
 -- ============================================================================
--- 2. Auto-purge — reporting a bad answer evicts it from the semantic cache
+-- 2. Auto-purge — RETIRED 2026-08-29, kept below as history
 -- ----------------------------------------------------------------------------
 -- Applied 2026-07-26 via migration `purge_semantic_cache_on_bad_answer`.
+-- Removed 2026-08-29 via db/2026-08-29-remove-cache-step2.sql, along with the
+-- semantic_cache table itself — see the update note at the end of this file.
 --
--- The from_cache flag above told an admin to go delete the row by hand. Nobody
--- reliably does, and the cost of forgetting is invisible: semantic_cache is
--- checked BEFORE the agent runs, so the bad answer keeps being served and every
--- prompt or RAG fix afterwards looks like it did nothing.
+-- The from_cache flag used to tell an admin to go delete the row by hand.
+-- Nobody reliably did, and the cost of forgetting was invisible: semantic_cache
+-- was checked BEFORE the agent ran, so the bad answer kept being served and
+-- every prompt or RAG fix afterwards looked like it did nothing. Three things
+-- worth knowing about how it worked, for the record:
 --
--- Three things are worth knowing about how this works:
+-- • It matched on the REPLY, not the question. The cache hit on embedding
+--   similarity above 0.94, so the phrasing that got served was usually not the
+--   phrasing stored in query_text — matching the question would have missed.
 --
--- • It matches on the REPLY, not the question. The cache hits on embedding
---   similarity above 0.94, so the phrasing that got served is usually not the
---   phrasing stored in query_text — matching the question would miss. The reply
---   is stored verbatim and returned unchanged by the webhook, so the text on
---   screen is the exact key. That also means no n8n change was needed: the
---   cache SELECT never returned an id, and adding one is a manual paste.
+-- • It fired for uncached replies too, on purpose. "Save to Semantic Cache"
+--   ran on the way OUT of a cache miss, so a reply badged "AI call" in the UI
+--   was normally already in the cache by the time a rep read it.
 --
--- • It fires for uncached replies too, on purpose. "Save to Semantic Cache"
---   runs on the way OUT of a cache miss, so a reply badged "AI call" in the UI
---   is normally already in the cache by the time a rep reads it. Purging only
---   from_cache replies would leave exactly those rows behind.
---
--- • One report can evict more than one row — the same answer gets cached under
---   each question phrasing that produced it. cache_purged records how many.
---
--- SECURITY DEFINER is load-bearing: semantic_cache is admin-read with no DELETE
--- grant, so the rep who saw the bad answer is the one person who cannot remove
--- it, and widening the grant would let any signed-in user delete anything.
--- Every gate RLS would have applied is therefore restated inside the function.
+-- • One report could evict more than one row — the same answer got cached
+--   under each question phrasing that produced it. cache_purged recorded how
+--   many.
 -- ============================================================================
 
 create or replace function public.report_bad_answer(
@@ -106,18 +101,18 @@ create or replace function public.report_bad_answer(
   p_turn_ts      timestamptz,
   p_user_message text,
   p_ai_response  text,
-  p_from_cache   boolean,
   p_reason       text,
   p_note         text
-) returns integer
+) returns void
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = 'public', 'pg_temp'
 as $$
 declare
-  v_uid    uuid    := auth.uid();
-  v_purged integer := 0;
+  v_uid uuid := auth.uid();
 begin
+  -- SECURITY DEFINER runs as the owner, so every gate the table's RLS would
+  -- have applied has to be restated here.
   if v_uid is null then
     raise exception 'Sign in before reporting an answer.' using errcode = '42501';
   end if;
@@ -125,38 +120,38 @@ begin
     raise exception 'Pick a reason first.' using errcode = '22023';
   end if;
 
-  -- The length floor is the authorisation check. An exact whole-string match on
-  -- a reply of real length means the caller demonstrably has that reply in hand;
-  -- without it, a signed-in user could evict rows by guessing short common
-  -- strings. Replies this short are not worth a cache row anyway.
-  if length(coalesce(p_ai_response, '')) >= 24 then
-    delete from public.semantic_cache where reply_text = p_ai_response;
-    get diagnostics v_purged = row_count;
-  end if;
-
   insert into public.chat_feedback (
     session_id, channel, turn_ts, user_message, ai_response,
-    from_cache, reason, note, user_name, user_id, cache_purged
+    reason, note, user_name, user_id
   ) values (
     nullif(p_session_id, ''), 'web', p_turn_ts,
     left(p_user_message, 4000), left(p_ai_response, 4000),
-    coalesce(p_from_cache, false), p_reason,
-    nullif(btrim(coalesce(p_note, '')), ''),
+    p_reason, nullif(btrim(coalesce(p_note, '')), ''),
     -- Identity is the account, never a client-supplied string. Same rule as
     -- db/expense-access-rls.sql.
     (select full_name from public.app_users where user_id = v_uid),
-    v_uid, v_purged
+    v_uid
   );
-
-  return v_purged;
 end
 $$;
 
-revoke all on function public.report_bad_answer(text, timestamptz, text, text, boolean, text, text) from public, anon;
-grant execute on function public.report_bad_answer(text, timestamptz, text, text, boolean, text, text) to authenticated;
+revoke all on function public.report_bad_answer(text, timestamptz, text, text, text, text) from public, anon;
+grant execute on function public.report_bad_answer(text, timestamptz, text, text, text, text) to authenticated;
 
--- Verified 2026-07-26, impersonating a non-admin employee inside a rolled-back
--- transaction: two rows sharing one reply → purged 2, a decoy row untouched,
--- a 9-char reply → purged 0, user_name/user_id stamped from the JWT and not
--- from the request body, anon execute denied, authenticated still has no direct
--- DELETE on semantic_cache.
+-- Verified 2026-07-26 (of the ORIGINAL 7-argument, purging version — kept for
+-- the record since the mechanism it proved, SECURITY DEFINER doing the whole
+-- job in one transaction, carried over unchanged): impersonating a non-admin
+-- employee inside a rolled-back transaction, two rows sharing one reply →
+-- purged 2, a decoy row untouched, a 9-char reply → purged 0, user_name/
+-- user_id stamped from the JWT and not from the request body, anon execute
+-- denied, authenticated still has no direct DELETE on semantic_cache.
+--
+-- UPDATE 2026-08-29 (db/2026-08-29-remove-cache-step2.sql): the purge and
+-- p_from_cache both removed — a genuine signature change (7 args -> 6), so the
+-- old function had to be DROPped by its exact old signature before this
+-- CREATE OR REPLACE could take the name; PostgREST would otherwise have had
+-- two candidates to choose between. src/feedback.js was updated in the same
+-- change to stop sending p_from_cache — the two are one change split across
+-- two files, not independent. The function now returns void instead of the
+-- purge count; src/mawavia-dashboard.jsx's BadAnswerButton was already
+-- rewritten to a plain boolean "sent" flag rather than reading a count.

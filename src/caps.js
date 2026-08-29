@@ -24,37 +24,37 @@
 export const CAPS = {
   dev: {
     label: 'Developer', tone: 'accent',
-    chats: true, cache: true, team: true, chat: true,
+    chats: true, team: true, chat: true,
     allExpenses: true, approvedExpenses: true,
     manage: true, approve: true, approveOverLimit: true, setLimits: true,
   },
   ceo: {
     label: 'CEO', tone: 'accent',
-    chats: true, cache: false, team: false, chat: true,
+    chats: true, team: false, chat: true,
     allExpenses: true, approvedExpenses: true,
     manage: false, approve: false, approveOverLimit: false, setLimits: false,
   },
   finance_manager: {
     label: 'Finance Manager', tone: 'pos',
-    chats: false, cache: false, team: false, chat: true,
+    chats: false, team: false, chat: true,
     allExpenses: true, approvedExpenses: true,
     manage: false, approve: true, approveOverLimit: true, setLimits: true,
   },
   finance_admin: {
     label: 'Finance Admin', tone: 'pos',
-    chats: false, cache: false, team: false, chat: true,
+    chats: false, team: false, chat: true,
     allExpenses: true, approvedExpenses: true,
     manage: true, approve: true, approveOverLimit: false, setLimits: true,
   },
   finance_viewer: {
     label: 'Finance', tone: 'pos',
-    chats: false, cache: false, team: false, chat: true,
+    chats: false, team: false, chat: true,
     allExpenses: false, approvedExpenses: true,
     manage: false, approve: false, approveOverLimit: false, setLimits: false,
   },
   employee: {
     label: 'Employee', tone: 'muted',
-    chats: false, cache: false, team: false, chat: true,
+    chats: false, team: false, chat: true,
     allExpenses: false, approvedExpenses: false,
     manage: false, approve: false, approveOverLimit: false, setLimits: false,
   },
@@ -70,7 +70,7 @@ export const capsFor = role => CAPS[role] || CAPS.employee;
 // dangerous option is never the one you land on by accident.
 export const ROLE_CHOICES = [
   { value: 'dev',             label: 'Developer',         desc: 'Everything — all tabs, all data, manages the team' },
-  { value: 'ceo',             label: 'CEO',               desc: 'All analytics + every expense, read-only. No Cache, no Team' },
+  { value: 'ceo',             label: 'CEO',               desc: 'All analytics + every expense, read-only. No Team' },
   { value: 'finance_manager', label: 'Finance Manager',   desc: 'Approves expenses (including over-limit) and sets spending limits' },
   { value: 'finance_admin',   label: 'Finance Admin',     desc: 'Reviews & manages expenses, sets limits, flags, remarks' },
   { value: 'finance_viewer',  label: 'Finance (records)', desc: 'Read-only view of approved expenses — cannot change limits' },

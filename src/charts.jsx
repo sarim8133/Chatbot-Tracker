@@ -317,68 +317,6 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   );
 }
 
-// ── Cache hit-rate trend (Cache tab, lazily loaded) ───────────────────────────
-const RateTip = ({active, payload, label}) => {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
-      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
-      <p className="mono text-[14px] font-bold" style={{color:'var(--accent-dark)'}}>{Math.round((p.rate||0)*100)}%</p>
-      <p className="mono text-[9px] text-zinc-500 mt-0.5">{p.hits}/{p.total} from cache</p>
-    </div>
-  );
-};
-
-export function HitRateTrend({ data = [] }) {
-  const [expanded, setExpanded] = useState(false);
-  const hostRef = useRef(null);
-  const uid = useId();
-  const c = useThemeColors();
-
-  const mkChart = (sfx) => (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{top:6,right:6,bottom:0,left:4}}>
-        <defs>
-          <linearGradient id={`${uid}rf${sfx}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor={c.accent} stopOpacity={0.16}/>
-            <stop offset="100%" stopColor={c.accent} stopOpacity={0}/>
-          </linearGradient>
-        </defs>
-        <CartesianGrid vertical={false} stroke={c.line} strokeDasharray="2 4"/>
-        <XAxis dataKey="label" tick={mkTick(c)} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} padding={{left:12,right:12}}/>
-        <YAxis tick={mkTick(c)} axisLine={false} tickLine={false} width={38} domain={[0,1]} tickFormatter={v=>`${Math.round(v*100)}%`}/>
-        <Tooltip content={<RateTip/>} cursor={{stroke:c.ink,strokeWidth:1,strokeDasharray:'3 3'}}/>
-        <Area type="monotone" dataKey="rate"
-          stroke={c.accent} strokeWidth={2}
-          fill={`url(#${uid}rf${sfx})`} dot={false}
-          activeDot={{r:4,fill:c.accent,stroke:c.surface,strokeWidth:2}}/>
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-
-  return (
-    <>
-      <div className="relative">
-        <div className="absolute top-0 right-0 z-10 flex items-center gap-0.5">
-          <DownloadBtn hostRef={hostRef} title="Cache hit rate" disabled={!data.length} />
-          <ExpandBtn onClick={() => setExpanded(true)} />
-        </div>
-        <div ref={hostRef} data-chart-host className="h-56" role="img" aria-label="Cache hit rate per day over time">
-          {mkChart('p')}
-        </div>
-      </div>
-      <ChartModal
-        title="Hit rate over time"
-        sub="Daily cache hit rate — is the cache improving?"
-        open={expanded}
-        onClose={() => setExpanded(false)}
-      >
-        {mkChart('m')}
-      </ChartModal>
-    </>
-  );
-}
 
 // ── Rep activity trend (Overview tab, lazily loaded) ──────────────────────────
 const RepTrendTip = ({active, payload, label}) => {

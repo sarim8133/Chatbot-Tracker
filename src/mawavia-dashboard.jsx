@@ -7,8 +7,8 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useR
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
-  LayoutDashboard, MessageSquare, Users, Database,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Zap, AlertTriangle, Download, HelpCircle, X, ArrowRight, Cpu, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText,
+  LayoutDashboard, MessageSquare, Users,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -70,7 +70,6 @@ const PER_PAGE = 25;
 
 // Charts live in a lazily-loaded chunk so Recharts doesn't block first paint.
 const ChartsRow = lazy(() => import('./charts'));
-const HitRateTrend = lazy(() => import('./charts').then(m=>({default:m.HitRateTrend})));
 const RepActivityTrend = lazy(() => import('./charts').then(m=>({default:m.RepActivityTrend})));
 const ExpenseCharts = lazy(() => import('./charts').then(m=>({default:m.ExpenseCharts})));
 const ApprovalTurnaround = lazy(() => import('./charts').then(m=>({default:m.ApprovalTurnaround})));
@@ -269,34 +268,24 @@ function demoStats() {
     User_Number:nums[i%nums.length], ident:nums[i%nums.length], person_phone:nums[i%nums.length],
     User_Message:qs[i%qs.length],
     AI_Response:ansFor(qs[i%qs.length]),
-    from_cache:Math.random()<0.42,
     Timestamp:new Date(now-i*1800000).toISOString(),
   }));
   const topQ = qs.map((text,i)=>({text,count:Math.round(18-i*1.8),answer:ansFor(text)})).sort((a,b)=>b.count-a.count);
-  const cacheEntries = qs.map((text,i)=>({query_text:text,created_at:new Date(now-i*4200000).toISOString()}));
   // Synthetic heat weighted toward weekday business hours.
   const heat = Array.from({length:7},(_,d)=>Array.from({length:24},(_,h)=>{
     const business = h>=9 && h<=18 ? 1 : 0.12;
     const weekday  = d>=1 && d<=5 ? 1 : 0.35;
     return Math.round(Math.random()*15*business*weekday);
   }));
-  const hitRate=0.42, cacheHits=Math.round(1247*hitRate), cacheMisses=1247-cacheHits;
-  // Daily series for the range-selectable volume chart + hit-rate trend (30 days).
+  // Daily series for the range-selectable volume chart (30 days).
   const volumeDaily = Array.from({length:30},(_,i)=>{
     const d=new Date(now); d.setDate(d.getDate()-(29-i)); const k=localKey(d);
     return {date:k, label:labelFromKey(k), count:Math.round(8+Math.random()*22+(i>22?12:0))};
   });
-  const cacheDaily = volumeDaily.map((v,i)=>{
-    const rate=Math.min(0.86, 0.18 + i*0.021 + (Math.random()*0.08-0.04));   // climbs as the cache fills
-    const hits=Math.round(v.count*rate);
-    return {date:v.date, label:v.label, hits, total:v.count, rate: v.count ? hits/v.count : 0};
-  });
-  // One row per purge state, so demo mode exercises all three hint variants:
-  // purged, served-from-cache-but-not-purged (a pre-auto-purge report), neither.
   const badResponses = [
-    {id:'d1', reason:'wrong_machine', user_message:'compare dt 100 and dd 250', ai_response:'DT D100 vs SCR250H-7…', note:'gave me an air compressor', from_cache:false, cache_purged:1, user_name:'ahsan',  created_at:new Date(now-3600000*2).toISOString()},
-    {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', from_cache:true,  cache_purged:0, user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
-    {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', from_cache:false, cache_purged:0, user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
+    {id:'d1', reason:'wrong_machine', user_message:'compare dt 100 and dd 250', ai_response:'DT D100 vs SCR250H-7…', note:'gave me an air compressor', user_name:'ahsan',  created_at:new Date(now-3600000*2).toISOString()},
+    {id:'d2', reason:'missing_specs', user_message:'screw diameter for d170db',  ai_response:'The D170Db is a double-color…', note:'', user_name:'bilal', created_at:new Date(now-3600000*9).toISOString()},
+    {id:'d3', reason:'misunderstood', user_message:'chhota wala machine dikhao', ai_response:"I couldn't find…", note:'', user_name:'ahsan',  created_at:new Date(now-3600000*26).toISOString()},
   ];
   // Rep-activity-trend + period-comparison demo data. Names are inline (not a
   // module-level helper) — demoStats() is the only place that needs them.
@@ -310,7 +299,7 @@ function demoStats() {
   }));
   // Active reps in a window are a subset of all-time reps, same invariant the
   // real RPC enforces (db/dashboard-stats.sql) — must stay <= users.length.
-  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,cacheTotal:84,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,cacheEntries,heat,volumeDaily,cacheDaily,badResponses,cacheHits,cacheMisses,hitRate,topRepsDaily,activeRepsLast30:4,activeRepsPrev30:3};
+  return {totalMsgs:1247,todayCount:31,ystCount:24,userCount:users.length,msgsByDay,users,topQ,maxQ:topQ[0].count,recent,heat,volumeDaily,badResponses,topRepsDaily,activeRepsLast30:4,activeRepsPrev30:3};
 }
 
 // ── Data Fetching ─────────────────────────────────────────────────────────────
@@ -347,7 +336,17 @@ async function sbFunction(token, name, body) {
     body:JSON.stringify(body||{}),
   });
   const d = await r.json().catch(()=>null);
-  if (!r.ok) throw new Error(d?.error || `Request failed (HTTP ${r.status})`);
+  if (!r.ok) {
+    // Never render the error body verbatim. An edge function can hand back an
+    // error that carries no message at all -- an empty object, or one that
+    // supabase-js already JSON-stringified into the literal string "{}" -- and
+    // showing that is how "delete user" failed with a bare {} and no clue why.
+    const e = d?.error;
+    const m = (typeof e === 'string' ? e : (e?.message || e?.msg || '')).trim();
+    throw new Error(m && m !== '{}' && m !== '[object Object]'
+      ? m
+      : `${name} failed (HTTP ${r.status})`);
+  }
   return d;
 }
 
@@ -380,13 +379,12 @@ function useData(onAuthError) {
       // chat_feedback is admin-read; for a non-admin RLS just returns [], which
       // renders the panel's empty state rather than erroring the whole load.
       const chanArg = channelFilter !== 'all' ? { p_channel: channelFilter } : {};
-      const [agg,m,c,fb] = await Promise.all([
+      const [agg,m,fb] = await Promise.all([
         sbRpc(token, 'dashboard_stats', chanArg),
-        sbFetch(token, MSG_SOURCE,`select=Timestamp,Name,User_Message,AI_Response,from_cache,channel,ident,person_phone&order=Timestamp.desc&limit=20${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
-        sbFetch(token, 'semantic_cache','select=query_text,created_at&order=created_at.desc&limit=300'),
-        sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,from_cache,cache_purged,user_name&order=created_at.desc&limit=100'),
+        sbFetch(token, MSG_SOURCE,`select=Timestamp,Name,User_Message,AI_Response,channel,ident,person_phone&order=Timestamp.desc&limit=20${channelFilter!=='all'?`&channel=eq.${channelFilter}`:''}`),
+        sbFetch(token, 'chat_feedback','select=id,created_at,reason,note,user_message,ai_response,user_name&order=created_at.desc&limit=100'),
       ]);
-      const msgs=m.data, cache=c.data;
+      const msgs=m.data;
       // `ident` is resolved once in the chat_all view and read by BOTH this fetch and
       // the RPC. It used to be derived here in JS and again in SQL from the same rule,
       // which is exactly how the two drifted: the RPC keyed WhatsApp rows on the phone
@@ -404,19 +402,16 @@ function useData(onAuthError) {
         users.filter(u=>u.name)
              .map(u=>[isUidRep(u.number)||isWebRep(u.number) ? u.number : clean(u.number), u.name]));
       const topQ = agg?.top_questions || [];
-      const cacheHits = agg?.cache_hits ?? 0;
-      const cacheMisses = agg?.cache_misses ?? 0;
       const totalMsgs = agg?.total_msgs ?? 0;
       const withLabels = (arr) => (arr||[]).map(d => ({...d, label: labelFromKey(d.date)}));
       setStats({
         totalMsgs, todayCount: agg?.today_count ?? 0, ystCount: agg?.yst_count ?? 0,
-        userCount: agg?.user_count ?? 0, cacheTotal:c.total||cache.length,
+        userCount: agg?.user_count ?? 0,
         msgsByDay: agg?.msgs_by_day || [],
-        users, topQ, maxQ:topQ[0]?.count||1, recent:msgs, cacheEntries:cache,
+        users, topQ, maxQ:topQ[0]?.count||1, recent:msgs,
         heat: agg?.heat || null,
-        volumeDaily: withLabels(agg?.volume_daily), cacheDaily: withLabels(agg?.cache_daily),
+        volumeDaily: withLabels(agg?.volume_daily),
         badResponses: fb.data,
-        cacheHits, cacheMisses, hitRate: totalMsgs ? cacheHits/totalMsgs : 0,
         topRepsDaily: withLabels(agg?.top_reps_daily),
         activeRepsLast30: agg?.active_reps_last30 ?? 0,
         activeRepsPrev30: agg?.active_reps_prev30 ?? 0,
@@ -721,9 +716,10 @@ const PctDelta = ({current, previous}) => {
   );
 };
 
-// Percentage-POINT delta — for rate metrics (e.g. cache hit rate) where a
-// relative % change of a percentage reads as confusing next to the value
-// itself. `current`/`previous` are 0-1 fractions.
+// Percentage-POINT delta — for rate metrics, where a relative % change of a
+// percentage reads as confusing next to the value itself. `current`/`previous`
+// are 0-1 fractions. Currently unused: the cache hit rate was its only caller,
+// and it is kept for the next rate metric rather than reinvented.
 const PpDelta = ({current, previous}) => {
   if (current == null || previous == null) return null;
   const pp = Math.round((current - previous) * 100);
@@ -774,7 +770,7 @@ function PeriodCompare({ sub, metrics }) {
   );
 }
 
-// Status distribution — same visual language as CacheTab's "Cache vs AI"
+// Status distribution — a single proportional bar
 // proportion bar. Four buckets from wap_expenses.status; `flagged` is a
 // separate boolean column (a flagged receipt can still end up approved), so
 // it's a callout beside the bar, not a fifth bucket.
@@ -1018,10 +1014,6 @@ function BadResponseRow({ r }) {
         className="w-full flex items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-lg">
         <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{background:ACCENT}}/>
         <span className="flex-1 min-w-0 text-[14px] text-zinc-800 truncate">{trunc(r.user_message || '(no question captured)', 72)}</span>
-        {r.from_cache && (
-          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded hidden sm:inline"
-            style={{color:BLUE, background:'var(--info-bg)'}}>CACHED</span>
-        )}
         <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 hidden sm:inline">
           {REASON_LABEL[r.reason] || r.reason}
         </span>
@@ -1032,70 +1024,41 @@ function BadResponseRow({ r }) {
           repeat them here — otherwise a phone never sees the reason at all. */}
       <div className="flex flex-wrap items-center gap-1.5 mt-1.5 pl-4 sm:hidden">
         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600">{REASON_LABEL[r.reason] || r.reason}</span>
-        {r.from_cache && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{color:BLUE, background:'var(--info-bg)'}}>CACHED</span>}
       </div>
       {open && (
         <div className="mt-2 ml-4 pl-3 border-l-2 border-zinc-200 space-y-2">
           {r.note && <p className="text-[12.5px] text-zinc-700"><span className="text-zinc-400">Rep said:</span> {r.note}</p>}
           <p className="text-[12.5px] text-zinc-500 whitespace-pre-wrap break-words">{trunc(r.ai_response || '(no reply captured)', 600)}</p>
-          <p className="text-[11px] text-zinc-400">
-            {r.user_name || 'unknown'}
-            {/* Three distinct states, and the difference is what to do next.
-                Reports filed before auto-purge shipped default to 0, so they
-                correctly keep the old do-it-by-hand warning. */}
-            {r.cache_purged > 0
-              ? ` · ${r.cache_purged === 1 ? 'cached copy' : `${r.cache_purged} cached copies`} removed automatically — this reply won't be served again`
-              : r.from_cache
-                ? ' · served from cache and NOT purged — delete the semantic_cache row by hand, or a prompt fix will look like it did nothing'
-                : ''}
-          </p>
+          <p className="text-[11px] text-zinc-400">{r.user_name || 'unknown'}</p>
         </div>
       )}
     </li>
   );
 }
 
-function OverviewTab({s, onDrill, showCache}) {
+function OverviewTab({s, onDrill}) {
   const delta  = s.todayCount - s.ystCount;
   const total  = useCountUp(s.totalMsgs);
   const peak   = heatPeak(s.heat);
   const [heatExpanded, setHeatExpanded] = useState(false);
-  // "This 30 days vs the 30 before" — messages/hit-rate sum correctly across
-  // days from the existing 90-day arrays; active reps is a true distinct count
-  // computed server-side (see db/dashboard-stats.sql — summing a per-day
-  // distinct count would double-count a rep active on more than one day).
+  // "This 30 days vs the 30 before" — messages sum correctly across days from the
+  // existing 90-day array; active reps is a true distinct count computed
+  // server-side (see db/dashboard-stats.sql — summing a per-day distinct count
+  // would double-count a rep active on more than one day).
   const periodMetrics = useMemo(() => {
     const vol = s.volumeDaily || [];
-    const cd  = s.cacheDaily  || [];
     const n = vol.length;
     const sumCount = (arr, from, to) => arr.slice(Math.max(0,from), Math.max(0,to)).reduce((a,b)=>a+(b.count??0),0);
-    const curMsgs  = sumCount(vol, n-30, n);
-    const prevMsgs = sumCount(vol, n-60, n-30);
-    const cdSlice = (from,to) => cd.slice(Math.max(0,from), Math.max(0,to));
-    const rateOf = (rows) => {
-      const hits  = rows.reduce((a,r)=>a+(r.hits??0),0);
-      const total = rows.reduce((a,r)=>a+(r.total??0),0);
-      return total ? hits/total : 0;
-    };
-    const curRate  = rateOf(cdSlice(n-30, n));
-    const prevRate = rateOf(cdSlice(n-60, n-30));
     return [
-      {label:'Messages', kind:'pct', current:curMsgs, previous:prevMsgs,
+      {label:'Messages', kind:'pct', current:sumCount(vol, n-30, n), previous:sumCount(vol, n-60, n-30),
         format:v=>v.toLocaleString(), hint:'Total messages, this 30 days vs the 30 before'},
       {label:'Active reps', kind:'pct', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
         format:v=>v.toLocaleString(), hint:'Distinct reps who messaged Hi Tech AI, this 30 days vs the 30 before'},
-      {label:'Hit rate', kind:'pp', current:curRate, previous:prevRate,
-        format:v=>`${Math.round(v*100)}%`, hint:'Cache hit rate, this 30 days vs the 30 before'},
     ];
-  }, [s.volumeDaily, s.cacheDaily, s.activeRepsLast30, s.activeRepsPrev30]);
+  }, [s.volumeDaily, s.activeRepsLast30, s.activeRepsPrev30]);
   const ledger = [
     {label:'Today',       value:s.todayCount, delta, hint:'Messages today, compared with yesterday'},
     {label:'Active reps', value:s.userCount,         hint:'Reps who messaged Hi Tech AI in this period'},
-    // s.cacheTotal comes from a DIRECT semantic_cache fetch (see useData), not
-    // from dashboard_stats. RLS empties that table for anyone without
-    // can_manage_cache(), and an empty array renders as 0 — which reads as "the
-    // cache is empty" rather than "you can't see it". Removed, not shown lying.
-    ...(showCache ? [{label:'Cache', value:s.cacheTotal, hint:'Answers served instantly from cache — no AI call'}] : []),
   ];
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -1104,14 +1067,13 @@ function OverviewTab({s, onDrill, showCache}) {
         <ExportTabButton exportName="overview-report" buildSheets={() => buildOverviewSheets(s, periodMetrics)}/>
       </div>
 
-      <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday{showCache ? '; "Cache" is answers served instantly without an AI call' : ''}.</HelpNote>
+      <HelpNote>Headline counts for the loaded period. "Today" shows the change vs yesterday.</HelpNote>
 
       {/* Readout cluster — one instrument panel, hero + ledger, divided by hairlines.
           Both column templates are written out in full rather than interpolated:
           Tailwind scans source text statically, so a `repeat(${n},1fr)` built at
           runtime never reaches the stylesheet and the grid silently collapses. */}
-      <Panel className={`grid grid-cols-1 divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden ${
-        ledger.length === 3 ? 'md:grid-cols-[1.6fr_repeat(3,1fr)]' : 'md:grid-cols-[1.6fr_repeat(2,1fr)]'}`}>
+      <Panel className="grid grid-cols-1 divide-y md:divide-y-0 md:divide-x divide-zinc-200 overflow-hidden md:grid-cols-[1.6fr_repeat(2,1fr)]">
         {/* Primary readout */}
         <div className="p-6">
           <div className="flex items-center justify-between">
@@ -1262,14 +1224,12 @@ function OverviewTab({s, onDrill, showCache}) {
                 {label:'Question', get:r=>r.user_message},
                 {label:'Reply',    get:r=>r.ai_response},
                 {label:'Note',     get:r=>r.note},
-                {label:'Cached',   get:r=>r.from_cache ? 'yes' : 'no'},
-                {label:'Purged',   get:r=>r.cache_purged ?? 0},
                 {label:'Rep',      get:r=>r.user_name},
               ], s.badResponses)}
             />
           )}
         </div>
-        <HelpNote>Answers a rep marked “Bad answer” in the Chat tab, newest first. Click a row to see what the bot actually replied. A <strong>CACHED</strong> badge means the reply came from the semantic cache — delete that cache row, or a prompt fix will look like it changed nothing.</HelpNote>
+        <HelpNote>Answers a rep marked “Bad answer” in the Chat tab, newest first. Click a row to see what the bot actually replied.</HelpNote>
         {(() => {
           const rows = s.badResponses || [];
           if (!rows.length) return (
@@ -1590,10 +1550,6 @@ function ConversationsTab({s, channelFilter, focusSignal, drill, onDrillConsumed
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-[12px] font-medium" style={{color:ACCENT_DK}}>Hi Tech AI</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded"
-                              style={m.from_cache ? {color:BLUE, background:'var(--info-bg)'} : {color:'var(--color-zinc-600)', background:'var(--color-zinc-100)'}}>
-                              {m.from_cache ? 'From cache' : 'AI call'}
-                            </span>
                           </div>
                           <div className="rounded-lg p-3.5 bg-surface border border-zinc-300 max-h-36 overflow-y-auto">
                             <p className="text-[14px] text-zinc-600 leading-relaxed whitespace-pre-wrap">{m.AI_Response}</p>
@@ -1678,110 +1634,6 @@ function UsersTab({s, onDrill}) {
         </Panel>
       ))}
       </div>
-    </motion.div>
-  );
-}
-
-// ── Cache Tab ─────────────────────────────────────────────────────────────────
-function CacheTab({s}) {
-  const pct = Math.round((s.hitRate||0)*100);
-  const trend = (s.cacheDaily||[]).filter(d=>d.total>0);   // only days with activity
-  const [cachePage, setCachePage] = useState(1);
-  const cells = [
-    {label:'Hit rate',   value:`${pct}%`,          icon:Zap,      hint:'Share of messages answered from cache instead of calling the AI', accent:true},
-    {label:'From cache', value:s.cacheHits ?? 0,   icon:Database, hint:'Messages answered instantly from cache — AI calls (and their cost/latency) saved'},
-    {label:'AI calls',   value:s.cacheMisses ?? 0, icon:Cpu,      hint:'Messages that required a live AI call (cache miss)'},
-  ];
-  return (
-    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      <HelpNote>"Hit rate" is the share of reps’ messages answered straight from cache. Every cache hit is one AI call — and its cost and latency — saved.</HelpNote>
-
-      <Panel className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 overflow-hidden">
-        {cells.map(c=>(
-          <div key={c.label} className="p-6 flex flex-col justify-between gap-6">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1">
-                <Label>{c.label}</Label>
-                {c.hint && <HintIcon text={c.hint}/>}
-              </span>
-              <c.icon size={14} style={c.accent ? {color:BLUE} : undefined} className={c.accent ? '' : 'text-zinc-500'}/>
-            </div>
-            <span className="mono text-[30px] leading-none font-bold tracking-tight"
-              style={{color: c.accent ? BLUE : INK}}>
-              {typeof c.value==='number' ? c.value.toLocaleString() : c.value}
-            </span>
-          </div>
-        ))}
-      </Panel>
-
-      {/* Cache vs AI proportion */}
-      <Panel className="p-6">
-        <div className="flex items-baseline justify-between gap-3 mb-3">
-          <Label>Cache vs AI</Label>
-          <span className="mono text-[11px] text-zinc-500 tabular-nums">
-            {(s.cacheHits??0).toLocaleString()} cached · {(s.cacheMisses??0).toLocaleString()} AI
-          </span>
-        </div>
-        <div className="h-2.5 flex rounded-full overflow-hidden bg-zinc-100"
-          role="img" aria-label={`${pct} percent of messages answered from cache, ${100-pct} percent required an AI call`}>
-          <div style={{width:`${pct}%`, background:BLUE}}/>
-        </div>
-        <div className="flex justify-between mt-2 text-[12px]">
-          <span style={{color:ACCENT_DK}}>{pct}% from cache</span>
-          <span className="text-zinc-500">{100-pct}% AI</span>
-        </div>
-      </Panel>
-
-      {/* Hit rate over time — is the cache improving as it fills? */}
-      {trend.length >= 2 && (
-        <Panel className="p-6">
-          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Hit rate over time</h2>
-          <p className="text-[14px] text-zinc-500 mt-1">Daily — is the cache improving?</p>
-          <HelpNote>Cache hit rate for each day with activity. As reps ask more, the cache fills and this should trend upward — flat or falling means new questions keep missing.</HelpNote>
-          <div className="mt-4">
-            <Suspense fallback={<div className="h-44 rounded bg-zinc-50 animate-pulse"/>}>
-              <HitRateTrend data={trend}/>
-            </Suspense>
-          </div>
-        </Panel>
-      )}
-
-      <Panel className="overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-200 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">Cached queries</h2>
-            <p className="text-[12px] text-zinc-500 mt-1 leading-snug">Questions Hi Tech AI has answered before — served instantly from cache instead of calling the AI. {(s.cacheTotal||0).toLocaleString()} cached in total, most recent first.</p>
-          </div>
-          <ExportButton
-            disabled={!s.cacheEntries.length}
-            exportFn={()=>exportCSV('cache', [
-              {label:'Query',     get:c=>c.query_text},
-              {label:'Cached at', get:c=>new Date(c.created_at).toISOString()},
-            ], s.cacheEntries)}
-          />
-        </div>
-        {!s.cacheEntries.length
-          ? <div className="py-16 text-center">
-              <p className="text-[13px] text-zinc-500">Nothing cached yet</p>
-              <p className="text-[12px] text-zinc-500 mt-2">Hi Tech AI caches answers as reps ask new questions — entries will appear here.</p>
-            </div>
-          : <>
-              {s.cacheEntries.slice((cachePage-1)*PER_PAGE, cachePage*PER_PAGE).map((c,i) => {
-                const absIdx = (cachePage - 1) * PER_PAGE + i;
-                return (
-                  <div key={absIdx} className="flex items-baseline gap-4 px-6 py-3.5 border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
-                    <span className="mono text-[11px] text-zinc-400 w-7 shrink-0 text-right tabular-nums">{String(absIdx+1).padStart(2,'0')}</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-[14px] text-zinc-700 truncate">{trunc(c.query_text,82)}</span>
-                    </span>
-                    <span className="mono text-[11px] text-zinc-500 shrink-0 tabular-nums">{ago(c.created_at)}</span>
-                  </div>
-                );
-              })}
-              <Paginator page={cachePage} total={s.cacheEntries.length} onChange={setCachePage}/>
-            </>
-        }
-      </Panel>
     </motion.div>
   );
 }
@@ -1918,25 +1770,22 @@ function filenameFromResponse(res) {
   return plain ? plain[1].trim() : '';
 }
 
-// Normalize n8n's webhook response → { text, images, documents, from_cache }. The cloned
+// Normalize n8n's webhook response → { text, images, documents }. The cloned
 // workflow answers with { reply, images }, but we check the other common field
 // names too so a tweak to the "Respond to Webhook" node won't break the UI.
 async function parseChatReply(res) {
   const raw = await res.text();
   let data = null;
   try { data = JSON.parse(raw); } catch { /* plain-text response */ }
-  if (data == null) return { text: raw.trim() || '(empty response)', images: [], documents: [], from_cache: false };
+  if (data == null) return { text: raw.trim() || '(empty response)', images: [], documents: [] };
   const obj = Array.isArray(data) ? (data[0] ?? {}) : data;
-  if (typeof obj === 'string') return { text: obj, images: [], documents: [], from_cache: false };
+  if (typeof obj === 'string') return { text: obj, images: [], documents: [] };
   const t = obj.reply ?? obj.output ?? obj.response ?? obj.text ?? obj.message ?? obj.answer ?? obj.AI_Response ?? '';
   const imgs = obj.images ?? obj.image_urls ?? [];
   return {
     text: (typeof t === 'string' && t) ? t : JSON.stringify(obj),
     images: Array.isArray(imgs) ? imgs.filter(u => typeof u === 'string' && u.startsWith('https://')) : [],
-    // Usually empty — and ALWAYS empty on a cache hit, since the flag lives on the
-    // agent turn and a cached answer never runs it.
     documents: cleanDocuments(obj.documents),
-    from_cache: !!(obj.from_cache ?? obj.cached),
     // Post-Romanizer text for voice notes (see n8n's "Respond Success" node); empty
     // string for a typed message, which the browser just ignores.
     transcript: obj.transcript ?? '',
@@ -1965,8 +1814,8 @@ const fmtClock = ms => {
 };
 
 // The assistant replies in WhatsApp style: *single-asterisk bold* and \n line
-// breaks (the web clone shares the WhatsApp semantic_cache, so cached hits arrive
-// pre-formatted that way). Render *bold* via React nodes — never innerHTML.
+// breaks, because the web chat is a clone of the WhatsApp workflow and shares its
+// prompt. Render *bold* via React nodes — never innerHTML.
 // Knowledge-base answers cite a source URL, so links are turned into real anchors.
 // Only http(s) is matched, so a javascript:/data: URL in a reply can never become a
 // clickable href. Still React nodes throughout — never innerHTML.
@@ -2007,7 +1856,7 @@ function TypingDots() {
   );
 }
 
-const AssistantTag = ({error=false, from_cache=false}) => (
+const AssistantTag = ({error=false}) => (
   <span className="flex items-center gap-1.5 px-1">
     <span className="flex items-center justify-center w-4 h-4 rounded" style={{background:tint(ACCENT,10)}}>
       <Bot size={11} style={{color:ACCENT_DK}}/>
@@ -2015,9 +1864,6 @@ const AssistantTag = ({error=false, from_cache=false}) => (
     <span className="mono text-[10px] uppercase tracking-widest" style={{color: error ? NEG : ACCENT_DK}}>
       {error ? 'Error' : 'Hi Tech AI'}
     </span>
-    {from_cache && (
-      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{color:BLUE, background:'var(--info-bg)'}}>From cache</span>
-    )}
   </span>
 );
 
@@ -2185,30 +2031,24 @@ function CopyButton({ text }) {
 // failures are actionable. A bare vote isn't actionable either, so the picker
 // insists on a reason tag and the row we write carries the whole exchange.
 //
-// Reporting also evicts the reply from the semantic cache, which is why the
-// confirmation distinguishes the two outcomes: a purge means the next rep to
-// ask gets a fresh answer, no purge means the reply was never cached and the
-// fix is a prompt or RAG change. Note this fires for uncached replies too — the
-// workflow writes cacheable answers to the cache on the way out, so a reply
-// tagged "AI call" is usually already sitting in the cache by the time the rep
-// reads it. See src/feedback.js.
+// See src/feedback.js.
 function BadAnswerButton({ m, question, sessionId }) {
   const [open, setOpen]     = useState(false);
   const [reason, setReason] = useState(null);
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
-  const [done, setDone]     = useState(null);   // null = not sent; else { purged }
+  const [done, setDone]     = useState(false);
   const [err, setErr]       = useState('');
 
   const send = async () => {
     if (!reason || busy) return;
     setBusy(true); setErr('');
     try {
-      const { purged } = await submitFeedback({
+      await submitFeedback({
         sessionId, turnTs: m.ts, userMessage: question,
-        aiResponse: m.text, fromCache: m.from_cache, reason, note,
+        aiResponse: m.text, reason, note,
       });
-      setDone({ purged });
+      setDone(true);
     } catch (ex) {
       setErr(ex?.message || "Couldn't send that.");
       setBusy(false);
@@ -2225,11 +2065,7 @@ function BadAnswerButton({ m, question, sessionId }) {
           overflows instead of wrapping. Checked at 320px. */}
       <span className="flex items-center gap-1.5 min-w-0 text-[11px] text-zinc-400 px-1.5">
         <CheckCircle2 size={11} className="shrink-0"/>
-        <span className="min-w-0">
-          {done.purged > 0
-            ? 'Thanks — logged, and cleared from cache.'
-            : 'Thanks — logged for review.'}
-        </span>
+        <span className="min-w-0">Thanks — logged for review.</span>
       </span>
     </div>
   );
@@ -2374,7 +2210,7 @@ function ChatBubble({ m, question, sessionId }) {
       className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div className={`flex flex-col gap-1.5 max-w-[80%] sm:max-w-[68%] ${isUser ? 'items-end' : 'items-start'}`}>
-        {!isUser && <AssistantTag error={m.error} from_cache={m.from_cache}/>}
+        {!isUser && <AssistantTag error={m.error}/>}
         <div
           className={`px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
             isUser ? 'text-white rounded-br-sm'
@@ -2580,8 +2416,8 @@ function AudioBubble({ m }) {
   );
 }
 
-// Layer 3 of the hallucination fix: nothing reaches the agent, web_chat_histories,
-// or semantic_cache until a human approves the text. Sits in the composer in place
+// Layer 3 of the hallucination fix: nothing reaches the agent or
+// web_chat_histories until a human approves the text. Sits in the composer in place
 // of the textarea (mirrors how 'preview' takes over the same slot) — styled like
 // ReceiptCard (rounded-2xl / border-zinc-200 / bg-surface / shadow-sm, same button
 // language) since it's the same confirm-before-commit discipline, just for what was
@@ -2687,11 +2523,11 @@ function ChatTab({ active }) {
       try {
         const token = await getAccessToken();
         const { data } = await sbFetch(token, WEB_CHAT_SOURCE,
-          `select=Timestamp,User_Message,AI_Response,from_cache&session_id=eq.${encodeURIComponent(sessionId)}&order=Timestamp.asc&limit=200`);
+          `select=Timestamp,User_Message,AI_Response&session_id=eq.${encodeURIComponent(sessionId)}&order=Timestamp.asc&limit=200`);
         if (cancelled) return;
         setMessages(data.flatMap(r => [
           r.User_Message ? {role:'user',      text:r.User_Message, ts:r.Timestamp} : null,
-          r.AI_Response  ? {role:'assistant', text:r.AI_Response, from_cache:r.from_cache, ts:r.Timestamp} : null,
+          r.AI_Response  ? {role:'assistant', text:r.AI_Response, ts:r.Timestamp} : null,
         ].filter(Boolean)));
       } catch { /* no history / unreachable → start empty */ }
       // finally, not inside the try: a failed restore has to clear the skeleton
@@ -2780,8 +2616,8 @@ function ChatTab({ active }) {
           text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
-      const { text: reply, images, documents, from_cache } = await parseChatReply(res);
-      setMessages(m => [...m, { role:'assistant', text: reply, images, documents, from_cache, ts:Date.now() }]);
+      const { text: reply, images, documents } = await parseChatReply(res);
+      setMessages(m => [...m, { role:'assistant', text: reply, images, documents, ts:Date.now() }]);
     } catch {
       // fetch itself threw → the request never completed (network down, wrong URL,
       // or a genuine CORS block where no response is readable).
@@ -2947,8 +2783,8 @@ function ChatTab({ active }) {
 
   // Step 2: post the (possibly user-edited) transcript as an ORDINARY typed message —
   // same payload shape and response handling as send(), reusing the pipeline that
-  // already works. Nothing reached the agent, web_chat_histories, or semantic_cache
-  // until this point. The committed thread bubble is the existing AudioBubble (player
+  // already works. Nothing reached the agent or web_chat_histories until this
+  // point. The committed thread bubble is the existing AudioBubble (player
   // + final transcript), so the thread still shows it was spoken.
   const sendConfirmedVoice = useCallback(async () => {
     const text = voiceTranscript.trim();
@@ -2974,8 +2810,8 @@ function ChatTab({ active }) {
           text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
         return;
       }
-      const { text: reply, images, documents, from_cache } = await parseChatReply(res);
-      setMessages(m => [...m, { role:'assistant', text: reply, images, documents, from_cache, ts:Date.now() }]);
+      const { text: reply, images, documents } = await parseChatReply(res);
+      setMessages(m => [...m, { role:'assistant', text: reply, images, documents, ts:Date.now() }]);
     } catch {
       setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
         text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
@@ -5534,7 +5370,6 @@ const SALES_NAV = [
   {id:'overview',      label:'Overview',      icon:LayoutDashboard},
   {id:'conversations', label:'Conversations', icon:MessageSquare},
   {id:'users',         label:'Reps',          icon:Users},
-  {id:'cache',         label:'Cache',         icon:Database},
   {id:'chat',          label:'Chat',          icon:Bot, sub:'Test Hi Tech AI live'},
 ];
 const EXPENSES_NAV = {id:'expenses', label:'Expenses', icon:Receipt, sub:'Employee receipts & spend'};
@@ -5546,8 +5381,6 @@ const ALL_NAV = [...SALES_NAV, EXPENSES_NAV, TEAM_NAV];   // superset, for hash/
 // disagreeing.
 //
 //   c.chats = may READ the transcript (Conversations, Reps, Overview)
-//   c.cache = may read semantic_cache (dev only — the CEO gets the transcript,
-//             not the cache internals)
 //   c.chat  = has the Chat TAB. True for everyone, and not because the sales bot
 //             is useful to Finance: the web receipt uploader lives inside that
 //             composer, so withholding the tab would leave Finance owing
@@ -5559,7 +5392,7 @@ const ALL_NAV = [...SALES_NAV, EXPENSES_NAV, TEAM_NAV];   // superset, for hash/
 function navForRole(role) {
   const c = capsFor(role);
   const nav = [];
-  if (c.chats) nav.push(...SALES_NAV.filter(n => n.id !== 'chat' && (n.id !== 'cache' || c.cache)));
+  if (c.chats) nav.push(...SALES_NAV.filter(n => n.id !== 'chat'));
   nav.push(c.allExpenses || c.approvedExpenses
     ? EXPENSES_NAV
     : {...EXPENSES_NAV, label:'My Expenses', sub:'Your receipts & spend'});
@@ -5968,10 +5801,9 @@ export default function Dashboard({ onLogout }) {
               initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}}
               transition={{duration:0.22}}
             >
-              {tab==='overview'      && <OverviewTab      s={stats} onDrill={goDrill} showCache={capsFor(role).cache}/>}
+              {tab==='overview'      && <OverviewTab      s={stats} onDrill={goDrill}/>}
               {tab==='conversations' && <ConversationsTab s={stats} channelFilter={channelFilter} focusSignal={searchFocus} drill={drill} onDrillConsumed={clearDrill} onAuthError={handleLogout}/>}
               {tab==='users'         && <UsersTab         s={stats} onDrill={goDrill}/>}
-              {tab==='cache'         && <CacheTab         s={stats}/>}
               {tab==='expenses'      && <ExpensesTab      role={role} phone={profile?.phone} onAuthError={handleLogout}/>}
               {tab==='team'          && <TeamTab          role={role} onAuthError={handleLogout}/>}
             </motion.div>

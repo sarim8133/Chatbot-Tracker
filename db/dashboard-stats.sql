@@ -54,6 +54,12 @@
 -- before writing a CREATE OR REPLACE, never trust this file's body to be
 -- current on its own -- only the header comments and the "Applied via"
 -- migration trail are guaranteed to be kept up to date going forward.
+--
+-- UPDATE 2026-08-29 (db/2026-08-29-remove-cache-step2.sql): cache_hits,
+-- cache_misses and cache_daily removed. The semantic cache was retired from
+-- both n8n workflows and the site no longer shows a hit rate; this function
+-- was rebuilt from a live pg_get_functiondef pull (following the rule above),
+-- and it happened to agree with this file exactly, so nothing else changed.
 -- ============================================================================
 
 create or replace function public.dashboard_stats(p_channel text default null)
@@ -84,7 +90,6 @@ with base as (
     -- uses both, "most recent Name" would flip the label between 'smsarim6'
     -- and 'Sarim' depending on where they last spoke.
     coalesce(c.person_name, c."Name")                                    as nm,
-    c.from_cache                                                         as cached,
     c.channel                                                            as ch,
     c.ident                                                              as ident,
     c.person_phone                                                       as ph
@@ -95,8 +100,6 @@ today as (select (now() at time zone 'Asia/Karachi')::date as t),
 totals as (
   select
     count(*)                                        as total_msgs,
-    count(*) filter (where cached is true)          as cache_hits,
-    count(*) filter (where cached is not true)      as cache_misses,
     count(distinct ident)                           as user_count,
     count(*) filter (where d = (select t from today))              as today_count,
     count(*) filter (where d = (select t from today) - 1)          as yst_count,
@@ -109,8 +112,8 @@ by_day as (
   from generate_series((select t from today) - 13, (select t from today), interval '1 day') g(d)
   left join (select d, count(*) n from base group by d) x on x.d = g.d::date
 ),
--- Volume + cache-rate trend. Spans earliest activity to today like the client did,
--- but floored at 90 days so the series can't grow without bound.
+-- Volume trend. Spans earliest activity to today like the client did, but
+-- floored at 90 days so the series can't grow without bound.
 span as (
   select greatest(coalesce((select first_day from totals), (select t from today)),
                   (select t from today) - 89) as from_d,
@@ -118,12 +121,9 @@ span as (
 ),
 daily as (
   select
-    jsonb_agg(jsonb_build_object('date', to_char(g.d,'YYYY-MM-DD'), 'count', coalesce(x.n,0)) order by g.d) as volume,
-    jsonb_agg(jsonb_build_object('date', to_char(g.d,'YYYY-MM-DD'), 'hits', coalesce(x.h,0),
-                                 'total', coalesce(x.n,0),
-                                 'rate', case when coalesce(x.n,0) > 0 then x.h::numeric / x.n else 0 end) order by g.d) as cache
+    jsonb_agg(jsonb_build_object('date', to_char(g.d,'YYYY-MM-DD'), 'count', coalesce(x.n,0)) order by g.d) as volume
   from generate_series((select from_d from span), (select to_d from span), interval '1 day') g(d)
-  left join (select d, count(*) n, count(*) filter (where cached is true) h from base group by d) x on x.d = g.d::date
+  left join (select d, count(*) n from base group by d) x on x.d = g.d::date
 ),
 -- 7x24 weekday-by-hour matrix, fully populated so the client can index it directly.
 heat_cells as (
@@ -135,9 +135,9 @@ heat as (
   select jsonb_agg(r.row order by r.dow) as v
   from (select dow, jsonb_agg(n order by hr) as row from heat_cells group by dow) r
 ),
--- "Most asked" groups by the ANSWER, so paraphrases that hit one cache entry merge
--- into a single topic. Short answers are fallbacks and must not cluster unrelated
--- questions -- same >=20 char rule the client used.
+-- "Most asked" groups by the ANSWER, so paraphrases sharing one reply merge
+-- into a single topic. Short answers are fallbacks and must not cluster
+-- unrelated questions -- same >=20 char rule the client used.
 topq as (
   select jsonb_agg(jsonb_build_object(
            'text', rep, 'count', cnt, 'variants', variants, 'answer', a) order by cnt desc) as v
@@ -218,11 +218,8 @@ select jsonb_build_object(
   'today_count',  (select today_count  from totals),
   'yst_count',    (select yst_count    from totals),
   'user_count',   (select user_count   from totals),
-  'cache_hits',   (select cache_hits   from totals),
-  'cache_misses', (select cache_misses from totals),
   'msgs_by_day',  coalesce((select v from by_day), '[]'::jsonb),
   'volume_daily', coalesce((select volume from daily), '[]'::jsonb),
-  'cache_daily',  coalesce((select cache  from daily), '[]'::jsonb),
   'heat',         coalesce((select v from heat), '[]'::jsonb),
   'top_questions',coalesce((select v from topq), '[]'::jsonb),
   'users',        coalesce((select v from users), '[]'::jsonb),
@@ -233,7 +230,7 @@ select jsonb_build_object(
 $$;
 
 comment on function public.dashboard_stats(text) is
-  'Dashboard aggregates computed server-side over the whole of chat_all. Replaces client-side derivation from a 500-row fetch, which silently turned every metric into "the last 500 messages". Day/hour buckets are Asia/Karachi. SECURITY INVOKER so chat_all RLS still applies. Reads resolved identity (ident/person_name/person_phone) from chat_all -- see db/2026-07-28-single-identity.sql. 2026-07-30: added top_reps_daily (rep-activity-trend, top 5 reps, last 30 days) and active_reps_last30/prev30 (true distinct-rep counts for period-comparison).';
+  'Dashboard aggregates computed server-side over the whole of chat_all. Replaces client-side derivation from a 500-row fetch, which silently turned every metric into "the last 500 messages". Day/hour buckets are Asia/Karachi. SECURITY INVOKER so chat_all RLS still applies. Reads resolved identity (ident/person_name/person_phone) from chat_all -- see db/2026-07-28-single-identity.sql. 2026-07-30: added top_reps_daily (rep-activity-trend, top 5 reps, last 30 days) and active_reps_last30/prev30 (true distinct-rep counts for period-comparison). 2026-08-29: cache_hits/cache_misses/cache_daily removed -- the semantic cache was retired.';
 
 grant execute on function public.dashboard_stats(text) to authenticated;
 revoke execute on function public.dashboard_stats(text) from anon;
@@ -304,4 +301,25 @@ revoke execute on function public.dashboard_stats(text) from anon;
 -- since 2026-07-23 -- not something this change introduced. Recorded here
 -- rather than silently normalized because a future consumer of
 -- top_reps_daily should not assume "empty base => empty array."
+-- ============================================================================
+
+-- ============================================================================
+-- 2026-08-29 — semantic cache removed
+-- ----------------------------------------------------------------------------
+-- Dropped cache_hits, cache_misses (from `totals`) and cache_daily (from
+-- `daily`, which loses its second output column and reverts to a plain volume
+-- series). No client reads them any more -- the Cache tab, the Overview hit-
+-- rate tile and the hit-rate-over-time chart were removed from src/ in the
+-- same change. `base.cached` (sourced from chat_all.from_cache) is gone too,
+-- since nothing in this function used it once cache_hits/cache_misses were.
+--
+-- Applied via db/2026-08-29-remove-cache-step2.sql, alongside: chat_all
+-- rebuilt without from_cache, conversations_page rebuilt without from_cache,
+-- report_bad_answer rebuilt without the semantic_cache purge, chat_feedback
+-- dropped from_cache/cache_purged, and the semantic_cache table + its
+-- private.can_manage_cache() gate both dropped outright.
+--
+-- Built from a live pg_get_functiondef pull per the standing rule above, and
+-- it agreed with this file's prior body exactly -- no undocumented drift this
+-- time, so this update is scoped to exactly the cache fields and nothing else.
 -- ============================================================================

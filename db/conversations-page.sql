@@ -47,7 +47,7 @@ with args as (
 ),
 f as (
   select c."Timestamp", c."Name", c."User_Message", c."AI_Response",
-         c.from_cache, c.channel, c.ident, c.person_phone
+         c.channel, c.ident, c.person_phone
   from public.chat_all c, args a
   where (a.channel is null or c.channel = a.channel)
     and (a.ident   is null or c.ident   = a.ident)
@@ -120,3 +120,10 @@ comment on function public.conversations_page(text,text,text,text,int,int) is
 -- into the search box acts as a wildcard. That is a search box behaving slightly
 -- generously, not an injection risk -- the value is a bound parameter, never
 -- concatenated into SQL text.
+--
+-- UPDATE 2026-08-29 (db/2026-08-29-remove-cache-step2.sql): from_cache dropped
+-- from the select list -- the semantic cache was retired, and no client has
+-- read this field since the Conversations "From cache / AI call" chip was
+-- removed from src/ in the same change. The "six 'hi' share one cached
+-- greeting" note above is left as-is: it explains why the length-3 rule on
+-- p_answer exists, which is unrelated to from_cache and still true.
