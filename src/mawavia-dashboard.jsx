@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText, MoreHorizontal,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText, MoreHorizontal, GitCompare, Gauge, Boxes, BookOpen,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -2470,6 +2470,26 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
 // thread's scroll position and the composer caret all survive. Mount-time
 // initial/animate therefore fires exactly once, on app boot — which is why every
 // visit to this tab after the first one arrived as a hard cut.
+// Starter prompts for the chat's empty state — what a rep can actually do with
+// this thing, in its own words, one tap away.
+//
+// EVERY brand and series named here is a real entry in rag/catalogue_manifest.json
+// (Tederic NEO-T / NEO-M, Aoktac SBM, and the PET-preform + thin-wall articles the
+// business-ideas namespace carries). That is the whole constraint: a starter that
+// comes back "I couldn't find that in our catalog" teaches a rep the tool doesn't
+// know its own products, which is the opposite of what an empty state is for. If
+// the catalogue changes, these change with it.
+//
+// One line each, phrased as the rep would type it rather than as a feature name.
+// The four are deliberately one per capability: compare, look up, recommend,
+// explain — which between them are every route the agent's system prompt has.
+const CHAT_STARTERS = [
+  { icon: GitCompare, q: 'Compare the Tederic NEO-T and NEO-M series' },
+  { icon: Gauge,      q: 'What is the clamping force range on the Tederic NEO-T?' },
+  { icon: Boxes,      q: 'Which machine suits PET preform production?' },
+  { icon: BookOpen,   q: 'What screw diameter suits thin-wall parts?' },
+];
+
 function ChatTab({ active }) {
   const reduce = useReducedMotion();
   // Two questions answered from ONE reading of localStorage, resolved together
@@ -2594,6 +2614,11 @@ function ChatTab({ active }) {
   // because enlarging changes the container's height without changing its
   // scrollTop, which would otherwise strand the newest message off-screen.
   useEffect(() => {
+    // An empty thread has no newest message to pin to, and scrolling anyway drags
+    // the empty state's own heading off the top of the panel — which is the one
+    // thing a first-time visitor needs to read. Pin only once there is something
+    // to pin to.
+    if (!messages.length) return;
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: reduce ? 'auto' : 'smooth' });
   }, [messages, sending, reduce, expanded]);
@@ -2604,8 +2629,12 @@ function ChatTab({ active }) {
     ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
   }, []);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (override) => {
+    // The starter chips call this with their text. The send BUTTON calls it as an
+    // onClick handler, so `override` arrives there as a MouseEvent — hence the
+    // typeof check rather than a bare `override ?? input`, which would try to
+    // .trim() the event.
+    const text = (typeof override === 'string' ? override : input).trim();
     if (!text || sending || !configured) return;
     setMessages(m => [...m, { role:'user', text, ts:Date.now() }]);
     setInput('');
@@ -3064,15 +3093,36 @@ function ChatTab({ active }) {
             // restore means "not back yet", not "nothing to show".
             <ChatThreadSkeleton/>
           ) : messages.length === 0 && !sending ? (
-            <div className="h-full flex items-center justify-center text-center px-6">
-              <div className="max-w-sm">
-                <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:tint(ACCENT,8)}}>
-                  <Bot size={22} style={{color:ACCENT_DK}}/>
-                </span>
-                <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi Tech</p>
-                <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
-                  Product specs, pricing, and availability — answered straight from the Hi Tech catalogue. The same AI as the WhatsApp bot, right here.
-                </p>
+            <div className="min-h-full flex items-center justify-center px-5 py-6">
+              <div className="w-full max-w-md">
+                <div className="text-center">
+                  <span className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-xl" style={{background:tint(ACCENT,8)}}>
+                    <Bot size={22} style={{color:ACCENT_DK}}/>
+                  </span>
+                  <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi Tech</p>
+                  <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
+                    Comparisons, specs and recommendations — straight from the catalogue. The same AI as the WhatsApp bot.
+                  </p>
+                </div>
+
+                {/* Tap to send, rather than fill the box: the answer is the point,
+                    and the not-found fallback lists near matches, so even a miss
+                    leaves the rep somewhere useful. Disabled while a turn is in
+                    flight for the same reason the send button is. */}
+                <div className="mt-5 grid gap-2">
+                  {CHAT_STARTERS.map(st => (
+                    <button key={st.q} type="button"
+                      onClick={() => send(st.q)}
+                      disabled={!configured || sending}
+                      className="group flex items-center gap-2.5 w-full text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5 min-h-[44px] transition-colors hover:border-zinc-900 outline-none focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <st.icon size={15} className="shrink-0 text-zinc-400 transition-colors group-hover:text-accent-dark"/>
+                      <span className="min-w-0 flex-1 text-[12.5px] text-zinc-700 leading-snug">{st.q}</span>
+                      <ArrowRight size={13} className="shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-900"/>
+                    </button>
+                  ))}
+                </div>
+
                 {receiptEnabled && (
                   <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5">
                     <Receipt size={15} className="text-zinc-500 shrink-0 mt-0.5"/>
@@ -3199,7 +3249,7 @@ function ChatTab({ active }) {
                 disabled={!configured}
                 onChange={e=>{ setInput(e.target.value); grow(); }}
                 onKeyDown={onKeyDown}
-                placeholder={configured ? 'Message Hi Tech AI…  (Enter to send · Shift+Enter for newline)' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
+                placeholder={configured ? 'Message Hi Tech AI…' : 'Configure VITE_N8N_CHAT_WEBHOOK to chat'}
                 aria-label="Message Hi Tech AI"
                 className="flex-1 resize-none max-h-[140px] px-4 py-2.5 bg-surface border border-zinc-300 rounded-xl text-[14px] text-zinc-900 leading-relaxed placeholder-zinc-500 outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20 disabled:opacity-60 disabled:cursor-not-allowed"
               />
@@ -5645,13 +5695,15 @@ function NavSlot({ active, icon: Icon, label, ...rest }) {
           with layoutId so switching tabs reads as one object travelling rather
           than two unrelated fades. MotionConfig reducedMotion="user" at the root
           turns it into a cut for anyone who asked for that. */}
-      {active && (
-        <motion.span layoutId="barPill"
-          className="absolute top-2 h-7 w-12 rounded-full"
-          style={{ background: tint(ACCENT, 12) }}
-          transition={{ type: 'spring', stiffness: 480, damping: 36 }}/>
-      )}
-      <Icon size={19} className="relative shrink-0" style={active ? { color: ACCENT } : undefined}/>
+      <span className="relative flex items-center justify-center h-7 w-12 shrink-0">
+        {active && (
+          <motion.span layoutId="barPill"
+            className="absolute inset-0 rounded-full"
+            style={{ background: tint(ACCENT, 12) }}
+            transition={{ type: 'spring', stiffness: 480, damping: 36 }}/>
+        )}
+        <Icon size={19} className="relative shrink-0" style={active ? { color: ACCENT } : undefined}/>
+      </span>
       {/* ACCENT_DK for the label, not ACCENT: at 10px this counts as small text
           and needs 4.5:1, which the fill orange does not clear on white. */}
       <span className={`relative text-[10px] leading-none max-w-full truncate px-1 ${active ? 'font-semibold' : 'font-medium'}`}
