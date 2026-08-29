@@ -10,11 +10,11 @@ let out = $input.first().json.output;
 let parsedData;
 if (typeof out === 'string') {
     const m = out.match(/\{[\s\S]*\}/);
-    parsedData = m ? JSON.parse(m[0]) : { reply: out, images: [], cacheable: false };
+    parsedData = m ? JSON.parse(m[0]) : { reply: out, images: [] };
 } else if (out && typeof out === 'object') {
     parsedData = (out.reply !== undefined || out.images !== undefined) ? out : (out.output || out);
 } else {
-    parsedData = { reply: "Here is the information you requested.", images: [], cacheable: false };
+    parsedData = { reply: "Here is the information you requested.", images: [] };
 }
 
 let replyText = parsedData.reply || "Here is the information you requested.";
@@ -60,8 +60,13 @@ let droppedDocument = null;
 // the finished reply against what the tools actually returned, which is the one
 // place the question has a yes/no answer.
 //
-// It FAILS OPEN. If "Return Intermediate Steps" is off, there are no tool
-// results here, and blanking every reply would be far worse than not checking.
+// Reply text and image URLs FAIL OPEN: if "Return Intermediate Steps" is off
+// there are no tool results here, and blanking every reply would be far worse
+// than not checking. FILE IDS FAIL CLOSED -- an id that cannot be shown to have
+// come from a tool result this turn is dropped. A dropped attachment costs one
+// round trip; a wrong id hands the rep a dead download, or a document nobody
+// chose. This mirrors the WhatsApp workflow, where the same fail-open check let
+// a remembered id through and the Drive fetch 404'd the whole run.
 // groundingChecked in the output tells you which mode you were in — if it is
 // false in production, the toggle is off and you have no protection.
 // ============================================================================
@@ -98,12 +103,23 @@ if (badImages.length) {
 // groundingChecked is false there is nothing to check against.
 let documentFileIds = [];
 if (documentFileId) {
-    if (!groundingChecked || corpus.includes(documentFileId)) {
+    if (groundingChecked && corpus.includes(documentFileId)) {
         documentFileIds = [documentFileId];
     } else {
         droppedDocument = documentFileId;
     }
 }
+// ---- Shipment document ------------------------------------------------------
+// Same exact-substring grounding check as the turnkey proposal id above, for
+// the same reason: a Drive file id is opaque and exact, so one that never
+// appeared in a tool result was invented or lifted from a different result.
+const shipmentDocumentFileId = typeof parsedData.shipment_document_file_id === 'string'
+    ? parsedData.shipment_document_file_id.trim()
+    : '';
+const shipmentDocumentName = typeof parsedData.shipment_document_name === 'string'
+    ? parsedData.shipment_document_name.trim()
+    : '';
+
 
 // --- 2. Model names --------------------------------------------------------
 // >>> BEGIN GENERATED FROM scripts/n8n/grounding_scan.js — DO NOT EDIT INLINE
@@ -173,6 +189,90 @@ const NOT_A_SERIES_PREFIX = new Set([
 
 const MEASUREMENT_RE = new RegExp('^\\d+(X\\d+)*(' + MEASUREMENT_UNITS.join('|') + ')?$');
 
+// Ordinary words that survive normalisation into something code-shaped once a
+// two-digit number is stuck to them: "top-10" -> TOP10, "Phase/50Hz" ->
+// PHASE50HZ. The digit-run rule below catches the one-digit forms ("top-3") and
+// the pair regex in extractModelCandidates demands caps, which catches the
+// spaced forms ("top 10") -- the hyphenated two-digit form takes neither path
+// out, which is how a marketing phrase suppressed a whole comparison PDF on
+// 12 Aug 2026.
+//
+// Guard the LEADING LETTER RUN rather than the whole token, so a genuine code
+// that merely starts with these letters is untouched. Checked against every
+// catalogue workbook (395k tokens): the only collision is "Phase/50Hz" itself,
+// which is mains supply, not a machine. If a machine really were called TOP10 it
+// would be IN the corpus and so never reported as invented -- meaning the only
+// thing this list gives up is flagging an INVENTED machine named after a prose
+// word, which is both unlikely and the safe direction to be wrong in. A mention
+// is never cut from the reply, only reported.
+const NOT_A_MODEL_PREFIX = new Set([
+    'TOP', 'TIER', 'RANK', 'LEVEL', 'GRADE', 'CLASS', 'TYPE', 'PHASE', 'STEP', 'STAGE',
+    'PAGE', 'ITEM', 'NOTE', 'FIG', 'LINE', 'ROW', 'SLOT', 'UNIT', 'YEAR', 'WEEK', 'DAY',
+]);
+
+// The mirror image of NOT_A_MODEL_PREFIX, and the same bug in the other
+// direction. That list guards LETTERS-then-digits ("top-10" -> TOP10). This
+// guards DIGITS-then-letters: "13-point ejection" normalises to 13POINT, which
+// has a letter and a two-digit run and so passed every test above. On
+// 25 Aug 2026 it cost a rep the PDF of a 400-ton comparison -- the answer was
+// fine, the phrase was "13-point ejection", and an ungrounded mention nulls
+// pdf_content. "9-pin", "2-cavity", "4-zone", "3-stage" are all the same shape.
+//
+// FIRST ATTEMPT, AND WHY IT WAS WRONG. This originally fired on any digit-led
+// token whose letters were all lowercase, on the reasoning that catalogue codes
+// are capitalised. That measurement was taken against the wrong side: the rule
+// runs on the AGENT'S REPLY, where casing is the model's choice, not the
+// catalogue's. It let "250xy" and "1200abc" through -- narrow, but a hole in a
+// safety control, and mine.
+//
+// So the test is the trailing WORD, listed explicitly, exactly how
+// NOT_A_MODEL_PREFIX is written. Measured against all 4,115 codes in
+// data/model_map.json: exactly ONE collides, "100POINT". That code grounds
+// normally whenever it is in the corpus; the only thing given up is flagging an
+// INVENTED "100POINT", which is the same trade NOT_A_MODEL_PREFIX already
+// makes. Re-run that measurement before adding to this list.
+const NOT_A_MODEL_SUFFIX = new Set([
+    'POINT', 'POINTS', 'PIN', 'PINS', 'CAVITY', 'CAVITIES', 'ZONE', 'ZONES',
+    'STAGE', 'STAGES', 'AXIS', 'CORE', 'CORES', 'PLATEN', 'PLATENS', 'STEP',
+    'STEPS', 'LAYER', 'LAYERS', 'COLOR', 'COLORS', 'COLOUR', 'COLOURS',
+    'DAY', 'DAYS', 'WEEK', 'WEEKS', 'MONTH', 'MONTHS', 'YEAR', 'YEARS',
+    'PIECE', 'PIECES', 'SET', 'SETS', 'UNIT', 'UNITS', 'HOLE', 'HOLES',
+]);
+
+function isDigitLedProse(token, normalised) {
+    if (!normalised || !/^\d/.test(normalised)) return false;
+    return NOT_A_MODEL_SUFFIX.has((normalised.match(/[A-Z]+$/) || [''])[0]);
+}
+
+// Is this code actually in the corpus, or merely a PREFIX of something that is?
+//
+// Both passes used a raw `corpusNorm.includes(code)`. The corpus is flattened
+// to alphanumerics, so that made every prefix of a real code count as grounded:
+// NEO-H170 rode in on NEO-H1700, at a tenth of the tonnage, and rendered onto
+// the letterhead for a rep to forward. That is the confusion runbook 2.5 exists
+// for, and the scan was blind to it while catching the far less likely case of
+// a wholly unrelated invention.
+//
+// The anchor is deliberately one-sided: the match must not be followed by a
+// DIGIT. It cannot require a non-alphanumeric, because the flattening is what
+// lets multi-part codes match at all -- the catalogue writes "CONICAL TWIN
+// 45/100 SB-PVC SET" and the code 45/100SB runs straight into the next word.
+//
+// Measured against all 4,115 codes in data/model_map.json: ZERO stop being
+// grounded by their own catalogue record. The known residual is a LETTER
+// truncation (UN850EPII inside UN850EPIII), which a test records rather than
+// leaves to be rediscovered.
+function groundedIn(corpusNorm, code) {
+    if (!code) return false;
+    let at = corpusNorm.indexOf(code);
+    while (at !== -1) {
+        const after = corpusNorm[at + code.length];
+        if (after === undefined || !/[0-9]/.test(after)) return true;
+        at = corpusNorm.indexOf(code, at + 1);
+    }
+    return false;
+}
+
 // A model code carries at least one letter AND a run of at least two digits.
 // One digit is not enough: "top-3" and "2-cavity" are prose, not machines.
 function looksLikeModelCode(normalised) {
@@ -180,6 +280,7 @@ function looksLikeModelCode(normalised) {
     if (!/[A-Z]/.test(normalised)) return false;
     if (!/\d{2}/.test(normalised)) return false;
     if (MEASUREMENT_RE.test(normalised)) return false;
+    if (NOT_A_MODEL_PREFIX.has((normalised.match(/^[A-Z]+/) || [''])[0])) return false;
     return true;
 }
 
@@ -199,6 +300,9 @@ function extractModelCandidates(text) {
         const token = raw.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '');
         if (!token) continue;
         const normalised = normaliseCode(token);
+        // Checked here rather than inside looksLikeModelCode because the signal
+        // is the ORIGINAL capitalisation, which normalisation has thrown away.
+        if (isDigitLedProse(token, normalised)) continue;
         if (looksLikeModelCode(normalised)) push(token, normalised);
     }
 
@@ -244,7 +348,7 @@ function scanModelNames(replyText, corpus, groundingChecked) {
         if (!codes.length) return true;
 
         // One real code is enough — a heading usually carries brand AND model.
-        if (codes.some((c) => corpusNorm.includes(normaliseCode(c)))) return true;
+        if (codes.some((c) => groundedIn(corpusNorm, normaliseCode(c)))) return true;
 
         result.ungrounded.push(h[1].trim());
         return false;
@@ -265,7 +369,7 @@ function scanModelNames(replyText, corpus, groundingChecked) {
     // --- pass 2: names anywhere else, which can only be reported -------------
     // Runs on what SURVIVED pass 1, so a block already cut is not counted twice.
     for (const c of extractModelCandidates(result.replyText)) {
-        if (!corpusNorm.includes(c.normalised)) result.ungroundedMentions.push(c.shown);
+        if (!groundedIn(corpusNorm, c.normalised)) result.ungroundedMentions.push(c.shown);
     }
 
     return result;
@@ -359,14 +463,68 @@ if (!tampered && parsedData.pdf_content && typeof parsedData.pdf_content === 'ob
 // pdfContent is THIS turn's capture and is often null on the turn where the
 // user asks for the export -- the title falls back accordingly, and the
 // webhook still finds the most recent captured turn for the session.
+// ---- Draft quotation -------------------------------------------------------
+// Read from the TOOL OBSERVATION, never from the agent's own output. The whole
+// point of this feature is that the agent chooses machines and the backend
+// supplies every figure; letting the agent restate the request here would hand
+// it a second chance to edit one on the way past. What gets stored is the exact
+// payload the sub-workflow already rendered a document from, so the download
+// re-renders something known to work rather than something merely described.
+//
+// Deliberately not gated on `tampered`: that flag is about invented model names
+// and URLs in the PROSE. The quotation's contents never passed through the
+// model at all, so a repaired reply does not make the document wrong.
+let quotationDoc = null;
+for (const s of steps) {
+    let obs = s && s.observation !== undefined ? s.observation : null;
+    if (obs === null || obs === undefined) continue;
+    if (typeof obs === 'string') {
+        try { obs = JSON.parse(obs); } catch (e) { continue; }
+    }
+    // A toolWorkflow node (Draft_Quotation) hands back a one-element array,
+    // same as every other tool observation in this workflow -- not a bare
+    // object. Missing this unwrap is why a "ready" quotation never reached
+    // the chat: obs.kind read off the array was always undefined.
+    if (Array.isArray(obs)) obs = obs[0];
+    if (!obs || obs.kind !== 'quotation' || obs.status !== 'ready') continue;
+    let request = obs.quotation_request;
+    if (typeof request === 'string') {
+        try { request = JSON.parse(request); } catch (e) { continue; }
+    }
+    // No items means nothing was quoted, whatever the status claimed.
+    if (!request || !Array.isArray(request.items) || !request.items.length) continue;
+    quotationDoc = {
+        name: String(obs.name || 'Quotation.docx').replace(/[<>:"/\|?*]/g, '').trim(),
+        request
+    };
+}
+
+// One column holds either shape, so a turn can carry only one of them. The
+// webhook tells them apart on the "kind" key and the PDF branch's query now
+// excludes quotation rows -- see "Get PDF Content".
+const storedDocument = quotationDoc
+    ? { kind: 'quotation', name: quotationDoc.name, request: quotationDoc.request }
+    : pdfContent;
+
 const sessionId = $('Webhook').first().json.body.session_id;
 const docTitle = (pdfContent && pdfContent.title) || 'HiTech Document';
 const documents = [];
-if (parsedData.export_pdf === true) {
+// The quotation wins the column, so the pdf button is suppressed rather than
+// left pointing at an older turn the webhook would silently render instead.
+if (parsedData.export_pdf === true && !quotationDoc) {
     documents.push({
         kind: 'pdf',
         name: String(docTitle).replace(/[<>:"/\\|?*]/g, '').trim() + '.pdf',
         url: '/webhook/hitech-web-doc?session_id=' + encodeURIComponent(sessionId)
+    });
+}
+// The quotation is fetched by session like the pdf, and for the same reason:
+// nothing is stored but the request, and the webhook re-renders on demand.
+if (quotationDoc) {
+    documents.push({
+        kind: 'quotation',
+        name: quotationDoc.name,
+        url: '/webhook/hitech-web-doc?session_id=' + encodeURIComponent(sessionId) + '&kind=quotation'
     });
 }
 // A proposal is fetched by id rather than by session: Drive already holds the
@@ -378,42 +536,31 @@ if (documentFileIds.length) {
         url: '/webhook/hitech-web-doc?file_id=' + encodeURIComponent(documentFileIds[0])
     });
 }
+if (shipmentDocumentFileId && groundingChecked && corpus.includes(shipmentDocumentFileId)) {
+    documents.push({
+        kind: 'shipment',
+        name: (shipmentDocumentName || 'Shipment Document').replace(/[<>:"/\\|?*]/g, '').trim() + '.pdf',
+        url: '/webhook/hitech-web-doc?file_id=' + encodeURIComponent(shipmentDocumentFileId)
+    });
+} else if (shipmentDocumentFileId) {
+    droppedDocument = shipmentDocumentFileId;
+}
 
-// ---- GATE 1: deterministic backstop (free, predictable) ----
-const userMessage = ($('Guardrails').first().json.guardrailsInput || "").trim().toLowerCase();
-const stop = ["yes","no","ok","okay","sure","yeah","nope","haan","han","ji","jee","nahi","nai","g","acha","achha","theek","thik","done","k"];
-const bareConfirmation = stop.includes(userMessage.replace(/[^\w]/g, ""));
 
-// ---- GATE 2: agent judgment (defaults false if the flag is missing) ----
-const agentCacheable = parsedData.cacheable === true;
+// Every Drive id this turn actually handed to the user. Recorded so the
+// document webhook can refuse an id that was never offered to THIS user -- it
+// used to accept any id from the client and stream the file through the bot's
+// own Drive credential. Derived from `documents` rather than re-collected
+// from the parsed output, so what is recorded cannot drift from what was
+// offered. See docs/SECURITY-AUDIT-2026-08-26.md finding 1.
+const offeredDocumentIds = documents
+    .map(function (d) {
+        const m = /[?&]file_id=([^&]+)/.exec(String((d && d.url) || ''));
+        return m ? decodeURIComponent(m[1]) : null;
+    })
+    .filter(Boolean);
 
-// ---- GATE 3: nothing we had to repair is fit to be replayed to someone else.
-// A cached bad answer is served BEFORE the agent runs, so it would outlive any
-// prompt fix.
-// ---- GATE 4: never cache a live SAP answer -------------------------------
-// The cache is keyed on question similarity alone, has no per-user filter, is
-// SHARED with the WhatsApp workflow, and is read BEFORE the agent runs. A
-// stored balance would therefore be served to someone the SAP-side scoping
-// would have refused -- the tool's access control never even executes. Stock
-// and order figures are also stale the moment they are stored.
-//
-// human_message is common to every SAP tool, so tools added later are covered
-// without touching this line.
-const sapLive = /human_message|rows_by_category|resolved_codes|sellable_|available_credit|credit_limit|card_code|last_payment|total_owed/.test(corpus);
 
-const storeable = !bareConfirmation && agentCacheable && !tampered && !sapLive;
-
-// ---- Build the cache INSERT here, so n8n never comma-splits the values ---
-const escSql = (s) => String(s ?? '').replace(/'/g, "''");
-const embedding = $('Embed Query').first().json.embedding.values;
-const vectorLiteral = '[' + embedding.join(',') + ']';
-
-const insert_sql =
-  "INSERT INTO semantic_cache (query_embedding, query_text, reply_text, image_urls) VALUES (" +
-  "'" + vectorLiteral + "'::vector, " +
-  "'" + escSql($('Guardrails').first().json.guardrailsInput) + "', " +
-  "'" + escSql(replyText) + "', " +
-  "'" + escSql(imageUrlsJson) + "')";
 
 return {
     json: {
@@ -427,16 +574,16 @@ return {
         // relative so the front-end resolves it against the same n8n host it
         // already posts the chat to.
         documents,
+        // Drive ids offered this turn, stored so the document webhook can
+        // check an incoming file_id was actually handed to this user.
+        document_ids: offeredDocumentIds,
         session_id: $('Webhook').first().json.body.session_id,
-        from_cache: false,
-        storeable,
-        insert_sql,
         // Captured document-worthy structure for "send as PDF" -- read back
         // verbatim once delivery is wired up, never regenerated. null when the
         // model judged this turn had nothing document-worthy (no prompt
         // guidance for this yet in this workflow -- see the comment above), or
         // when the backstop had to repair the reply this turn.
-        pdf_content: pdfContent,
+        pdf_content: storedDocument,
         // Diagnostics — visible in the n8n execution, and the only way to tell
         // "nothing was invented" from "the check never ran".
         groundingChecked,
@@ -448,4 +595,4 @@ return {
         droppedDocument,
         droppedImages: badImages
     }
-};
+}
