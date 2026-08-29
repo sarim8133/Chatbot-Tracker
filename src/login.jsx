@@ -22,10 +22,7 @@ function Shell({ children }) {
           <div className="p-9">
             <div className="flex items-center gap-2.5 mb-7">
               <img src="/logo-icon.png" alt="Hi Tech Machinery" width="256" height="256" className="h-9 w-auto" />
-              <div className="leading-none">
-                <p className="text-[15px] font-semibold tracking-tight" style={{ color: 'var(--blue)' }}>Hi Tech</p>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Sales Intelligence</p>
-              </div>
+              <span className="text-[18px] font-extrabold tracking-[-0.02em] leading-none" style={{ color: 'var(--blue)' }}>Hi Tech</span>
             </div>
             {children}
           </div>

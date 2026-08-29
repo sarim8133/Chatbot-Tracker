@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText, MoreHorizontal,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -943,8 +943,12 @@ function ToastPortal() {
           animate={{opacity:1, y:0,  scale:1}}
           exit={{opacity:0,   y:8,   scale:0.96}}
           transition={{duration:0.2, ease:[0.22,1,0.36,1]}}
-          className="fixed bottom-6 right-6 z-[300] flex items-center gap-2.5 px-4 py-3 rounded-xl text-[13px] font-medium text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35)]"
-          style={{background:INK}}
+          className="fixed right-6 z-[300] flex items-center gap-2.5 px-4 py-3 rounded-xl text-[13px] font-medium text-white shadow-[0_8px_24px_-4px_rgba(0,0,0,0.35)]"
+          /* Above the bottom tab bar, not on top of it. The toast outranks the bar
+             on z-index (300 vs 40), so without this it would draw over the tabs
+             rather than being hidden by them — which is worse: it covers the
+             navigation while saying something the reader doesn't have to act on. */
+          style={{background:INK, bottom:'calc(1.5rem + var(--app-navbar-h, 0px))'}}
           role="status" aria-live="polite"
         >
           {toast.state === 'preparing'
@@ -2997,7 +3001,10 @@ function ChatTab({ active }) {
         className={`flex flex-col overflow-hidden ${expanded ? 'fixed inset-x-0 bottom-0 z-30 rounded-none border-x-0 border-b-0' : ''}`}
         style={expanded
           ? {top:'var(--app-header-h, 140px)',
-             height:'calc(100dvh - var(--app-header-h, 140px))',
+             // Minus the bottom tab bar as well as the header. --app-navbar-h is
+             // 0px at lg+, so this is the same expression at every width; below
+             // lg, leaving it out puts the composer underneath the bar.
+             height:'calc(100dvh - var(--app-header-h, 140px) - var(--app-navbar-h, 0px))',
              minHeight:0}
           : {height:'calc(100vh - 260px)', minHeight:'440px'}}>
 
@@ -4546,15 +4553,6 @@ function ExpensesTab({ role, phone, onAuthError }) {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
-      {/* Hidden with no receipts at all: an export of nothing is six empty
-          sheets, which reads as a broken file rather than an empty month. */}
-      {!noData && (
-        <div className="flex justify-end">
-          <ExportTabButton exportName="expenses-report" buildSheets={() => buildExpenseSheets({
-            byEmployee: byEmployeeShown, byCategory, trend, spendCompareMetrics, approvalTurnaround, statusSplit,
-          })}/>
-        </div>
-      )}
       <HelpNote>
         {isEmployee
           ? 'Your submitted receipts and spending. Only you and the accountant can see these.'
@@ -4590,40 +4588,48 @@ function ExpensesTab({ role, phone, onAuthError }) {
             {selEmp ? ` · Employee: ${selEmpName}` : ''}
           </p>
 
-          {/* Filters */}
-          <div className="no-print flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-1.5">
+          {/* Filters
+              PHONE (< sm): a two-column grid with each label stacked over its
+              control. As a wrapping flex row these did not fit two-up — "Category"
+              plus its select needs ~192px against the ~166px a column gets at
+              390px — so every filter took a full line of its own and the group
+              came out as four ragged left-aligned rows with the export buttons
+              stranded on a fifth. Stacking the label buys the control the whole
+              column width, which is what lets two sit side by side.
+              sm AND UP: unchanged — the same single wrapping row as before. */}
+          <div className="no-print grid grid-cols-2 items-end gap-2.5 sm:flex sm:flex-wrap sm:items-center">
+            <div className="flex flex-col items-stretch gap-1 min-w-0 sm:flex-row sm:items-center sm:gap-1.5">
               <Label>Month</Label>
               <select value={month || ''} onChange={e => { setMonthSel(e.target.value); setOpenId(null); }}
                 aria-label="Filter by month"
-                className="mono text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                className="mono w-full sm:w-auto text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                 {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
               </select>
             </div>
             {!isEmployee && depts.length > 1 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-stretch gap-1 min-w-0 sm:flex-row sm:items-center sm:gap-1.5">
                 <Label>Dept</Label>
                 <select value={dept} onChange={e => { setDept(e.target.value); setSelEmp(null); }}
                   aria-label="Filter by department"
-                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                  className="w-full sm:w-auto text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                   <option value="all">All departments</option>
                   {depts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
             )}
             {catsPresent.length > 1 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-stretch gap-1 min-w-0 sm:flex-row sm:items-center sm:gap-1.5">
                 <Label>Category</Label>
                 <select value={cat} onChange={e => { setCat(e.target.value); setOpenId(null); }}
                   aria-label="Filter by category"
-                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
+                  className="w-full sm:w-auto text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                   <option value="all">All categories</option>
                   {catsPresent.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             )}
             {!isEmployee && (
-              <div ref={comboRef} className="relative flex items-center">
+              <div ref={comboRef} className="relative col-span-2 flex items-center sm:col-span-1">
                 <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none z-10" />
                 <input
                   type="text" value={empSearch}
@@ -4632,7 +4638,7 @@ function ExpensesTab({ role, phone, onAuthError }) {
                   placeholder="Search employee…"
                   aria-label="Search employee"
                   role="combobox" aria-expanded={suggestOpen && !!empQuery} aria-autocomplete="list"
-                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md pl-8 pr-7 py-1.5 w-48 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
+                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md pl-8 pr-7 py-1.5 w-full sm:w-48 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
                 />
                 {empSearch && (
                   <button onClick={() => { setEmpSearch(''); setSuggestOpen(false); }} aria-label="Clear search"
@@ -4669,10 +4675,22 @@ function ExpensesTab({ role, phone, onAuthError }) {
             )}
             {!isEmployee && selEmp && (
               <button onClick={() => setSelEmp(null)}
-                className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+                className="col-span-2 inline-flex items-center justify-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors sm:col-span-1 sm:justify-start">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
                 {selEmpName} <X size={12} className="text-zinc-400" />
               </button>
+            )}
+            {/* Export sits on the filters' own row, hard right. It used to have a
+                full-width row to itself directly above, which left a band of
+                empty space beside it and pushed the filters onto a second line.
+                Hidden with no receipts at all: an export of nothing is six empty
+                sheets, which reads as a broken file rather than an empty month. */}
+            {!noData && (
+              <div className="col-span-2 flex justify-end sm:col-span-1 sm:ml-auto">
+                <ExportTabButton exportName="expenses-report" buildSheets={() => buildExpenseSheets({
+                  byEmployee: byEmployeeShown, byCategory, trend, spendCompareMetrics, approvalTurnaround, statusSplit,
+                })}/>
+              </div>
             )}
           </div>
 
@@ -5380,9 +5398,17 @@ function ChangePasswordModal({ open, onClose }) {
 
 // ── Nav Config ────────────────────────────────────────────────────────────────
 // Sales-analytics tabs (the original dashboard). Shown to admin + accountant.
+//
+// `short` is the bottom tab bar's label, and only exists where the full one does
+// not fit. The bar gives each tab viewport/5 of width — 64px at the 320px design
+// floor — and "Conversations" runs about 68px at the bar's 10px size, so it is
+// the one label that would truncate. Everything else measures under 50px and
+// uses `label` unchanged. Deriving a short form by slicing was the alternative
+// and is worse: it would produce "Conversat…", which is not shorter to read,
+// only shorter to draw.
 const SALES_NAV = [
   {id:'overview',      label:'Overview',      icon:LayoutDashboard},
-  {id:'conversations', label:'Conversations', icon:MessageSquare},
+  {id:'conversations', label:'Conversations', short:'Convos', icon:MessageSquare},
   {id:'users',         label:'Reps',          icon:Users},
   {id:'chat',          label:'Chat',          icon:Bot, sub:'Test Hi Tech AI live'},
 ];
@@ -5409,10 +5435,44 @@ function navForRole(role) {
   if (c.chats) nav.push(...SALES_NAV.filter(n => n.id !== 'chat'));
   nav.push(c.allExpenses || c.approvedExpenses
     ? EXPENSES_NAV
-    : {...EXPENSES_NAV, label:'My Expenses', sub:'Your receipts & spend'});
+    : {...EXPENSES_NAV, label:'My Expenses', short:'Expenses', sub:'Your receipts & spend'});
   if (c.chat) nav.push(SALES_NAV.find(n => n.id === 'chat'));
   if (c.team) nav.push(TEAM_NAV);
   return nav;
+}
+
+// How many tabs the bottom bar shows before it needs a "More" slot. Five is the
+// ceiling because of width, not taste: at the 320px design floor five slots are
+// 64px each, which is exactly what a 20px icon over a 10px label needs. Six
+// would put every label under 54px and start truncating them.
+const BAR_SLOTS = 5;
+
+// Split a role's nav into what the bottom bar shows and what goes behind "More".
+// Only `dev` is ever affected — it has six tabs; every other role has two to
+// five and passes straight through untouched.
+//
+// The demotion order is deliberate rather than "last two lose":
+//   · Team is admin housekeeping, opened rarely and never mid-task.
+//   · Reps is reachable by drilling from Overview, so it has a second door.
+//   · Chat is NEVER demoted, at any nav length. The web receipt uploader lives
+//     inside its composer (see the `chat` note in src/caps.js), so burying it
+//     would bury the only way to file an expense from a phone.
+//   · nav[0] is never demoted either — it is where the wordmark sends you.
+function splitNavForBar(nav) {
+  if (nav.length <= BAR_SLOTS) return { bar: nav, more: [] };
+  const needed = nav.length - (BAR_SLOTS - 1);   // the "More" slot costs one of the five
+  const more = [];
+  for (const id of ['team', 'users', 'conversations']) {
+    if (more.length >= needed) break;
+    const n = nav.find(x => x.id === id);
+    if (n) more.push(n);
+  }
+  // Backstop for a future role with a nav longer than the demotion list above:
+  // take from the end, still sparing Chat and the home tab.
+  for (let i = nav.length - 1; i > 0 && more.length < needed; i--) {
+    if (nav[i].id !== 'chat' && !more.includes(nav[i])) more.push(nav[i]);
+  }
+  return { bar: nav.filter(n => !more.includes(n)), more };
 }
 
 // Role display (shown in the header for everyone). Built from the same map, so
@@ -5423,6 +5483,266 @@ const ROLE_META = Object.fromEntries(
     color: c.tone === 'accent' ? BLUE : c.tone === 'pos' ? POS : 'var(--muted)',
   }]),
 );
+
+// ── Account Menu ──────────────────────────────────────────────────────────────
+// Everything that used to be its own icon in the header: identity, help, theme,
+// change password, sign out. Five controls plus a 130px identity block was more
+// than half the header's width spent on things pressed once a session, and it
+// was the reason navigation had no room left below lg.
+//
+// Portalled to <body> and positioned fixed rather than absolute. The header is
+// `sticky` with a z-index, which makes it a stacking context an absolutely
+// positioned child cannot escape — the menu would be clipped by the header's own
+// bottom border the moment it grew past 80px, which it does.
+function AccountMenu({ displayName, initials, roleMeta,
+                       helpOpen, onToggleHelp,
+                       themeIcon: ThemeIcon, themeLabel, themeMode, onCycleTheme,
+                       onChangePassword, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState(null);
+  const btnRef  = useRef(null);
+  const menuRef = useRef(null);
+  const MENU_W  = 264;
+
+  const place = useCallback(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    // Same viewport→zoomed-coordinate conversion as DeptCombo. The header sits
+    // outside .app-scale so z is 1 today, but reading it keeps this correct if
+    // the scale is ever extended over the header.
+    const z = zoomOf(el);
+    const r = el.getBoundingClientRect();
+    setRect({
+      top:  r.bottom / z + 8,
+      // Right-aligned to the trigger, then clamped so it can never hang off a
+      // 320px screen — where MENU_W is most of the viewport.
+      left: Math.max(8, Math.min(r.right / z - MENU_W, window.innerWidth / z - MENU_W - 8)),
+      z,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const onDoc = e => {
+      if (!btnRef.current?.contains(e.target) && !menuRef.current?.contains(e.target)) setOpen(false);
+    };
+    const onKey = e => {
+      if (e.key !== 'Escape') return;
+      setOpen(false);
+      btnRef.current?.focus();   // Escape must not strand focus in a menu that no longer exists
+    };
+    const onScroll = () => setOpen(false);
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open, place]);
+
+  const row = 'flex items-center gap-3 w-full px-3.5 py-2.5 text-[13.5px] text-zinc-700 rounded-md transition-colors hover:bg-zinc-100 hover:text-zinc-900 outline-none focus-visible:bg-zinc-100';
+  const run = fn => () => { setOpen(false); fn(); };
+
+  return (
+    <>
+      <button ref={btnRef} type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu" aria-expanded={open}
+        aria-label={`Account: ${displayName}${roleMeta ? ` (${roleMeta.label})` : ''}`}
+        className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg transition-colors hover:bg-zinc-900/5 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      >
+        <span className="flex items-center justify-center w-9 h-9 rounded-full text-[12px] font-bold shrink-0"
+          style={roleMeta
+            ? { background: tint(roleMeta.color, 12), color: roleMeta.color }
+            : { background: 'var(--color-zinc-100)', color: 'var(--muted)' }}>
+          {initials}
+        </span>
+      </button>
+
+      {createPortal(
+        <AnimatePresence>
+          {open && rect && (
+            <motion.div ref={menuRef} role="menu"
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              style={{ position: 'fixed', top: rect.top, left: rect.left, width: MENU_W, zoom: rect.z, zIndex: 60 }}
+              className="rounded-xl border border-zinc-200 bg-surface shadow-[0_12px_32px_-8px_rgba(24,24,27,0.22)] p-1.5"
+            >
+              {/* Identity — the block that used to sit in the header's left corner. */}
+              <div className="px-3.5 py-2.5">
+                <p className="text-[13.5px] font-semibold text-zinc-900 truncate">{displayName}</p>
+                {roleMeta && (
+                  <p className="mono text-[9px] uppercase tracking-[0.14em] mt-1" style={{ color: roleMeta.color }}>
+                    {roleMeta.label}
+                  </p>
+                )}
+              </div>
+              <div className="h-px bg-zinc-200 my-1.5"/>
+
+              <button type="button" role="menuitemcheckbox" aria-checked={helpOpen}
+                onClick={run(onToggleHelp)} className={row}>
+                <HelpCircle size={15} className="shrink-0 text-zinc-400"/>
+                <span className="flex-1 text-left">Help captions</span>
+                {/* A word, not a coloured dot. The state has to be readable by
+                    someone who can't distinguish the accent from the muted grey,
+                    and aria-checked alone is invisible to everyone not using AT. */}
+                <span className="mono text-[9px] uppercase tracking-[0.12em]"
+                  style={{ color: helpOpen ? ACCENT_DK : 'var(--color-zinc-400)' }}>
+                  {helpOpen ? 'On' : 'Off'}
+                </span>
+              </button>
+
+              <button type="button" role="menuitem" onClick={run(onCycleTheme)} title={themeLabel} className={row}>
+                <ThemeIcon size={15} className="shrink-0 text-zinc-400"/>
+                <span className="flex-1 text-left">Theme</span>
+                <span className="mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">{themeMode}</span>
+              </button>
+
+              <button type="button" role="menuitem" onClick={run(onChangePassword)} className={row}>
+                <KeyRound size={15} className="shrink-0 text-zinc-400"/>
+                <span className="flex-1 text-left">Change password</span>
+              </button>
+
+              <div className="h-px bg-zinc-200 my-1.5"/>
+              <button type="button" role="menuitem" onClick={run(onLogout)} className={row}>
+                <LogOut size={15} className="shrink-0 text-zinc-400"/>
+                <span className="flex-1 text-left">Sign out</span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+// ── Bottom Navigation (below lg) ──────────────────────────────────────────────
+// Replaces the dropdown tab-picker that used to live in the header. That picker
+// was a single button showing only the CURRENT tab, so it answered "where am I"
+// and never "where can I go", and every move cost two taps. Worse, it was last
+// in the header's width queue: on a 320px screen it was left with ~14px for its
+// label and rendered as "Overvi…".
+//
+// A bottom bar fixes that by not being in the queue at all — it has a row of its
+// own. The header below lg is then just wordmark + refresh + account.
+// One slot of the bottom bar. Module scope rather than nested inside BottomNav
+// on purpose: a component declared in a render body is a brand-new component
+// type on every render, so React unmounts and remounts the entire row each time
+// the tab changes — destroying the very layoutId animation below.
+function NavSlot({ active, icon: Icon, label, ...rest }) {
+  return (
+    <button type="button"
+      className="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-1 h-16 outline-none focus-visible:bg-zinc-900/5 transition-colors"
+      {...rest}
+    >
+      {/* The active marker is a tinted pill behind the icon, moved between slots
+          with layoutId so switching tabs reads as one object travelling rather
+          than two unrelated fades. MotionConfig reducedMotion="user" at the root
+          turns it into a cut for anyone who asked for that. */}
+      {active && (
+        <motion.span layoutId="barPill"
+          className="absolute top-2 h-7 w-12 rounded-full"
+          style={{ background: tint(ACCENT, 12) }}
+          transition={{ type: 'spring', stiffness: 480, damping: 36 }}/>
+      )}
+      <Icon size={19} className="relative shrink-0" style={active ? { color: ACCENT } : undefined}/>
+      {/* ACCENT_DK for the label, not ACCENT: at 10px this counts as small text
+          and needs 4.5:1, which the fill orange does not clear on white. */}
+      <span className={`relative text-[10px] leading-none max-w-full truncate px-1 ${active ? 'font-semibold' : 'font-medium'}`}
+        style={{ color: active ? ACCENT_DK : 'var(--color-zinc-500)' }}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function BottomNav({ nav, tab, goTab }) {
+  const { bar, more } = useMemo(() => splitNavForBar(nav), [nav]);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreActive = more.some(n => n.id === tab);
+  // Derived, not corrected in an effect. A role resolving late can empty `more`
+  // while the sheet is open; reading that at render closes it in the same pass,
+  // where an effect would paint one frame of an empty sheet first.
+  const sheetOpen = moreOpen && more.length > 0;
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = e => { if (e.key === 'Escape') setMoreOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [sheetOpen]);
+
+  return (
+    <>
+      {/* Floating, not edge-to-edge. Inset on all three sides with a real
+          shadow so it reads as an object sitting ON the page rather than a strip
+          welded to the bottom of the window — the page visibly continues
+          underneath it, which is what keeps a small screen feeling taller than
+          it is. overflow-hidden is what lets the slots' own hover/focus fills
+          stop at the rounded corners instead of squaring them off. */}
+      <nav aria-label="Main"
+        className="lg:hidden no-print fixed left-4 right-4 z-40 flex items-stretch rounded-3xl bg-surface border border-zinc-200 overflow-hidden shadow-[0_6px_24px_-4px_rgba(24,24,27,0.20),0_2px_6px_-2px_rgba(24,24,27,0.12)]"
+        style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+      >
+        {bar.map(n => (
+          <NavSlot key={n.id} active={tab === n.id} icon={n.icon} label={n.short || n.label}
+            aria-current={tab === n.id ? 'page' : undefined}
+            onClick={() => { if (tab !== n.id) goTab(n.id); setMoreOpen(false); }}/>
+        ))}
+        {more.length > 0 && (
+          <NavSlot active={moreActive} icon={MoreHorizontal} label="More"
+            aria-haspopup="menu" aria-expanded={sheetOpen}
+            onClick={() => setMoreOpen(o => !o)}/>
+        )}
+      </nav>
+
+      {createPortal(
+        <AnimatePresence>
+          {sheetOpen && (
+            <>
+              {/* The scrim sits BELOW the bar (z-38 against the bar's z-40) on
+                  purpose: the bar stays lit, so the same "More" slot you opened
+                  it with is still the thing you tap to close it. */}
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.16 }}
+                className="lg:hidden fixed inset-0 z-[38]" style={{ background: 'rgba(24,24,27,0.28)' }}
+                onClick={() => setMoreOpen(false)} aria-hidden="true"/>
+              <motion.div role="menu" aria-label="More tabs"
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                className="lg:hidden fixed left-4 right-4 z-[39] bg-surface border border-zinc-200 rounded-3xl p-1.5 shadow-[0_6px_24px_-4px_rgba(24,24,27,0.20)]"
+                style={{ bottom: 'calc(var(--app-navbar-h) + 8px)' }}
+              >
+                {more.map(n => {
+                  const active = tab === n.id;
+                  return (
+                    <button key={n.id} type="button" role="menuitem"
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => { goTab(n.id); setMoreOpen(false); }}
+                      className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-lg text-[15px] transition-colors outline-none focus-visible:bg-zinc-100 ${active ? 'bg-zinc-100 font-semibold text-zinc-900' : 'font-medium text-zinc-700 hover:bg-zinc-50'}`}
+                    >
+                      <n.icon size={17} className="shrink-0" style={{ color: active ? ACCENT : 'var(--muted)' }}/>
+                      <span className="flex-1 text-left">{n.label}</span>
+                      {active && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ACCENT }}/>}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 // ── Root Component ────────────────────────────────────────────────────────────
 export default function Dashboard({ onLogout }) {
@@ -5443,7 +5763,6 @@ export default function Dashboard({ onLogout }) {
   }, []);
   const [searchFocus, setSearchFocus] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [navOpen,  setNavOpen]  = useState(false);
   const [pwOpen,   setPwOpen]   = useState(false);
   const [drill, setDrill] = useState(null);
 
@@ -5504,14 +5823,13 @@ export default function Dashboard({ onLogout }) {
     }
   }, []);
 
-  // Show "Data refreshed" toast when a refresh completes.
-  const prevRefreshing = useRef(false);
-  useEffect(() => {
-    if (prevRefreshing.current && !refreshing) {
-      pushToast({ state: 'done', msg: 'Data refreshed' });
-    }
-    prevRefreshing.current = refreshing;
-  }, [refreshing, pushToast]);
+  // No toast on refresh. The button spins while the fetch is in flight and stops
+  // when it lands, which says the same thing at the point the user is already
+  // looking — a toast in the opposite corner only repeats it, a beat later.
+  // Screen readers still get it: the button carries aria-busy, so the state
+  // change is announced without a live region firing on every refresh.
+  // The toast system itself stays; exports and receipt downloads use it, and
+  // those DO need it because they finish somewhere the user isn't looking.
 
   // Drill-through: jump to Conversations with a topic (answer) or rep pre-filter.
   const goDrill    = useCallback(d => { goTab('conversations'); setDrill(d); }, [goTab]);
@@ -5522,9 +5840,12 @@ export default function Dashboard({ onLogout }) {
     const onKey = e => {
       const t = e.target;
       if (t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
-      if (e.key==='Escape') { setNavOpen(false); return; }
-      if (e.key>='1' && e.key<=String(nav.length)) { goTab(nav[+e.key-1].id); setNavOpen(false); }
-      else if (e.key==='/') { e.preventDefault(); if (nav.some(n=>n.id==='conversations')) { goTab('conversations'); setSearchFocus(n=>n+1); } setNavOpen(false); }
+      // Character keys only. The range test below is a string comparison, so
+      // named keys fall into it too — 'Escape' is >= '1', and would have matched
+      // the moment a role ever had nine or more tabs.
+      if (e.key.length !== 1) return;
+      if (e.key>='1' && e.key<=String(nav.length)) { goTab(nav[+e.key-1].id); }
+      else if (e.key==='/') { e.preventDefault(); if (nav.some(n=>n.id==='conversations')) { goTab('conversations'); setSearchFocus(n=>n+1); } }
     };
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
@@ -5553,9 +5874,6 @@ export default function Dashboard({ onLogout }) {
     const onPop = () => {
       const hash = window.location.hash.slice(1);
       setTab(ALL_NAV.some(n => n.id === hash) ? hash : 'overview');
-      // Back while the mobile drawer is open would otherwise switch the tab
-      // behind it and leave the picker sitting there over the new page.
-      setNavOpen(false);
     };
     window.addEventListener('popstate', onPop);
     return ()=>window.removeEventListener('popstate', onPop);
@@ -5586,92 +5904,90 @@ export default function Dashboard({ onLogout }) {
       <header ref={headerRef} className="sticky top-0 z-20 bg-paper border-b border-slate-200">
         {/* signal strip */}
         <div className="h-[3px] w-full" style={{background:BLUE}}/>
-        {/* Tighter gutters/gaps on phones: at px-6 + gap-5 the mobile tab-picker was left
-            with 14px for its label, so it truncated to nothing and the chevron drifted away
-            from the icon with an empty gap between them. */}
         <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center gap-3 sm:gap-5">
 
-          {/* Wordmark — doubles as the way home, the way a site logo always has.
-              The whole lockup is the target, not just the mark, so it stays an
-              easy tap on a phone where the text is hidden. */}
+          {/* The mark alone — no wordmark. It doubles as the way home, the way a
+              site logo always has.
+
+              alt="" on the image is deliberate and the aria-label carries the
+              whole name instead: with the text gone this button has no readable
+              content of its own, so without that label a screen reader would
+              announce it as an unlabelled button. The label also says where it
+              goes, which the picture never did. */}
           <button type="button"
-            onClick={()=>{ goTab(homeTab); setNavOpen(false); }}
-            aria-label={`Hi Tech Sales Intelligence — go to ${ALL_NAV.find(n=>n.id===homeTab)?.label || 'Overview'}`}
-            className="flex items-center gap-2.5 shrink-0 -m-1 p-1 rounded-lg transition-opacity hover:opacity-80 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+            onClick={()=>goTab(homeTab)}
+            aria-label={`Hi Tech — go to ${ALL_NAV.find(n=>n.id===homeTab)?.label || 'Overview'}`}
+            className="flex items-center shrink-0 -m-1 p-1 rounded-lg transition-opacity hover:opacity-80 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
             <img src="/logo-icon.png" alt="" width="256" height="256" className="h-11 w-auto"/>
-            <div className="leading-none hidden md:block text-left">
-              <p className="text-[16px] font-bold tracking-tight" style={{color:BLUE}}>Hi Tech</p>
-              <p className="text-[12px] text-zinc-400 mt-0.5">Sales Intelligence</p>
-            </div>
           </button>
 
-          {/* Identity — who's signed in + their role (left corner, out of the tabs' way) */}
-          {role && ROLE_META[role] && (
-            <div className="hidden lg:flex items-center gap-2.5 shrink-0 pl-5 border-l border-zinc-200">
-              <span className="flex items-center justify-center w-9 h-9 rounded-full text-[12px] font-bold shrink-0" style={{background:tint(ROLE_META[role].color, 10), color:ROLE_META[role].color}}>
-                {initials}
-              </span>
-              <div className="leading-tight">
-                <p className="text-[13px] font-semibold text-zinc-800 truncate max-w-[130px]">{displayName}</p>
-                <p className="mono text-[9px] uppercase tracking-[0.14em] mt-0.5" style={{color:ROLE_META[role].color}}>{ROLE_META[role].label}</p>
-              </div>
-            </div>
-          )}
+          {/* Tab strip (lg+). Below lg this whole element is absent and BottomNav
+              carries navigation instead — which is what finally ends the width
+              war this header used to lose: the strip now competes only with a
+              logo and two controls, never with six.
 
-          {/* Mobile nav picker — visible below lg, replaced by full strip above */}
-          {(()=>{ const cur = nav.find(n=>n.id===tab)||nav[0]; return (
-            <div className="flex-1 min-w-0 lg:hidden flex items-center overflow-hidden">
-              <button onClick={()=>setNavOpen(o=>!o)}
-                aria-haspopup="listbox" aria-expanded={navOpen}
-                className="flex items-center gap-2 min-w-0 max-w-full px-3 py-2 rounded-lg border border-zinc-200 bg-surface text-[14px] font-medium text-zinc-800 hover:border-zinc-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-                {/* No icon on phones. There isn't room for icon + label + chevron on a narrow
-                    screen, and when it's tight the label is what loses — it truncates to
-                    nothing and you're left with an icon and a chevron and no idea which tab
-                    you're on. The label always wins; the icon returns at sm. */}
-                <cur.icon size={15} className="shrink-0 hidden sm:block" style={{color:ACCENT}}/>
-                <span className="truncate">{cur.label}</span>
-                <ChevronDown size={13} className={`shrink-0 text-zinc-400 transition-transform duration-200${navOpen?' rotate-180':''}`}/>
-              </button>
-            </div>
-          ); })()}
+              A segmented track rather than the old full-height underlined row.
+              Same vocabulary as the channel filter under the page title, so the
+              two "pick one of these" controls on screen look like the same
+              control. It also drops the strip from 80px of header height to 40px,
+              which is most of what made the old header feel heavy.
 
-          {/* Tab strip (lg+) — scrolls (scrollbar hidden) if more tabs than fit,
-              so admin's extra Expenses/Team tabs are never clipped. */}
-          <nav className="hidden lg:flex items-stretch h-20 flex-1 min-w-0 overflow-x-auto no-scrollbar">
-            {nav.map((n,idx)=>{
-              const active = tab===n.id;
-              return (
-                <button key={n.id}
-                  onClick={()=>{ if(!active) goTab(n.id); }}
-                  aria-current={active ? 'page' : undefined}
-                  title={`${n.label} · press ${idx+1}`}
-                  className={`relative flex items-center gap-1.5 px-3 shrink-0 whitespace-nowrap text-[14px] transition-colors outline-none focus-visible:bg-zinc-900/5
-                    ${active ? 'text-zinc-900 font-semibold' : 'text-zinc-500 hover:text-zinc-900 font-medium'}`}
-                >
-                  <n.icon size={15} className="shrink-0" style={active ? {color:ACCENT} : undefined}/>
-                  <span>{n.label}</span>
-                  {active && (
-                    <motion.span layoutId="tabUnderline"
-                      className="absolute bottom-0 left-2 right-2 h-[2px]"
-                      style={{background:ACCENT}}
-                      transition={{type:'spring',stiffness:480,damping:36}}/>
-                  )}
-                </button>
-              );
-            })}
+              overflow-x-auto is kept as a backstop but should never engage: six
+              tabs (dev, the widest role) measure ~586px, and at the lg breakpoint
+              this row has ~960px to spend now that identity, help, theme and
+              change-password have moved into the account menu. */}
+          <nav aria-label="Main" className="hidden lg:flex items-center justify-center flex-1 min-w-0">
+            {/* bg-surface, NOT bg-zinc-100. On paper (#F1F5F9) a zinc-100 track
+                (#F4F4F5) is a 1% step — invisible — so the group read as a stray
+                outlined box with a white blob in it. White on paper is a real
+                step, and it makes the group the same floating object the phone's
+                bar is.
+
+                justify-center rather than left-aligned against the logo: with
+                identity, help, theme and change-password gone from the right,
+                a left-anchored strip left ~800px of dead space between the last
+                tab and the refresh button. Centring in the leftover space (as
+                opposed to absolute-centring on the viewport) keeps it clear of
+                both the wordmark and the controls at every width. */}
+            <div className="flex items-center gap-1 p-1.5 rounded-full bg-surface border border-zinc-200 shadow-[0_1px_3px_rgba(24,24,27,0.07)] max-w-full overflow-x-auto no-scrollbar">
+              {nav.map((n,idx)=>{
+                const active = tab===n.id;
+                return (
+                  <button key={n.id}
+                    onClick={()=>{ if(!active) goTab(n.id); }}
+                    aria-current={active ? 'page' : undefined}
+                    title={`${n.label} · press ${idx+1}`}
+                    className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-full shrink-0 whitespace-nowrap text-[13.5px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40
+                      ${active ? 'font-semibold' : 'text-zinc-500 hover:text-zinc-900 font-medium'}`}
+                    style={active ? {color:ACCENT_DK} : undefined}
+                  >
+                    {/* Accent tint, matching the phone bar's active pill, so the
+                        two navs read as one idea in two shapes. It also needs no
+                        per-theme value: color-mix against `transparent` lands on
+                        whatever surface it is over, light or dark.
+
+                        Behind the label, not around it — hence the explicit
+                        `relative` on the icon and text below. layoutId keeps the
+                        pill a single object sliding between tabs, which is the
+                        one piece of the old underline worth keeping. */}
+                    {active && (
+                      <motion.span layoutId="tabPill"
+                        className="absolute inset-0 rounded-full"
+                        style={{background:tint(ACCENT,10)}}
+                        transition={{type:'spring',stiffness:480,damping:36}}/>
+                    )}
+                    <n.icon size={15} className="relative shrink-0" style={active ? {color:ACCENT} : undefined}/>
+                    <span className="relative">{n.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </nav>
 
-          {/* Right cluster */}
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              onClick={()=>setHelpOpen(o=>!o)}
-              aria-pressed={helpOpen}
-              aria-label="Toggle help captions"
-              title="Toggle help"
-              className={`hidden lg:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${helpOpen ? 'bg-zinc-900 text-on-ink border-zinc-900' : 'bg-surface text-zinc-700 border-zinc-300 hover:border-zinc-900 hover:text-zinc-900'}`}
-            >
-              <HelpCircle size={15}/>
-            </button>
+          {/* Right cluster — two controls, down from six. Refresh earns its place
+              in the header because it is pressed repeatedly while reading; the
+              rest are once-a-session and live behind the account menu. */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
             <div aria-live="polite" className="flex items-center gap-3 empty:hidden">
               {demo && (
                 <span className="mono text-[10px] uppercase tracking-wide font-semibold px-2 py-1 rounded"
@@ -5687,11 +6003,10 @@ export default function Dashboard({ onLogout }) {
               aria-busy={refreshing}
               whileTap={{scale:0.96}}
               title="Refresh data"
-              /* Icon-only and square, matching the help and theme buttons either side
-                 of it. The 44px box stays: it is the touch target, not the visual
-                 size — the button reads small because the label and the extra
-                 horizontal padding are gone, not because it was shrunk below what a
-                 thumb can hit. */
+              /* Icon-only and square. The 44px box stays: it is the touch target,
+                 not the visual size — the button reads small because the label and
+                 the extra horizontal padding are gone, not because it was shrunk
+                 below what a thumb can hit. */
               className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-on-ink transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <motion.div
@@ -5701,36 +6016,23 @@ export default function Dashboard({ onLogout }) {
                 <RefreshCw size={15}/>
               </motion.div>
             </motion.button>
-            <button
-              onClick={cycleTheme}
-              aria-label={themeLabel}
-              title={themeLabel}
-              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-surface text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            >
-              <ThemeIcon size={15}/>
-            </button>
-            {/* Change password moves to the mobile nav dropdown below lg — see the width
-                math in the commit that adds this button: a 4th 44px icon + gap doesn't fit
-                the phone header without either crushing the tab-picker's label budget again
-                (the exact bug db5b013 fixed) or dropping a button. Change-password is the
-                least-frequent of the four actions, so it's the one that moves; it's still one
-                tap away via the tab picker → "Change password" row, and unchanged on desktop. */}
-            <button
-              onClick={()=>setPwOpen(true)}
-              aria-label="Change password"
-              title="Change password"
-              className="hidden lg:flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-surface text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            >
-              <KeyRound size={15}/>
-            </button>
-            <button
-              onClick={handleLogout}
-              aria-label="Sign out"
-              title="Sign out"
-              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg border bg-surface text-zinc-700 border-zinc-300 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            >
-              <LogOut size={15}/>
-            </button>
+            {/* Renders at every width, unlike the controls it absorbed. Change
+                password used to be lg-only in the header and phone-only inside
+                the nav dropdown; with that dropdown gone this menu is its single
+                home on both. */}
+            <AccountMenu
+              displayName={displayName}
+              initials={initials}
+              roleMeta={role ? ROLE_META[role] : null}
+              helpOpen={helpOpen}
+              onToggleHelp={()=>setHelpOpen(o=>!o)}
+              themeIcon={ThemeIcon}
+              themeLabel={themeLabel}
+              themeMode={themeMode}
+              onCycleTheme={cycleTheme}
+              onChangePassword={()=>setPwOpen(true)}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       </header>
@@ -5755,7 +6057,7 @@ export default function Dashboard({ onLogout }) {
           ratio when the body grew — but the header did NOT grow, so a larger
           title now crowds a nav bar that stayed put, and the old gap reads as
           cramped. It only needs the correction where the scale is live. */}
-      <main className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-8 xl:pt-12 pb-8${tab === 'chat' ? '' : ' app-scale'}`}>
+      <main className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-8 xl:pt-12 pb-navbar${tab === 'chat' ? '' : ' app-scale'}`}>
 
         {/* Backend unreachable — sample data is showing. Make it unmistakable. */}
         {demo && (
@@ -5839,46 +6141,12 @@ export default function Dashboard({ onLogout }) {
           </div>
         )}
       </main>
-      {/* Mobile nav dropdown — AnimatePresence must live INSIDE the portal, not around it */}
-      {createPortal(
-        <AnimatePresence>
-          {navOpen && (
-            <>
-              <div className="fixed inset-0 z-[98]" onClick={()=>setNavOpen(false)} aria-hidden="true"/>
-              <motion.div
-                initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}
-                transition={{duration:0.15,ease:[0.22,1,0.36,1]}}
-                className="fixed left-0 right-0 z-[99] bg-surface border-b border-zinc-200 shadow-[0_8px_24px_-4px_rgba(30,41,59,0.12)]"
-                style={{top:'83px'}}
-              >
-                {nav.map(n=>{
-                  const active = tab===n.id;
-                  return (
-                    <button key={n.id} role="option" aria-selected={active}
-                      onClick={()=>{ goTab(n.id); setNavOpen(false); }}
-                      className={`flex items-center gap-3 w-full px-6 py-4 text-[15px] transition-colors border-b border-zinc-100 last:border-b-0 outline-none focus-visible:bg-zinc-50 ${active?'bg-zinc-50':'hover:bg-zinc-50'}`}
-                    >
-                      <n.icon size={16} style={{color:active?ACCENT:'var(--muted)'}}/>
-                      <span className={active?'font-semibold':'font-medium'} style={{color:active?INK:'var(--color-zinc-600)'}}>{n.label}</span>
-                      {active && <span className="ml-auto w-2 h-2 rounded-full" style={{background:ACCENT}}/>}
-                    </button>
-                  );
-                })}
-                {/* Change password lives only here on phones — its header icon is lg-only
-                    (see the width-budget comment by that button) so this is its one mobile home. */}
-                <button
-                  onClick={()=>{ setPwOpen(true); setNavOpen(false); }}
-                  className="flex items-center gap-3 w-full px-6 py-4 text-[15px] font-medium text-zinc-700 transition-colors border-b border-zinc-100 last:border-b-0 outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50"
-                >
-                  <KeyRound size={16} style={{color:'var(--muted)'}}/>
-                  <span>Change password</span>
-                </button>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+
+      {/* Primary navigation below lg. Rendered as a sibling of <main> rather
+          than inside the header, because it is position:fixed to the bottom of
+          the viewport and the header is a sticky, z-indexed stacking context at
+          the top of it. */}
+      <BottomNav nav={nav} tab={tab} goTab={goTab}/>
     </div>
     <ChangePasswordModal open={pwOpen} onClose={()=>setPwOpen(false)}/>
     <ToastPortal/>

@@ -213,6 +213,37 @@ body, .theme-fade {
 }
 .app-scale { zoom: var(--app-scale); }
 
+/* ── Bottom navigation height ─────────────────────────────────────────
+   Below lg the primary navigation is a fixed bottom tab bar, so anything that
+   sizes itself against the viewport has to subtract it or it renders underneath
+   the bar. Publishing the height as a token rather than measuring it with a
+   ResizeObserver (the way --app-header-h is measured) is deliberate: the bar has
+   ONE designed height and no wrapping content, so there is nothing to observe —
+   whereas the header genuinely reflows when a long name wraps the identity row.
+
+   The 12px is the gap the bar floats above the bottom edge — it is part of the
+   height as far as every consumer is concerned, because what they all need is
+   "how much of the bottom of the viewport is spoken for", not the bar's own box.
+
+   env(safe-area-inset-bottom) is the home-indicator strip on iPhones and on
+   Android's gesture nav. Without it the bar sits under the indicator.
+   The fallback 0px matters: on a browser that doesn't understand env(), the
+   whole calc() would otherwise be invalid at parse time and the token would
+   fall back to its initial value, un-clearing every element that depends on it.
+
+   Zero at lg+, where the bar isn't rendered at all — that is what lets every
+   consumer write the same calc() without a breakpoint of its own. */
+:root { --app-navbar-h: calc(64px + 12px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 1024px) {
+  :root { --app-navbar-h: 0px; }
+}
+
+/* Page bottom clearance: the last row of any tab has to clear the bar rather
+   than hide behind it. A class rather than a Tailwind arbitrary value because
+   <main> carries `zoom` (see .app-scale above) and this is easier to reason
+   about when it is written out in one place. */
+.pb-navbar { padding-bottom: calc(2rem + var(--app-navbar-h)); }
+
 /* ── Scrollbars ───────────────────────────────────────────────────────────────
    Applied to EVERYTHING — the page, every tab, every panel, every dropdown and
    textarea — so one scroll area never looks like a different application from
@@ -285,6 +316,10 @@ body, .theme-fade {
   body, .bg-paper { background: #fff !important; }
   main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
   .app-scale { zoom: 1 !important; }
+  /* The bottom tab bar carries .no-print and is hidden above, but the token it
+     publishes is what .pb-navbar reserves space with — leave it set and every
+     printed page ends on a band of blank paper. */
+  :root { --app-navbar-h: 0px !important; }
 
   /* PRINT IS ALWAYS LIGHT — paper is white, so the dark theme must not follow
      the page onto it. The theme is entirely variable-driven, and dark mode
