@@ -590,19 +590,28 @@ function ContentModal({ title, sub, open, onClose, children }) {
 // Soft-shadow card — depth through shadow, not a heavy border
 // print-block keeps a panel and its chart together on one printed page. It lives
 // on the primitive rather than on each panel so nothing new has to remember it.
-const Panel = ({children, className='', hover=false, ...rest}) => (
-  <motion.div
-    variants={fadeUp}
-    whileHover={hover ? {
-      boxShadow:'0 4px 24px -4px rgba(30,41,59,0.16)',
-      transition:{duration:0.15}
-    } : undefined}
-    className={`print-block bg-surface border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
-    {...rest}
-  >
-    {children}
-  </motion.div>
-);
+//
+// `as` picks the underlying element — 'div' by default, 'button' for a card that
+// is itself the click target (e.g. a rep card). A clickable card used to be a
+// <motion.div role="button"> everywhere, which works for a mouse but is exactly
+// the anti-pattern a real <button> exists to avoid; motion.button gets the same
+// whileHover/variants machinery for free.
+const Panel = ({children, className='', hover=false, as='div', ...rest}) => {
+  const MotionTag = motion[as] || motion.div;
+  return (
+    <MotionTag
+      variants={fadeUp}
+      whileHover={hover ? {
+        boxShadow:'0 4px 24px -4px rgba(30,41,59,0.16)',
+        transition:{duration:0.15}
+      } : undefined}
+      className={`print-block bg-surface border border-zinc-100 rounded-xl shadow-[0_1px_3px_0_rgba(30,41,59,0.06),0_4px_16px_-4px_rgba(30,41,59,0.1)] ${className}`}
+      {...rest}
+    >
+      {children}
+    </MotionTag>
+  );
+};
 
 // Mono uppercase micro-label — the system's field-tag voice
 const Label = ({children, className=''}) => (
@@ -1511,12 +1520,11 @@ function ConversationsTab({s, channelFilter, focusSignal, drill, onDrillConsumed
             const ex = expanded===rowKey;
             return (
               <React.Fragment key={rowKey}>
-                <motion.div
-                  role="button" tabIndex={0} aria-expanded={ex}
+                <motion.button
+                  type="button" aria-expanded={ex}
                   onClick={()=>setExpanded(ex?null:rowKey)}
-                  onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); setExpanded(ex?null:rowKey); } }}
                   whileHover={{backgroundColor:'rgba(24,24,27,0.025)'}}
-                  className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 sm:px-6 py-3 border-b border-zinc-100 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 md:grid md:grid-cols-[1.8fr_3fr_1fr_28px] md:gap-0 md:items-center ${ex?'bg-zinc-50':''}`}
+                  className={`w-full text-left flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 sm:px-6 py-3 border-b border-zinc-100 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 md:grid md:grid-cols-[1.8fr_3fr_1fr_28px] md:gap-0 md:items-center ${ex?'bg-zinc-50':''}`}
                 >
                   <div className="order-1 md:order-none flex items-center gap-3 min-w-0 basis-[calc(100%-3rem)] md:basis-auto">
                     <Tag number={m.ident}/>
@@ -1528,7 +1536,7 @@ function ConversationsTab({s, channelFilter, focusSignal, drill, onDrillConsumed
                     style={{color: ex ? ACCENT : 'var(--muted)'}}>
                     {ex ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
                   </div>
-                </motion.div>
+                </motion.button>
 
                 <AnimatePresence>
                   {ex && (
@@ -1598,10 +1606,8 @@ function UsersTab({s, onDrill}) {
       </motion.div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
       {s.users.map((u,i)=>(
-        <Panel key={u.number} hover className="p-5 cursor-pointer group outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          role="button" tabIndex={0}
+        <Panel key={u.number} hover as="button" type="button" className="w-full text-left p-5 cursor-pointer group outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           onClick={()=>onDrill({type:'rep', rep:u.number, label:repName(u.number)})}
-          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onDrill({type:'rep', rep:u.number, label:repName(u.number)}); } }}
           aria-label={`Show conversations from ${repName(u.number)}`}>
           <div className="flex items-center gap-3 mb-5">
             <Tag number={u.number} lg/>
@@ -3167,7 +3173,7 @@ function ChatTab({ active }) {
                 <>
                   <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPickReceipt} />
                   <button type="button" onClick={() => fileRef.current?.click()} aria-label="Upload a receipt"
-                    className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors">
+                    className="flex items-center justify-center w-11 h-11 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                     <Receipt size={18} />
                   </button>
                 </>
@@ -3333,8 +3339,14 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
       setError('Could not download this receipt.');
     } finally { setDlBusy(false); }
   };
+  // content-visibility:auto skips layout/paint for rows scrolled out of view —
+  // the list can render up to 80 at once (see ExpensesTab), so this is what
+  // keeps that cheap without pulling in a virtualization library. Suspended
+  // only while collapsed: an OPEN row must never be skipped, or scrolling it
+  // back into view would show it measured at the wrong (collapsed) height.
   return (
-    <div className="border-t border-zinc-100 first:border-t-0">
+    <div className="border-t border-zinc-100 first:border-t-0"
+      style={open ? undefined : { contentVisibility: 'auto', containIntrinsicSize: '0 64px' }}>
       <button type="button" onClick={onToggle}
         aria-expanded={open}
         className="group flex items-center gap-3 w-full text-left py-3 px-1 -mx-1 rounded-lg transition-colors hover:bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
@@ -4583,6 +4595,7 @@ function ExpensesTab({ role, phone, onAuthError }) {
             <div className="flex items-center gap-1.5">
               <Label>Month</Label>
               <select value={month || ''} onChange={e => { setMonthSel(e.target.value); setOpenId(null); }}
+                aria-label="Filter by month"
                 className="mono text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                 {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
               </select>
@@ -4591,6 +4604,7 @@ function ExpensesTab({ role, phone, onAuthError }) {
               <div className="flex items-center gap-1.5">
                 <Label>Dept</Label>
                 <select value={dept} onChange={e => { setDept(e.target.value); setSelEmp(null); }}
+                  aria-label="Filter by department"
                   className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md px-2.5 py-1.5 outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20">
                   <option value="all">All departments</option>
                   {depts.map(d => <option key={d} value={d}>{d}</option>)}
@@ -5185,7 +5199,7 @@ function TeamTab({ role, onAuthError }) {
             return (
               <div key={u.user_id} className={`flex flex-col lg:flex-row lg:items-center gap-3 p-3 ${u.banned ? 'opacity-60' : ''}`}>
                 <div className="flex items-center gap-3 min-w-0 lg:w-64">
-                  <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: `${meta.color}14`, color: meta.color }}>
+                  <span className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: tint(meta.color, 8), color: meta.color }}>
                     <UserCog size={16} />
                   </span>
                   <div className="min-w-0">
@@ -5594,7 +5608,7 @@ export default function Dashboard({ onLogout }) {
           {/* Identity — who's signed in + their role (left corner, out of the tabs' way) */}
           {role && ROLE_META[role] && (
             <div className="hidden lg:flex items-center gap-2.5 shrink-0 pl-5 border-l border-zinc-200">
-              <span className="flex items-center justify-center w-9 h-9 rounded-full text-[12px] font-bold shrink-0" style={{background:`${ROLE_META[role].color}1a`, color:ROLE_META[role].color}}>
+              <span className="flex items-center justify-center w-9 h-9 rounded-full text-[12px] font-bold shrink-0" style={{background:tint(ROLE_META[role].color, 10), color:ROLE_META[role].color}}>
                 {initials}
               </span>
               <div className="leading-tight">
