@@ -5973,8 +5973,11 @@ function NavSlot({ active, icon: Icon, label, ...rest }) {
   );
 }
 
-function BottomNav({ nav, tab, goTab }) {
-  const { bar, more } = useMemo(() => splitNavForBar(nav), [nav]);
+// `bar` and `more` arrive already split rather than being derived here from
+// `nav`. The swipe gesture has to walk the same row this draws — when it walked
+// `nav` instead, a dev swiping off Convos landed on Reps, which is not on the
+// bar at all, and the active pill jumped to "More".
+function BottomNav({ bar, more, tab, goTab }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = more.some(n => n.id === tab);
   // Derived, not corrected in an effect. A role resolving late can empty `more`
@@ -6226,13 +6229,24 @@ export default function Dashboard({ onLogout }) {
     setTab(id);
   }, [tab, nav]);
 
-  // The order a swipe walks. Chat is deliberately not in it: below lg its panel
-  // is position:fixed from the header down to the tab bar, so there is no page
-  // left beside it to swipe on, and every horizontal drag inside it is a
-  // selection in the thread or a caret move in the composer. It stays one tap
-  // away in the bar. The arrow keys keep the full row — a keyboard is a desktop,
-  // where the panel is an ordinary card on an ordinary page.
-  const swipeOrder = useMemo(() => nav.filter(n => n.id !== 'chat').map(n => n.id), [nav]);
+  // A swipe walks the row you can SEE, and below lg that row is the bottom bar,
+  // which is not always the whole nav: a dev has six tabs and the bar only holds
+  // five, so Reps and Team sit behind "More". Walking `nav` sent a swipe off
+  // Convos to Reps — a tab missing from the bar entirely, which left the active
+  // pill on "More" and read as the gesture skipping Expenses. Landing on a More
+  // tab, a swipe does nothing at all: you arrived there by tapping, and there is
+  // no visible row to carry on along.
+  //
+  // The arrow keys are the same rule applied to the other row — above lg the
+  // header strip shows every tab, so they keep the full nav.
+  //
+  // Chat is dropped from the swipe row even though the bar draws it: below lg
+  // its panel is position:fixed from the header down to the tab bar, so there is
+  // no page left beside it to swipe on, and every horizontal drag inside it is a
+  // selection in the thread or a caret move in the composer. It is always last
+  // or second-to-last in the nav, so removing it never splits the row in two.
+  const { bar: barNav, more: moreNav } = useMemo(() => splitNavForBar(nav), [nav]);
+  const swipeOrder = useMemo(() => barNav.filter(n => n.id !== 'chat').map(n => n.id), [barNav]);
   const mainRef    = useRef(null);
   useTabSwipe(mainRef, swipeOrder, tab, goTab);
 
@@ -6608,7 +6622,7 @@ export default function Dashboard({ onLogout }) {
           than inside the header, because it is position:fixed to the bottom of
           the viewport and the header is a sticky, z-indexed stacking context at
           the top of it. */}
-      <BottomNav nav={nav} tab={tab} goTab={goTab}/>
+      <BottomNav bar={barNav} more={moreNav} tab={tab} goTab={goTab}/>
     </div>
     <ChangePasswordModal open={pwOpen} onClose={()=>setPwOpen(false)}/>
     <ToastPortal/>
