@@ -294,6 +294,19 @@ body, .theme-fade {
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* Collapsed receipt rows skip layout/paint until scrolled near, so a page of
+   twenty costs about what one does. The placeholder height has to match what the
+   row will really measure or the scrollbar mis-sizes while they are off-screen —
+   and below sm a row carrying status/flag badges wraps them onto a second line,
+   which the flat 64px did not allow for. Only ever applied to a COLLAPSED row
+   (see ReceiptRow): an open one must never be skipped, or scrolling it back into
+   view would show it measured at its collapsed height. */
+.receipt-row          { content-visibility: auto; contain-intrinsic-size: 0 64px; }
+.receipt-row-badged   { contain-intrinsic-size: 0 90px; }
+@media (min-width: 640px) {
+  .receipt-row-badged { contain-intrinsic-size: 0 64px; }
+}
+
 /* Reduced-motion: neutralize CSS animations (pulse) and transitions.
    Framer transforms are handled separately via <MotionConfig reducedMotion="user">. */
 @media (prefers-reduced-motion: reduce) {

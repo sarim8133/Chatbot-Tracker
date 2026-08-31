@@ -67,6 +67,15 @@ const NEG       = 'var(--neg)';           // alert red — negative delta only
 const tint = (color, pct) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 
 const PER_PAGE = 25;
+// The expenses tab pages two lists of its own. Receipts are expandable cards
+// rather than table rows, so a page of them is worth fewer than a page of the
+// conversation log; the monthly-cap list is one thin row per person and reads
+// as a readable block at eight.
+const RECEIPTS_PER_PAGE = 20;
+const LIMITS_PER_PAGE   = 8;
+// A team row carries four editable fields and a button cluster, so it is the
+// tallest of the three — a dozen is already a long page.
+const TEAM_PER_PAGE     = 12;
 
 // Charts live in a lazily-loaded chunk so Recharts doesn't block first paint.
 const ChartsRow = lazy(() => import('./charts'));
@@ -1326,7 +1335,11 @@ const NavBtn = ({ children, disabled, onClick }) => (
   </button>
 );
 
-function Paginator({ page, total, perPage = PER_PAGE, onChange }) {
+// `className` carries the padding/border, so the same paginator can sit flush at
+// the bottom of a bleed panel (the default) or inside one that already has its
+// own p-6 — passing e.g. "pt-3.5 mt-4 border-t" instead of a second px-6.
+function Paginator({ page, total, perPage = PER_PAGE, onChange,
+                     className = 'px-6 py-3.5 border-t border-zinc-200' }) {
   const totalPages = Math.ceil(total / perPage);
   if (totalPages <= 1) return null;
   const from = (page - 1) * perPage + 1;
@@ -1342,7 +1355,7 @@ function Paginator({ page, total, perPage = PER_PAGE, onChange }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 px-6 py-3.5 border-t border-zinc-200">
+    <div className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 ${className}`}>
       <span className="mono text-[11px] text-zinc-500 tabular-nums select-none">
         {from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}
       </span>
@@ -3334,6 +3347,11 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
   const isOwn = (myUserId && r.user_id === myUserId)
              || (myPhone && r.sender_phone === myPhone);
 
+  // Whether the collapsed row carries badges decides how tall it is below sm
+  // (they wrap onto a second line there), which the content-visibility
+  // placeholder has to account for. It varies by breakpoint, so it is a class in
+  // index.css rather than an inline style — see .receipt-row there.
+  const badged = r.flagged || r.status !== 'logged';
   const st = STATUS_META[r.status] || { label: r.status, tone: 'muted' };
   const stColor = st.tone === 'pos' ? POS : st.tone === 'neg' ? NEG
                 : st.tone === 'warn' ? 'var(--warn)' : 'var(--muted)';
@@ -3396,19 +3414,22 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
       setError('Could not download this receipt.');
     } finally { setDlBusy(false); }
   };
-  // content-visibility:auto skips layout/paint for rows scrolled out of view —
-  // the list can render up to 80 at once (see ExpensesTab), so this is what
-  // keeps that cheap without pulling in a virtualization library. Suspended
-  // only while collapsed: an OPEN row must never be skipped, or scrolling it
-  // back into view would show it measured at the wrong (collapsed) height.
+  // .receipt-row is content-visibility:auto — the list renders a full page at
+  // once (see RECEIPTS_PER_PAGE), and this is what keeps that cheap without
+  // pulling in a virtualization library. Dropped while the row is OPEN; the
+  // reasoning, and the two placeholder heights, live with the rule in index.css.
   return (
-    <div className="border-t border-zinc-100 first:border-t-0"
-      style={open ? undefined : { contentVisibility: 'auto', containIntrinsicSize: '0 64px' }}>
+    <div className={`border-t border-zinc-100 first:border-t-0${open ? '' : ` receipt-row${badged ? ' receipt-row-badged' : ''}`}`}>
+      {/* Below sm this wraps onto two lines; from sm up it is the single row it
+          has always been. The badges are what force the break, so they carry the
+          `order` that moves them last and the `basis-full` that guarantees a line
+          of their own — see the comment on them below. Everything else declares
+          the mobile order it needs and gives it back at sm. */}
       <button type="button" onClick={onToggle}
         aria-expanded={open}
-        className="group flex items-center gap-3 w-full text-left py-3 px-1 -mx-1 rounded-lg transition-colors hover:bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
-        <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: catColor(r.category) }} aria-hidden="true" />
-        <div className="flex-1 min-w-0">
+        className="group flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-1.5 sm:gap-x-3 w-full text-left py-3 px-1 -mx-1 rounded-lg transition-colors hover:bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        <span className="order-1 w-2 h-2 rounded-sm shrink-0" style={{ background: catColor(r.category) }} aria-hidden="true" />
+        <div className="order-2 flex-1 min-w-0">
           <span className="text-[14px] text-zinc-800 truncate font-medium block">{r.vendor_name || 'Unknown vendor'}</span>
           <p className="text-[12px] text-zinc-500 mt-0.5 truncate">
             {r.category}
@@ -3419,20 +3440,35 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
             )}
           </p>
         </div>
-        {/* Status + flag badges. `shrink-0` on the amount and `flex-wrap` on the
-            row above keep these from pushing the total off a 320px screen —
-            they wrap under the vendor line instead. */}
-        {r.flagged && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)' }}
-                title={r.flag_reason || 'Flagged for review'}>Flagged</span>
+        {/* Status + flag badges. These are the row's only variable-width content,
+            and they are `shrink-0` like the amount beside them, so a receipt
+            carrying BOTH — flagged AND awaiting approval — needed ~309px of the
+            280 a 360px phone has: the vendor name was squeezed to "PSO …" and the
+            total still hung off the right edge.
+            A comment here used to claim flex-wrap already handled that. It did
+            not; the row was flex-nowrap. It is now real, and deterministic rather
+            than left to where the line happens to break: `basis-full` cannot
+            share a line with anything, so the badges always take the second one
+            whole, and `order-5` puts them after the amount and chevron so the
+            first line stays vendor + total. `pl-[18px]` lines them up under the
+            vendor text (the dot plus its gap), not under the dot.
+            At sm all of it is handed back — sm:order-3, sm:basis-auto and
+            sm:flex-nowrap on the row reproduce the original single line. */}
+        {(r.flagged || r.status !== 'logged') && (
+          <span className="order-5 sm:order-3 flex items-center gap-2 shrink-0 basis-full sm:basis-auto pl-[18px] sm:pl-0">
+            {r.flagged && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)' }}
+                    title={r.flag_reason || 'Flagged for review'}>Flagged</span>
+            )}
+            {r.status !== 'logged' && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+                    style={{ color: stColor, border: `1px solid ${stColor}40` }}>{st.label}</span>
+            )}
+          </span>
         )}
-        {r.status !== 'logged' && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
-                style={{ color: stColor, border: `1px solid ${stColor}40` }}>{st.label}</span>
-        )}
-        <span className="mono text-[13px] font-bold text-zinc-900 tabular-nums shrink-0">{fmtPKR(r.total)}</span>
-        <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="order-3 sm:order-4 mono text-[13px] font-bold text-zinc-900 tabular-nums shrink-0">{fmtPKR(r.total)}</span>
+        <ChevronDown size={14} className={`order-4 sm:order-5 shrink-0 text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence initial={false}>
@@ -3870,6 +3906,8 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [q, setQ] = useState('');                 // name / department / phone filter
+  const [pageSel, setPageSel] = useState(1);
 
   const start = (p) => { setEditing(p.phone); setDraft(String(round2(p.spending_limit))); setError(''); };
   const cancel = () => { setEditing(null); setError(''); };
@@ -3895,6 +3933,33 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
     })
     .sort((a, b) => (b.limit > 0 ? b.spent / b.limit : 0) - (a.limit > 0 ? a.spent / a.limit : 0));
 
+  // This list is one row per person and grows with headcount and nothing else,
+  // so it has no natural ceiling: at fifty staff it was a screen and a half of
+  // scrolling with no way to reach a name except the eye. Search finds the
+  // person; paging keeps the panel a fixed size whatever the roster does.
+  //
+  // Phone is searchable as well as name because the cap itself is keyed on the
+  // phone (see the spendByPhone comment in ExpensesTab) — when two colleagues
+  // share a name, the number is the only thing that tells the rows apart.
+  const query = q.trim().toLowerCase();
+  const shown = query
+    ? people.filter(p => [p.full_name, p.department, p.phone]
+        .some(v => (v || '').toLowerCase().includes(query)))
+    : people;
+
+  // Derived and clamped, not stored — the same shape as `month` and `cat` in
+  // ExpensesTab. A page number left over from a longer list (a search narrowed
+  // it, or someone was removed) corrects itself instead of parking you on an
+  // empty page with no control left on screen to get back.
+  const pageCount = Math.max(1, Math.ceil(shown.length / LIMITS_PER_PAGE));
+  const page      = Math.min(pageSel, pageCount);
+  const pageRows  = shown.slice((page - 1) * LIMITS_PER_PAGE, page * LIMITS_PER_PAGE);
+  // Turning the page must abandon an in-progress edit: `editing` is a phone, and
+  // leaving it set would re-open the input on whichever row happened to carry
+  // that phone after the slice moved.
+  const goPage  = (p) => { setPageSel(p); setEditing(null); };
+  const setQuery = (v) => { setQ(v); setPageSel(1); setEditing(null); };
+
   if (people.length === 0) return null;
 
   return (
@@ -3909,8 +3974,32 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
           : 'Your spending this month against your monthly cap.'}
       </p>
 
+      {/* Only once the list is long enough to need it. Below that the box is a
+          control that can only ever hide rows you can already see. */}
+      {people.length > LIMITS_PER_PAGE && (
+        <div className="relative flex items-center w-full sm:w-64 mb-4">
+          <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none" />
+          <input
+            type="text" value={q} onChange={e => setQuery(e.target.value)}
+            placeholder="Search person…" aria-label="Search people by name, department or phone"
+            className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md pl-8 pr-8 py-2 w-full outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
+          />
+          {q && (
+            <button type="button" onClick={() => setQuery('')} aria-label="Clear search"
+              className="absolute right-1 flex items-center justify-center w-6 h-6 rounded text-zinc-400 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {shown.length === 0 ? (
+        <p className="text-[13px] text-zinc-400 py-6 text-center">
+          No one matches “{q}”.
+        </p>
+      ) : (
       <div className="space-y-3.5">
-        {people.map(p => {
+        {pageRows.map(p => {
           const over = p.limit > 0 && p.spent > p.limit;
           const near = p.limit > 0 && !over && p.spent >= p.limit * 0.8;
           const barColor = over ? NEG : near ? 'var(--warn)' : POS;
@@ -3970,6 +4059,11 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
           );
         })}
       </div>
+      )}
+
+      <Paginator page={page} total={shown.length} perPage={LIMITS_PER_PAGE}
+        onChange={goPage} className="pt-3.5 mt-4 border-t border-zinc-100" />
+
       {error && <p role="alert" className="text-[12px] mt-3" style={{ color: NEG }}>{error}</p>}
     </Panel>
   );
@@ -4033,6 +4127,25 @@ const MAX_ZIP_FILES = 400;
 // eight characters are "EXP-2026" on every receipt of the year — measured over
 // the live table, left(id,8) had 1 distinct value across 30 rows and right(id,8)
 // had 30. Slicing the wrong end silently removes the only unique part.
+// One string per receipt for the ledger's search box, built from everything the
+// row can show on screen — so anything you can read in the list is also
+// something you can type to find. Split participants are included too: a bill
+// someone else paid but you were charged a share of is "yours" to look for, and
+// it is filed under the payer's name.
+//
+// Amount goes in twice, raw and formatted, because both are things people type:
+// "4500" off a bank line and "4,500" off the card that is on screen.
+function receiptSearchText(r, shares) {
+  return [
+    r.vendor_name, r.employee_name, r.department, r.category,
+    r.payment_method, r.status, r.expense_id,
+    (r.processed_at || '').slice(0, 10),
+    r.total != null ? String(r.total) : '',
+    r.total != null ? fmtPKR(r.total) : '',
+    ...(shares || []).map(x => x.employee_name),
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
 function receiptFileName(r) {
   const ext = (String(r.image_path || '').split('.').pop() || 'jpg').toLowerCase();
   return [
@@ -4233,6 +4346,12 @@ function ExpensesTab({ role, phone, onAuthError }) {
   const [suggestOpen, setSuggestOpen] = useState(false);
   const comboRef = useRef(null);
   const [openId, setOpenId] = useState(null);
+  const [rcptQuery, setRcptQuery] = useState('');   // free-text search over the ledger
+  // The page number is stored WITH the set of filters it was chosen under, so
+  // changing any of them reads as page 1 without an effect firing a second
+  // render pass — and without all seven filter controls having to remember to
+  // reset it.
+  const [rcptPaging, setRcptPaging] = useState({ sig: '', page: 1 });
 
   // Close the employee suggestion dropdown when clicking outside the combobox.
   useEffect(() => {
@@ -4302,6 +4421,15 @@ function ExpensesTab({ role, phone, onAuthError }) {
     }
     return m;
   }, [splits]);
+
+  // Built once per fetch rather than per keystroke: the ledger search runs over
+  // up to 2000 receipts on every character typed, and re-concatenating a dozen
+  // fields each time is the one part of that which is not free.
+  const searchText = useMemo(() => {
+    const m = new Map();
+    for (const r of (rows || [])) m.set(r.expense_id, receiptSearchText(r, splitsByExpense.get(r.expense_id)));
+    return m;
+  }, [rows, splitsByExpense]);
 
   const months = useMemo(() => {
     if (!rows) return [];
@@ -4573,17 +4701,45 @@ function ExpensesTab({ role, phone, onAuthError }) {
     return [...focusRows, ...rejected];
   }, [focusRows, rejectedInScope, selEmp]);
 
+  // Free-text search, applied BEFORE the status chips rather than after. The
+  // chips print their own counts, and a chip reading "Approved 214" above a
+  // list of the three receipts matching your search would be a lie in the one
+  // place people go for a number. Everything downstream — the count in the
+  // description, the chips, the paginator, the download — reads the same set.
+  const rq = rcptQuery.trim().toLowerCase();
+  const searchedAll = useMemo(
+    () => (rq ? listRowsAll.filter(r => (searchText.get(r.expense_id) || '').includes(rq)) : listRowsAll),
+    [listRowsAll, searchText, rq]);
+
   // Status filter. Same derived-not-stored shape as `cat` above: a status with
   // no rows this month self-corrects to 'all', so the list can never be filtered
   // into emptiness behind a chip that is no longer on screen to un-click.
   const statusesPresent = useMemo(
-    () => [...new Set(listRowsAll.map(r => r.status))], [listRowsAll]);
+    () => [...new Set(searchedAll.map(r => r.status))], [searchedAll]);
   const status = statusesPresent.includes(statusSel) ? statusSel : 'all';
   const listRows = useMemo(
-    () => (status === 'all' ? listRowsAll : listRowsAll.filter(r => r.status === status)),
-    [listRowsAll, status]);
+    () => (status === 'all' ? searchedAll : searchedAll.filter(r => r.status === status)),
+    [searchedAll, status]);
   const pendingCount = useMemo(
-    () => listRowsAll.filter(r => r.status === 'pending_approval').length, [listRowsAll]);
+    () => searchedAll.filter(r => r.status === 'pending_approval').length, [searchedAll]);
+
+  // Paging. This list used to render the first 80 rows and then advise you to
+  // "filter by employee or department to narrow" — which is no help at all to
+  // someone hunting one vendor, and it silently withheld row 81 of a month that
+  // had 300.
+  //
+  // Page and bounds are both derived, never stored: a page chosen under a
+  // different set of filters reads as 1, and one that outlived its rows (a
+  // receipt deleted, a search typed) clamps to the last page that exists. Doing
+  // it here rather than in an effect means the list never paints once at the
+  // stale page and again at the corrected one.
+  const rcptScope     = [month, dept, cat, selEmp, empQuery, status, rq].join('\u0000');
+  const rcptPageCount = Math.max(1, Math.ceil(listRows.length / RECEIPTS_PER_PAGE));
+  const rcptPage      = Math.min(rcptPaging.sig === rcptScope ? rcptPaging.page : 1, rcptPageCount);
+  const goRcptPage    = (p) => { setRcptPaging({ sig: rcptScope, page: p }); setOpenId(null); };
+  const pageRows      = useMemo(
+    () => listRows.slice((rcptPage - 1) * RECEIPTS_PER_PAGE, rcptPage * RECEIPTS_PER_PAGE),
+    [listRows, rcptPage]);
 
   // One description of the current scope, used both for the line under the
   // heading and for the download filename — so the file on disk says exactly
@@ -4593,6 +4749,9 @@ function ExpensesTab({ role, phone, onAuthError }) {
     dept !== 'all' ? dept : null,
     selEmp ? selEmpName : (!isEmployee && empQuery ? `“${empSearch}”` : null),
     cat !== 'all' ? cat : null,
+    // Included so the downloaded filename can't claim to be all of July when
+    // the search had cut it to nine receipts.
+    rq ? `matching “${rcptQuery.trim()}”` : null,
   ].filter(Boolean);
   const scopeLabel = scopeParts.join(' · ');
   const scopeSlug = safeName(scopeParts.join('-').toLowerCase(), 60);
@@ -4861,13 +5020,19 @@ function ExpensesTab({ role, phone, onAuthError }) {
               )}
             </p>
 
+            {/* Search + status chips share a row from sm up, and stack on a
+                phone with the search on top — it is the control that does the
+                most work, and the chips are a refinement of its result.
+                `flex-col-reverse` rather than reordering the markup, so the DOM
+                order still matches the filtering order (search, then status). */}
+            <div className="flex flex-col-reverse gap-2.5 mb-4 sm:flex-row sm:items-center sm:justify-between">
             {/* Status chips. Only shown when there is more than one status to
                 choose between — with everything still 'Submitted', a row of
                 chips is noise offering a choice that changes nothing.
                 `flex-wrap` so they drop to their own line at 320px rather than
                 squeezing the row above. */}
-            {statusesPresent.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-4" role="group" aria-label="Filter by approval status">
+            {statusesPresent.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0" role="group" aria-label="Filter by approval status">
                 {['all', ...statusesPresent].map(s => {
                   const active = status === s;
                   const meta = s === 'all' ? { label: 'All' } : (STATUS_META[s] || { label: s });
@@ -4882,13 +5047,49 @@ function ExpensesTab({ role, phone, onAuthError }) {
                   );
                 })}
               </div>
+            ) : <span />}
+
+            {/* Shown from nine receipts up — under that the whole month fits on
+                one page and a search box could only ever hide rows already in
+                front of you. The threshold reads listRowsAll, which is the
+                month BEFORE the search, so the box can't remove itself the
+                moment a query narrows the list below the threshold. */}
+            {listRowsAll.length > 8 && (
+              <div className="relative flex items-center w-full sm:w-60 shrink-0">
+                <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text" value={rcptQuery} onChange={e => setRcptQuery(e.target.value)}
+                  placeholder="Search vendor, person…"
+                  aria-label="Search receipts by vendor, person, category or amount"
+                  className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md pl-8 pr-8 py-2 w-full outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
+                />
+                {rcptQuery && (
+                  <button type="button" onClick={() => setRcptQuery('')} aria-label="Clear receipt search"
+                    className="absolute right-1 flex items-center justify-center w-6 h-6 rounded text-zinc-400 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
             )}
+            </div>
 
             {listRows.length === 0
-              ? <p className="text-[13px] text-zinc-400 py-6 text-center">No receipts in this view.</p>
+              ? (
+                <div className="py-8 text-center">
+                  <p className="text-[13px] text-zinc-400">
+                    {rq ? <>No receipt matches “{rcptQuery.trim()}” in {scopeParts[0]}.</> : 'No receipts in this view.'}
+                  </p>
+                  {rq && (
+                    <button type="button" onClick={() => setRcptQuery('')}
+                      className="mt-3 inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
+                      <X size={12} /> Clear search
+                    </button>
+                  )}
+                </div>
+              )
               : (
                 <div>
-                  {listRows.slice(0, 80).map(r => (
+                  {pageRows.map(r => (
                     <ReceiptRow key={r.expense_id}
                       r={r}
                       open={openId === r.expense_id}
@@ -4904,11 +5105,8 @@ function ExpensesTab({ role, phone, onAuthError }) {
                       rowEvents={eventsByExpense.get(r.expense_id) || []}
                     />
                   ))}
-                  {listRows.length > 80 && (
-                    <p className="text-[12px] text-zinc-400 pt-3 mt-1 border-t border-zinc-100 text-center">
-                      Showing 80 of {listRows.length} — filter by employee or department to narrow.
-                    </p>
-                  )}
+                  <Paginator page={rcptPage} total={listRows.length} perPage={RECEIPTS_PER_PAGE}
+                    onChange={goRcptPage} className="pt-3.5 mt-1 border-t border-zinc-100" />
                 </div>
               )}
           </Panel>
@@ -5038,6 +5236,8 @@ function TeamTab({ role, onAuthError }) {
   const [addOk,  setAddOk]    = useState(null); // { login, password }
   const [acting, setActing]   = useState(null); // user_id being deactivated/deleted
   const [confirmDel, setConfirmDel] = useState(null);
+  const [q, setQ] = useState('');                 // name / email / phone / dept / role filter
+  const [pageSel, setPageSel] = useState(1);
   const myId = currentUserId();
 
   const load = useCallback(async () => {
@@ -5124,6 +5324,31 @@ function TeamTab({ role, onAuthError }) {
     (users || []).map(u => (u.department || '').trim()).filter(Boolean)
       .map(d => [d.toLowerCase(), d])
   ).values()].sort((a, b) => a.localeCompare(b));
+
+  // Search + paging over the roster. This list is one row per login, so like the
+  // monthly-cap panel it only ever grows — and each row is tall (four editable
+  // fields plus a button cluster), which made "scroll until you see the name"
+  // the only way to reach anyone past the first screenful.
+  //
+  // Role is searchable as a raw value AND as its display label, so both "dev"
+  // and "Developer" find the same people — the row shows the label, so that is
+  // what someone will type.
+  const query = q.trim().toLowerCase();
+  const shown = query
+    ? (users || []).filter(u => [
+        u.full_name, u.email, u.phone, u.department, u.role,
+        (ROLE_META[u.role] || {}).label,
+      ].some(v => (v || '').toLowerCase().includes(query)))
+    : (users || []);
+
+  // Derived and clamped, like every other page number in this file: deleting the
+  // last member on page 3 lands you on page 2 rather than on nothing.
+  const pageCount = Math.max(1, Math.ceil(shown.length / TEAM_PER_PAGE));
+  const page      = Math.min(pageSel, pageCount);
+  const pageUsers = shown.slice((page - 1) * TEAM_PER_PAGE, page * TEAM_PER_PAGE);
+  // `drafts` is keyed by user_id, so an unsaved edit survives a page turn and is
+  // still there when you come back to it.
+  const setQuery = (v) => { setQ(v); setPageSel(1); };
 
   // Invite when a real email is present and the invite toggle is on; otherwise the admin
   // sets a password (the only option for phone-only staff, who have no inbox).
@@ -5256,8 +5481,38 @@ function TeamTab({ role, onAuthError }) {
 
       {/* Existing members */}
       <Panel className="p-2 sm:p-4">
+        <div className="flex flex-col gap-2.5 px-3 pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <h2 className="text-[15px] font-semibold text-zinc-900 tracking-tight">
+            Team members <span className="mono text-[12px] font-normal text-zinc-400 tabular-nums">{users.length}</span>
+          </h2>
+          {/* Appears once the roster outgrows a page. Below that every name is
+              already on screen and a search box could only hide rows. */}
+          {users.length > TEAM_PER_PAGE && (
+            <div className="relative flex items-center w-full sm:w-60 shrink-0">
+              <Search size={13} className="absolute left-2.5 text-zinc-400 pointer-events-none" />
+              <input
+                type="text" value={q} onChange={e => setQuery(e.target.value)}
+                placeholder="Search name, phone, role…"
+                aria-label="Search team by name, email, phone, department or role"
+                className="text-[12px] text-zinc-800 bg-surface border border-zinc-300 rounded-md pl-8 pr-8 py-2 w-full outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/20 placeholder:text-zinc-400"
+              />
+              {q && (
+                <button type="button" onClick={() => setQuery('')} aria-label="Clear search"
+                  className="absolute right-1 flex items-center justify-center w-6 h-6 rounded text-zinc-400 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {shown.length === 0 ? (
+          <p className="text-[13px] text-zinc-400 py-8 text-center">
+            No one matches “{q}”.
+          </p>
+        ) : (
         <div className="divide-y divide-zinc-100">
-          {users.map(u => {
+          {pageUsers.map(u => {
             const dr = drafts[u.user_id] || { role: 'employee', phone: '', full_name: '', department: '' };
             const st = stored[u.user_id];
             const dirty = dr.role !== st.role || (dr.full_name || '') !== (st.full_name || '')
@@ -5328,6 +5583,10 @@ function TeamTab({ role, onAuthError }) {
             );
           })}
         </div>
+        )}
+
+        <Paginator page={page} total={shown.length} perPage={TEAM_PER_PAGE}
+          onChange={setPageSel} className="px-3 pt-3.5 mt-1 border-t border-zinc-100" />
       </Panel>
 
       <p className="text-[12px] text-zinc-400">
