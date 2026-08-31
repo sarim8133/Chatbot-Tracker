@@ -6229,24 +6229,34 @@ export default function Dashboard({ onLogout }) {
     setTab(id);
   }, [tab, nav]);
 
-  // A swipe walks the row you can SEE, and below lg that row is the bottom bar,
-  // which is not always the whole nav: a dev has six tabs and the bar only holds
-  // five, so Reps and Team sit behind "More". Walking `nav` sent a swipe off
-  // Convos to Reps — a tab missing from the bar entirely, which left the active
-  // pill on "More" and read as the gesture skipping Expenses. Landing on a More
-  // tab, a swipe does nothing at all: you arrived there by tapping, and there is
-  // no visible row to carry on along.
+  // A swipe walks the row you can SEE, and below lg that row is the bottom bar
+  // read left to right with the "More" slot expanded in place. That is not the
+  // same order as `nav`: a dev has six tabs and the bar holds five, so Reps and
+  // Team sit behind "More". Walking `nav` sent a swipe off Convos to Reps — a
+  // tab missing from the bar entirely, which left the active pill on "More" and
+  // read as the gesture skipping Expenses.
+  //
+  // Expanding More in place is what keeps that from happening while still
+  // letting you swipe off the tabs inside it. More is the LAST slot, so its
+  // contents simply continue past the end of the visible row; a hidden tab can
+  // never turn up between two visible ones. Both lists come from the one split
+  // below and are handed to BottomNav as-is, so the row that is drawn, the sheet
+  // that opens and the row that is swiped cannot drift apart.
+  //
+  // Chat is in the row like any other slot. Its panel is position:fixed and
+  // fills the screen below lg, so a gesture there has to share with the tab's own
+  // content — the composer is covered by the text-field guard in useTabSwipe and
+  // anything that scrolls sideways by the scroller guard, and a plain horizontal
+  // drag over the thread is not a selection on touch (that needs a long-press
+  // first). The draft survives the trip either way: ChatTab is never unmounted.
   //
   // The arrow keys are the same rule applied to the other row — above lg the
-  // header strip shows every tab, so they keep the full nav.
-  //
-  // Chat is dropped from the swipe row even though the bar draws it: below lg
-  // its panel is position:fixed from the header down to the tab bar, so there is
-  // no page left beside it to swipe on, and every horizontal drag inside it is a
-  // selection in the thread or a caret move in the composer. It is always last
-  // or second-to-last in the nav, so removing it never splits the row in two.
+  // header strip shows every tab in nav order, so they keep the full nav. The
+  // two orders differing is the point, not a bug: each follows what its own user
+  // can see.
   const { bar: barNav, more: moreNav } = useMemo(() => splitNavForBar(nav), [nav]);
-  const swipeOrder = useMemo(() => barNav.filter(n => n.id !== 'chat').map(n => n.id), [barNav]);
+  const swipeOrder = useMemo(
+    () => [...barNav, ...moreNav].map(n => n.id), [barNav, moreNav]);
   const mainRef    = useRef(null);
   useTabSwipe(mainRef, swipeOrder, tab, goTab);
 
