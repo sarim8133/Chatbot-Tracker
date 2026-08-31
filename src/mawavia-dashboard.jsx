@@ -6055,23 +6055,121 @@ function BottomNav({ nav, tab, goTab }) {
   );
 }
 
+// ── Moving between tabs ───────────────────────────────────────────────────────
+// Below lg the tabs are a bottom bar you tap; above it they are a strip in the
+// header. Neither says which tab sits next to which, so both gained a way to
+// move along the row instead of aiming at a target: a horizontal swipe on a
+// phone, the left/right arrow keys on a keyboard. Both are additions — every tab
+// is still reachable in one tap or one number key, which is what keeps this
+// usable for anyone who can't make the gesture or hold the arrow.
+
+// Tab content slides against the direction of travel: forward through the nav
+// pushes the outgoing page left and brings the next one in from the right, so
+// the tabs read as one strip you are moving along rather than as two unrelated
+// fades. It has to run through `custom` rather than inline props because the
+// element that is LEAVING is the previous render's element and still carries the
+// previous render's props — only AnimatePresence's own `custom` reaches it with
+// the direction of the move happening now. Direction 0 (first paint, or a role
+// bounce) keeps the original vertical lift, which has no direction to express.
+const tabSlide = {
+  enter:  d => ({ opacity: 0, x: d * 28, y: d ? 0 : 6 }),
+  center: { opacity: 1, x: 0, y: 0 },
+  exit:   d => ({ opacity: 0, x: d * -28, y: d ? 0 : -6 }),
+};
+
+// 64px is far enough that a thumb doesn't reach it while scrolling and short
+// enough to flick inside a 320px screen. The ratio is what separates a swipe
+// from a diagonal scroll — the travel has to be more than half again as
+// horizontal as it is vertical. The duration cap drops a long press that drifted
+// sideways while the finger was resting.
+const SWIPE_MIN_PX = 64;
+const SWIPE_RATIO  = 1.6;
+const SWIPE_MAX_MS = 800;
+
+// Anything that scrolls sideways owns sideways gestures outright — the activity
+// heatmap does, and so does the tab strip itself at its narrowest. Which way it
+// can still scroll is deliberately not checked: a strip you can pan is one you
+// expect to pan to its end, not one that hands the tail of the gesture to the
+// page behind it.
+function ownsHorizontalDrag(node, root) {
+  for (let el = node; el && el !== root; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 1) {
+      const ox = getComputedStyle(el).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+  }
+  return false;
+}
+
+// Native touch events rather than framer-motion's drag. drag would have to own
+// the transform of the thing it moves, and the thing here is a whole page that
+// must stay vertically scrollable underneath the finger. Nothing is moved and
+// nothing is preventDefault-ed until the finger lifts, so the browser's own
+// scrolling is never fought with, delayed, or made to feel heavy.
+function useTabSwipe(ref, order, tab, goTab) {
+  // Read through a ref so the listeners attach once on mount rather than being
+  // torn down and rebuilt on every tab change and every re-render of the page.
+  const latest = useRef(null);
+  useEffect(() => { latest.current = { order, tab, goTab }; });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let x0 = 0, y0 = 0, t0 = 0, live = false;
+    const drop = () => { live = false; };
+
+    const start = e => {
+      live = false;
+      // lg is where the bottom bar gives way to the header's tab strip. Above it
+      // every tab is already on screen, and a stray drag on a touchscreen laptop
+      // silently changing the page would only be startling.
+      if (e.touches.length !== 1 || window.innerWidth >= 1024) return;
+      const t = e.touches[0];
+      // Text fields own their own horizontal drags — that gesture is a caret
+      // move or a selection, and it is never a request to leave the page.
+      if (e.target.closest?.('input, textarea, select, [contenteditable], [role="slider"], [data-no-swipe]')) return;
+      if (ownsHorizontalDrag(e.target, el)) return;
+      x0 = t.clientX; y0 = t.clientY; t0 = e.timeStamp; live = true;
+    };
+    const move = e => { if (e.touches.length > 1) live = false; };   // a pinch is not a swipe
+    const end = e => {
+      if (!live) return;
+      live = false;
+      if (e.timeStamp - t0 > SWIPE_MAX_MS) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
+      const { order: ids, tab: cur, goTab: go } = latest.current;
+      const i = ids.indexOf(cur);
+      // Dragging the page leftwards pulls the tab on its RIGHT into view, the
+      // same way every carousel and every phone home screen behaves.
+      const next = i === -1 ? null : ids[i + (dx < 0 ? 1 : -1)];
+      if (next) go(next);
+    };
+
+    el.addEventListener('touchstart',  start, { passive: true });
+    el.addEventListener('touchmove',   move,  { passive: true });
+    el.addEventListener('touchend',    end,   { passive: true });
+    el.addEventListener('touchcancel', drop,  { passive: true });
+    return () => {
+      el.removeEventListener('touchstart',  start);
+      el.removeEventListener('touchmove',   move);
+      el.removeEventListener('touchend',    end);
+      el.removeEventListener('touchcancel', drop);
+    };
+  }, [ref]);
+}
+
 // ── Root Component ────────────────────────────────────────────────────────────
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState(() => {
     const hash = window.location.hash.slice(1);
     return ALL_NAV.some(n => n.id === hash) ? hash : 'overview';
   });
-  // Guarded here rather than at each call site: the mobile nav called this
-  // without checking whether you were already on the tab, so re-tapping the
-  // current one pushed a duplicate entry and the phone's Back button popped
-  // straight back to the same tab — looking like Back was broken.
-  const goTab = useCallback(id => {
-    setTab(prev => {
-      if (prev === id) return prev;
-      history.pushState(null, '', `#${id}`);
-      return id;
-    });
-  }, []);
+  // Which way the last tab change travelled along the nav: -1 back, +1 forward,
+  // 0 for a move with no direction to it (first paint, or a role bounce). Only
+  // the transition reads it — see tabSlide.
+  const [navDir, setNavDir] = useState(0);
   const [searchFocus, setSearchFocus] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [pwOpen,   setPwOpen]   = useState(false);
@@ -6113,6 +6211,31 @@ export default function Dashboard({ onLogout }) {
     () => (nav.some(n => n.id === 'overview') ? 'overview' : (nav[0]?.id || 'overview')),
     [nav]);
 
+  // Defined below `nav` rather than beside the state it sets, because it now has
+  // to look the two tabs up in the row to know which way the change is going.
+  //
+  // Guarded here rather than at each call site: the mobile nav called this
+  // without checking whether you were already on the tab, so re-tapping the
+  // current one pushed a duplicate entry and the phone's Back button popped
+  // straight back to the same tab — looking like Back was broken.
+  const goTab = useCallback(id => {
+    if (id === tab) return;
+    const from = nav.findIndex(n => n.id === tab), to = nav.findIndex(n => n.id === id);
+    setNavDir(from < 0 || to < 0 ? 0 : Math.sign(to - from));
+    history.pushState(null, '', `#${id}`);
+    setTab(id);
+  }, [tab, nav]);
+
+  // The order a swipe walks. Chat is deliberately not in it: below lg its panel
+  // is position:fixed from the header down to the tab bar, so there is no page
+  // left beside it to swipe on, and every horizontal drag inside it is a
+  // selection in the thread or a caret move in the composer. It stays one tap
+  // away in the bar. The arrow keys keep the full row — a keyboard is a desktop,
+  // where the panel is an ordinary card on an ordinary page.
+  const swipeOrder = useMemo(() => nav.filter(n => n.id !== 'chat').map(n => n.id), [nav]);
+  const mainRef    = useRef(null);
+  useTabSwipe(mainRef, swipeOrder, tab, goTab);
+
   // If the current tab isn't allowed for this role (e.g. role resolved to
   // 'employee' but the URL hash was #overview), fall back to the first allowed.
   // replaceState, not pushState: this is a correction, and giving it a history
@@ -6120,6 +6243,7 @@ export default function Dashboard({ onLogout }) {
   useEffect(() => {
     if (nav.some(n => n.id === tab)) return;
     history.replaceState(null, '', `#${nav[0].id}`);
+    setNavDir(0);
     setTab(nav[0].id);
   }, [nav, tab]);
 
@@ -6151,6 +6275,20 @@ export default function Dashboard({ onLogout }) {
     const onKey = e => {
       const t = e.target;
       if (t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+      // Bare arrows only. Alt+Left is the browser's Back and Cmd+Left is Home —
+      // taking either would break a control the user did not think was ours.
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key==='ArrowLeft' || e.key==='ArrowRight') {
+        // A listbox, a slider or a sideways scroller under the caret is steering
+        // with the same two keys, and it asked first.
+        if (t?.closest?.('[role="slider"], [role="listbox"], [role="radiogroup"], [data-no-swipe]')) return;
+        if (t && mainRef.current && ownsHorizontalDrag(t, mainRef.current)) return;
+        const next = nav[nav.findIndex(n=>n.id===tab) + (e.key==='ArrowRight' ? 1 : -1)];
+        // preventDefault only on a real move, so an arrow at either end of the
+        // row still does whatever the page would otherwise have done with it.
+        if (next) { e.preventDefault(); goTab(next.id); }
+        return;
+      }
       // Character keys only. The range test below is a string comparison, so
       // named keys fall into it too — 'Escape' is >= '1', and would have matched
       // the moment a role ever had nine or more tabs.
@@ -6160,7 +6298,7 @@ export default function Dashboard({ onLogout }) {
     };
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
-  },[goTab, nav]);
+  },[goTab, nav, tab]);
 
   // Publish the sticky header's height as --app-header-h. The enlarged chat is
   // position:fixed and must start exactly below the nav — hardcoding a number
@@ -6180,15 +6318,20 @@ export default function Dashboard({ onLogout }) {
     return ()=>ro.disconnect();
   },[]);
 
-  // Sync tab from browser back/forward.
+  // Sync tab from browser back/forward. Re-bound per tab change rather than once
+  // on mount: it now has to know where it is coming FROM to point the transition
+  // the right way, and one addEventListener per tab change costs nothing.
   useEffect(()=>{
     const onPop = () => {
       const hash = window.location.hash.slice(1);
-      setTab(ALL_NAV.some(n => n.id === hash) ? hash : 'overview');
+      const next = ALL_NAV.some(n => n.id === hash) ? hash : 'overview';
+      const from = nav.findIndex(n => n.id === tab), to = nav.findIndex(n => n.id === next);
+      setNavDir(from < 0 || to < 0 ? 0 : Math.sign(to - from));
+      setTab(next);
     };
     window.addEventListener('popstate', onPop);
     return ()=>window.removeEventListener('popstate', onPop);
-  },[]);
+  },[nav, tab]);
 
   // Idle auto-logout — sign out after 30 min of no interaction, so a session left
   // open on a shared/kiosk machine doesn't stay readable.
@@ -6368,7 +6511,14 @@ export default function Dashboard({ onLogout }) {
           ratio when the body grew — but the header did NOT grow, so a larger
           title now crowds a nav bar that stayed put, and the old gap reads as
           cramped. It only needs the correction where the scale is live. */}
-      <main className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-8 xl:pt-12 pb-navbar${tab === 'chat' ? '' : ' app-scale'}`}>
+      {/* overflow-x-clip because the panels below travel 28px sideways on the way
+          in and out, and transformed overflow still counts as scrollable overflow
+          — without it a phone can pan the whole page a little mid-transition, and
+          a desktop flashes a scrollbar. `clip` rather than `hidden` on purpose:
+          hidden would make this a scroll container, which would re-anchor every
+          position:sticky header inside a tab to <main> instead of the viewport. */}
+      <main ref={mainRef}
+        className={`relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-8 xl:pt-12 pb-navbar overflow-x-clip${tab === 'chat' ? '' : ' app-scale'}`}>
 
         {/* Backend unreachable — sample data is showing. Make it unmistakable. */}
         {demo && (
@@ -6417,7 +6567,7 @@ export default function Dashboard({ onLogout }) {
           )}
         </motion.div>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={navDir}>
           {loading && !stats ? (
             <motion.div key="skel" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
               <Skeleton/>
@@ -6425,7 +6575,8 @@ export default function Dashboard({ onLogout }) {
           ) : stats ? (
             <motion.div
               key={tab}
-              initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}}
+              custom={navDir} variants={tabSlide}
+              initial="enter" animate="center" exit="exit"
               transition={{duration:0.22}}
             >
               {tab==='overview'      && <OverviewTab      s={stats} onDrill={goDrill}/>}
