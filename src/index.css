@@ -64,6 +64,34 @@
   --success-text:   #14532D;
   --warn:           #B45309;  /* mid-confidence indicator (receipt OCR dot) */
   --warn-text:      #92400E;  /* warning copy inside a success/info banner */
+
+  /* ── The muted end of the zinc ramp, darkened ────────────────────────────────
+     Every value below this line in the dark block was chosen against a measured
+     contrast ratio. Light mode never got that pass — it ran on stock Tailwind
+     zinc, and the two colours that carry almost all of the app's secondary text
+     both failed WCAG AA against the surfaces they actually sit on:
+
+         text-zinc-400  #A1A1AA   2.56:1 on --surface, 2.34:1 on --paper   (101 uses)
+         text-zinc-500  #71717A   4.83:1 on --surface, 4.41:1 on --paper   ( 96 uses)
+
+     zinc-400 is not close — it misses even the 3:1 floor allowed for large text,
+     and it is what draws every timestamp, every "2h ago", every "vs yesterday".
+     zinc-500 passes on a white panel and fails on the paper background, which is
+     the worse kind of bug: correct in most places, quietly wrong in the rest.
+
+     Both new values are the LIGHTEST that clear 4.5:1 against --paper, the harder
+     of the two backgrounds — the minimum move that actually fixes it, so the
+     "light, airy" identity survives. The ramp keeps three distinct steps
+     (#6F6F78 → #62626B → #52525B) rather than collapsing 400 into 500.
+
+         zinc-400  #6F6F78   4.98:1 on --surface, 4.54:1 on --paper
+         zinc-500  #62626B   6.04:1 on --surface, 5.51:1 on --paper
+
+     Declared here rather than in @theme because these override Tailwind's own
+     defaults, and a plain :root later in the file is what wins — the same
+     mechanism the dark block below relies on. */
+  --color-zinc-400: #6F6F78;
+  --color-zinc-500: #62626B;
 }
 
 /* ── Dark: "Console" — blue-tinted near-black ─────────────────────────────────
@@ -113,7 +141,9 @@
   --color-zinc-100: #1E232B;
   --color-zinc-200: #2A3038;   /* border-zinc-200 — the most-used border in the app */
   --color-zinc-300: #3A424D;
-  --color-zinc-400: #6B7684;
+  /* 3.74:1 on --surface before this — the one value in the dark ramp that never
+     cleared AA. #7B8391 is 4.52:1, and still a clear step below zinc-500. */
+  --color-zinc-400: #7B8391;
   --color-zinc-500: #98A1AD;
   --color-zinc-600: #B4BCC7;
   --color-zinc-700: #CDD3DB;
@@ -359,7 +389,7 @@ body, .theme-fade {
 
     --color-zinc-50:  #FAFAFA;  --color-zinc-100: #F4F4F5;
     --color-zinc-200: #E4E4E7;  --color-zinc-300: #D4D4D8;
-    --color-zinc-400: #A1A1AA;  --color-zinc-500: #71717A;
+    --color-zinc-400: #6F6F78;  --color-zinc-500: #62626B;
     --color-zinc-600: #52525B;  --color-zinc-700: #3F3F46;
     --color-zinc-800: #27272A;  --color-zinc-900: #18181B;
     --color-zinc-950: #09090B;

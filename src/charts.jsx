@@ -208,8 +208,11 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={topReps} layout="vertical" margin={{top:0,right:8,bottom:0,left:8}}>
         <XAxis type="number" tick={mkTick(c)} axisLine={false} tickLine={false}/>
+        {/* 56px fit almost nothing, which is why the call site used to amputate the
+            label to its first token — see repShort in mawavia-dashboard.jsx. The
+            axis now has room for a real first name or a "…9838" phone tail. */}
         <YAxis type="category" dataKey="name" tick={{...mkTick(c), fill:c.text}}
-          axisLine={false} tickLine={false} width={56}/>
+          axisLine={false} tickLine={false} width={72}/>
         <Tooltip content={<ChartTip/>} cursor={{fill:`${c.ink}0A`}}/>
         <Bar dataKey="count" radius={[0,3,3,0]} maxBarSize={18}>
           {topReps.map((_,i)=>(<Cell key={i} fill={i===0 ? c.accent : c.ink}/>))}

@@ -22,6 +22,7 @@ import { REASONS, REASON_LABEL, submitFeedback } from './feedback';
 import { CAPS, capsFor, ROLE_CHOICES } from './caps';
 import { addRemark, setFlag, submitForApproval, approve, revokeApproval, reject, recheckLimit, STATUS_META, EVENT_VERB } from './expenses-actions';
 import { useTheme } from './theme';
+import { userMsg } from './errlog';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // SB_URL / SB_KEY / MSG_SOURCE live in src/config.js (sourced from Vite env vars).
@@ -117,6 +118,25 @@ const fmtPhone = n => {
 // phone reps, so this one lookup covers all three forms.
 const repLabel = n => _repNames[n] || (isWebRep(n) ? String(n).slice(WEB.length) : _repNames[clean(n)]);
 const repName  = n => repLabel(n) || fmtPhone(n);
+// SHORT label for the Top-reps bar chart and its export sheet, where the category
+// axis is a fixed width and a full name or a formatted phone number overflows it.
+//
+// This used to be written inline as `repName(n).split(' ')[0]`, which is right for
+// a person — "Muhammad Ahsan" → "Muhammad" — and catastrophic for a phone. Every
+// Pakistani number formats as "+92 336 617 9838", so the first token is the country
+// code: five bars, five labels reading "+92", a leaderboard that cannot be read at
+// all. A uid rep with no roster name went through fmtPhone's "—" and collapsed the
+// same way. The export sheet carried the identical five rows.
+//
+// So the fallback has to come from the END of the identity, not the start. Never
+// digit-strip a uid/web identity to get there — see the warning on fmtPhone.
+const repShort = n => {
+  const nm = repLabel(n);
+  if (nm) return nm.trim().split(/\s+/)[0];
+  if (n == null || isWebRep(n) || isUidRep(n)) return '—';
+  const d = clean(n);
+  return d.length >= 4 ? `…${d.slice(-4)}` : (d ? `+${d}` : '—');
+};
 const initials = n => {
   const nm = repLabel(n);
   if (nm) { const p = nm.trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0] || '') + (p[1]?.[0] ?? '')).toUpperCase() || nm.slice(0,2).toUpperCase(); }
@@ -174,7 +194,7 @@ function buildOverviewSheets(s, periodMetrics) {
     {
       name: 'Top reps',
       columns: [{label:'Rep', get:r=>r.name}, {label:'Messages', get:r=>r.count}],
-      rows: (s.users || []).slice(0,5).map(u=>({name:repName(u.number).split(' ')[0], count:u.count})),
+      rows: (s.users || []).slice(0,5).map(u=>({name:repShort(u.number), count:u.count})),
     },
     {
       name: 'Rep activity',
@@ -579,7 +599,7 @@ function ContentModal({ title, sub, open, onClose, children }) {
                 {sub && <p className="text-[14px] text-zinc-500 mt-0.5">{sub}</p>}
               </div>
               <button onClick={onClose} aria-label="Close"
-                className="flex items-center justify-center w-9 h-9 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none">
+                className="flex items-center justify-center w-9 h-9 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
                 <X size={16}/>
               </button>
             </div>
@@ -894,7 +914,7 @@ const ExportTabButton = ({ buildSheets, exportName }) => {
     } catch (e) {
       // A failed export must not leave the toast stuck on "Preparing…" for ever,
       // which reads as a hung download rather than a failure.
-      ctx?.pushToast({ state: 'done', msg: e?.message || 'Could not build the Excel file.' });
+      ctx?.pushToast({ state: 'done', msg: userMsg(e, 'Could not build the Excel file.') });
     } finally {
       setBusy(false);
     }
@@ -1072,9 +1092,13 @@ function OverviewTab({s, onDrill}) {
     const n = vol.length;
     const sumCount = (arr, from, to) => arr.slice(Math.max(0,from), Math.max(0,to)).reduce((a,b)=>a+(b.count??0),0);
     return [
-      {label:'Messages', kind:'pct', current:sumCount(vol, n-30, n), previous:sumCount(vol, n-60, n-30),
+      // The band above this one also says "Messages" and "Active reps", for a
+      // different window — so these two carry their scope in the label. Without it
+      // the page showed "Active reps 5" and "Active reps 4" two hundred pixels
+      // apart and left the reader to guess which one was wrong.
+      {label:'Messages · 30d', kind:'pct', current:sumCount(vol, n-30, n), previous:sumCount(vol, n-60, n-30),
         format:v=>v.toLocaleString(), hint:'Total messages, this 30 days vs the 30 before'},
-      {label:'Active reps', kind:'pct', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
+      {label:'Active reps · 30d', kind:'pct', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
         format:v=>v.toLocaleString(), hint:'Distinct reps who messaged Hi Tech AI, this 30 days vs the 30 before'},
     ];
   }, [s.volumeDaily, s.activeRepsLast30, s.activeRepsPrev30]);
@@ -1140,7 +1164,7 @@ function OverviewTab({s, onDrill}) {
       <Suspense fallback={<ChartsFallback/>}>
         <ChartsRow
           volumeDaily={s.volumeDaily}
-          topReps={s.users.slice(0,5).map(u=>({name:repName(u.number).split(' ')[0],count:u.count}))}
+          topReps={s.users.slice(0,5).map(u=>({name:repShort(u.number),count:u.count}))}
         />
       </Suspense>
 
@@ -1440,7 +1464,7 @@ function ConversationsTab({s, channelFilter, focusSignal, drill, onDrillConsumed
         setRows(d?.rows || []); setTotal(d?.total || 0);
       } catch (e) {
         if (cancelled) return;
-        setErr(e.message || 'Could not load conversations.'); setRows([]); setTotal(0);
+        setErr(userMsg(e, 'Could not load conversations.')); setRows([]); setTotal(0);
       } finally { if (!cancelled) setBusy(false); }
     })();
     return ()=>{ cancelled = true; };
@@ -2073,7 +2097,7 @@ function BadAnswerButton({ m, question, sessionId }) {
       });
       setDone(true);
     } catch (ex) {
-      setErr(ex?.message || "Couldn't send that.");
+      setErr(userMsg(ex, "Couldn't send that."));
       setBusy(false);
     }
   };
@@ -2191,7 +2215,7 @@ function DocumentChips({ docs }) {
     if (busy) return;
     setBusy(doc.url); setErr(null);
     try { await downloadDocument(doc); }
-    catch (e) { setErr({ url: doc.url, msg: e.message }); }
+    catch (e) { setErr({ url: doc.url, msg: userMsg(e, 'Couldn’t open that file.') }); }
     finally { setBusy(null); }
   };
 
@@ -2950,7 +2974,7 @@ function ChatTab({ active }) {
       receiptFiles.current.delete(cid);
       setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'error' } } : msg)
         .concat({ role:'assistant', error:true, ts:Date.now(),
-                  text: ex.message || 'Couldn’t read that receipt — try a sharper photo.' }));
+                  text: userMsg(ex, 'Couldn’t read that receipt — try a sharper photo.') }));
     }
   }, []);
 
@@ -3011,7 +3035,7 @@ function ChatTab({ active }) {
       setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'saved' } } : msg));
     } catch (ex) {
       setMessages(m => m.map(msg => msg.cid===cid ? { ...msg, card:{ ...msg.card, status:'pending' } } : msg)
-        .concat({ role:'assistant', error:true, ts:Date.now(), text: ex.message || 'Couldn’t save — try again.' }));
+        .concat({ role:'assistant', error:true, ts:Date.now(), text: userMsg(ex, 'Couldn’t save — try again.') }));
     }
   }, [messages]);
 
@@ -3089,7 +3113,7 @@ function ChatTab({ active }) {
               <p className="text-[15px] font-semibold text-zinc-900 leading-tight">Hi Tech AI</p>
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
-                <span className="mono text-[10px] uppercase tracking-widest text-zinc-500">live · n8n</span>
+                <span className="mono text-[10px] uppercase tracking-widest text-zinc-500">live</span>
               </span>
             </div>
           </div>
@@ -3409,7 +3433,7 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
   const run = async (fn) => {
     setBusy(true); setError('');
     try { await fn(); setDraft(''); setMode(null); onChanged(); }
-    catch (e) { setError(e.message || 'That didn’t work.'); setBusy(false); }
+    catch (e) { setError(userMsg(e, 'That didn’t work.')); setBusy(false); }
   };
 
   // Deleting a receipt destroys a financial record, so it asks first, in place,
@@ -3423,7 +3447,7 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
       // reported as a failed delete.
       if (imagePath) { try { await deleteReceiptImage(imagePath); } catch { /* orphaned object */ } }
       onChanged();
-    } catch (e) { setError(e.message || 'Could not delete this receipt.'); setBusy(false); }
+    } catch (e) { setError(userMsg(e, 'Could not delete this receipt.')); setBusy(false); }
   };
 
   // Web receipts live in private Storage (image_path) → open via a short-lived signed
@@ -3850,7 +3874,7 @@ function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
       // and a stale flag is a visible annoyance, not lost money.
       try { await recheckLimit(receipt.expense_id); } catch { /* flag left as-is */ }
       onSaved();
-    } catch (e) { setError(e.message || 'Could not save the split.'); }
+    } catch (e) { setError(userMsg(e, 'Could not save the split.')); }
     finally { setBusy(false); }
   };
 
@@ -3861,7 +3885,7 @@ function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
       await sbRpc(token, 'admin_clear_expense_split', { p_expense_id: receipt.expense_id });
       try { await recheckLimit(receipt.expense_id); } catch { /* flag left as-is */ }
       onSaved();
-    } catch (e) { setError(e.message || 'Could not clear the split.'); }
+    } catch (e) { setError(userMsg(e, 'Could not clear the split.')); }
     finally { setBusy(false); }
   };
 
@@ -3969,7 +3993,7 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
       await sbRpc(token, 'admin_set_spending_limit', { p_phone: phone, p_limit: round2(value) });
       setEditing(null);
       onSaved();
-    } catch (e) { setError(e.message || 'Could not save the limit.'); }
+    } catch (e) { setError(userMsg(e, 'Could not save the limit.')); }
     finally { setBusy(false); }
   };
 
@@ -5301,7 +5325,7 @@ function TeamTab({ role, onAuthError }) {
       }; });
       setDrafts(d);
       setErr('');
-    } catch (e) { setErr(e.message || 'Failed to load users'); setUsers([]); }
+    } catch (e) { setErr(userMsg(e, 'Failed to load users')); setUsers([]); }
   }, [onAuthError]);
   useEffect(() => { load(); }, [load]);
 
@@ -5330,7 +5354,7 @@ function TeamTab({ role, onAuthError }) {
       setSavedId(u.user_id);
       setTimeout(() => setSavedId(s => (s === u.user_id ? null : s)), 1800);
       await load();
-    } catch (e) { setErr(e.message || 'Save failed'); }
+    } catch (e) { setErr(userMsg(e, 'Save failed')); }
     setSaving(null);
   };
 
@@ -5344,7 +5368,7 @@ function TeamTab({ role, onAuthError }) {
       setAddOk({ login: res.login_email, password: form.password, invited: res.invited, warning: res.warning });
       setForm(emptyForm);
       await load();
-    } catch (e) { setAddErr(e.message || 'Could not add member'); }
+    } catch (e) { setAddErr(userMsg(e, 'Could not add member')); }
     setAdding(false);
   };
 
@@ -5352,7 +5376,7 @@ function TeamTab({ role, onAuthError }) {
     setActing(userId); setErr(''); setConfirmDel(null);
     let token; try { token = await getAccessToken(); } catch { onAuthError?.(); setActing(null); return; }
     try { await sbFunction(token, 'admin-manage-user', { target: userId, action }); await load(); }
-    catch (e) { setErr(e.message || 'Action failed'); }
+    catch (e) { setErr(userMsg(e, 'Action failed')); }
     setActing(null);
   };
 
@@ -5687,7 +5711,7 @@ function ChangePasswordModal({ open, onClose }) {
     if (pw === cur)    { setErr('New password must be different from the current one.'); return; }
     setBusy(true); setErr('');
     try { await changePasswordSecure(cur, pw); setDone(true); setTimeout(onClose, 1400); }
-    catch (e) { setErr(e.message || 'Failed to update'); }
+    catch (e) { setErr(userMsg(e, 'Failed to update')); }
     setBusy(false);
   };
 
@@ -5764,9 +5788,13 @@ function ChangePasswordModal({ open, onClose }) {
 // and is worse: it would produce "Conversat…", which is not shorter to read,
 // only shorter to draw.
 const SALES_NAV = [
-  {id:'overview',      label:'Overview',      icon:LayoutDashboard},
-  {id:'conversations', label:'Conversations', short:'Convos', icon:MessageSquare},
-  {id:'users',         label:'Reps',          icon:Users},
+  // Every tab states its own scope. These three used to fall through to a shared
+  // default of "WhatsApp Sales Analytics", which read identically on all three and
+  // named one of the two channels the product covers — with the WhatsApp/Website
+  // filter sitting directly beside it.
+  {id:'overview',      label:'Overview',      icon:LayoutDashboard, sub:'Headline numbers across WhatsApp & website chat'},
+  {id:'conversations', label:'Conversations', short:'Convos', icon:MessageSquare, sub:'Every message, searchable'},
+  {id:'users',         label:'Reps',          icon:Users, sub:'Who is using Hi Tech AI, and how much'},
   {id:'chat',          label:'Chat',          icon:Bot, sub:'Test Hi Tech AI live'},
 ];
 const EXPENSES_NAV = {id:'expenses', label:'Expenses', icon:Receipt, sub:'Employee receipts & spend'};
@@ -6622,7 +6650,7 @@ export default function Dashboard({ onLogout }) {
               {nav.find(n=>n.id===tab)?.label}
             </h1>
             <p className="text-[14px] text-zinc-500 mt-2">
-              {nav.find(n=>n.id===tab)?.sub || 'WhatsApp Sales Analytics'}
+              {nav.find(n=>n.id===tab)?.sub}
             </p>
           </div>
           {/* Channel filter — the analytics source combines WhatsApp + website chat. */}

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Lock, LogIn, AlertTriangle, RefreshCw, Eye, EyeOff, Mail, ArrowLeft, CheckCircle2, KeyRound, ShieldCheck, LogOut } from 'lucide-react';
 import { signIn, requestPasswordReset, changePassword, recordAupAcceptance } from './auth';
+import { userMsg } from './errlog';
 
 const ACCENT    = 'var(--accent)';
 const ACCENT_DK = 'var(--accent-dark)';
@@ -62,7 +63,7 @@ export default function Login({ onSuccess }) {
       await signIn(user, pass);
       onSuccess();
     } catch (ex) {
-      setErr(ex?.message || 'Sign in failed');
+      setErr(userMsg(ex, 'Sign in failed'));
       setBusy(false);
     }
   };
@@ -75,7 +76,7 @@ export default function Login({ onSuccess }) {
       const email = await requestPasswordReset(user);
       setSentTo(email);
     } catch (ex) {
-      setErr(ex?.message || "Couldn't send reset email");
+      setErr(userMsg(ex, "Couldn't send reset email"));
     } finally {
       setBusy(false);
     }
@@ -252,7 +253,7 @@ export function ResetPassword({ onDone, kind = 'recovery' }) {
       await changePassword(pw);
       onDone();
     } catch (ex) {
-      setErr(ex?.message || "Couldn't set password. The reset link may have expired — request a new one.");
+      setErr(userMsg(ex, "Couldn't set password. The reset link may have expired — request a new one."));
       setBusy(false);
     }
   };

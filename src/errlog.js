@@ -13,6 +13,26 @@
 // See docs/superpowers/specs/2026-07-16-client-error-sink-design.md.
 import { SB_URL, SB_KEY } from './config';
 
+// A thrown Error reaches a catch block from two very different places, and the UI
+// has to tell them apart:
+//   · ours — `throw new Error('That phone is already on the roster')`, raised after
+//     a failed RPC, with copy written for the person who will read it;
+//   · the platform's — "Failed to fetch", "NetworkError when attempting to fetch
+//     resource", "Load failed". Developer text, meaningless to a sales rep.
+// The old idiom `setErr(e.message || 'Could not load conversations.')` could not
+// make that distinction, and because a thrown Error ALWAYS has a message, the
+// human fallback after the || never rendered once. Reps saw "Failed to fetch"
+// while the sentence written for them sat unreachable in the source.
+// So: keep a deliberate message, swap the platform's noise for the fallback.
+const NETWORK_NOISE = /^(failed to fetch|networkerror|load failed|fetch failed|the (?:user )?(?:operation|request) (?:was )?aborted|the internet connection appears to be offline|cancelled|timeout)/i;
+export function userMsg(err, fallback) {
+  const m = typeof err?.message === 'string' ? err.message.trim() : '';
+  if (!m || NETWORK_NOISE.test(m)) return fallback;
+  // A stack trace or a minified frame is never copy either.
+  if (m.length > 160 || /\n\s+at\s/.test(m)) return fallback;
+  return m;
+}
+
 const MSG_MAX   = 1024;   // 1 KB — a message longer than this is noise
 const STACK_MAX = 4096;   // 4 KB — enough for a useful trace, not a novel
 const SESSION_CAP = 25;   // hard stop per page-load; a render loop can't exceed it
