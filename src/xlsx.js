@@ -118,7 +118,7 @@ function workbookRelsXML(n) {
  * worse failure than an exception. Guarded explicitly rather than left to
  * surface as a corrupt download.
  */
-export async function buildXLSX(sheets) {
+async function buildXLSX(sheets) {
   if (!sheets?.length) throw new Error('buildXLSX: at least one sheet is required');
   const taken = new Set();
   const names = sheets.map(s => safeSheetName(s.name, taken));

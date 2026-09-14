@@ -20,7 +20,6 @@ const toSession = d => ({
   expires_at:    d.expires_at ? d.expires_at * 1000 : Date.now() + (d.expires_in || 3600) * 1000,
 });
 
-export const loadSession = () => read();
 export const isAuthed    = () => !!read()?.access_token;
 export const signOut     = () => localStorage.removeItem(LS_KEY);
 
@@ -77,7 +76,7 @@ async function refresh(sess) {
 // with their own email). Succeeds → writes the fresh session it returns and resolves;
 // wrong password → throws. This is what "require current password" enforces before a
 // change, and it works regardless of the GoTrue "secure password change" toggle.
-export async function reauthenticate(currentPassword) {
+async function reauthenticate(currentPassword) {
   const email = currentUserEmail();
   if (!email) throw new Error('Could not verify your account — please sign out and in again.');
   const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
@@ -180,7 +179,7 @@ export function currentUserId() {
     return JSON.parse(b64urlDecode(s.access_token.split('.')[1])).sub || null;
   } catch { return null; }
 }
-export function currentUserEmail() {
+function currentUserEmail() {
   const s = read();
   if (!s?.access_token) return null;
   try {

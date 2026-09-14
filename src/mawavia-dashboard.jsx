@@ -754,26 +754,10 @@ const PctDelta = ({current, previous}) => {
   );
 };
 
-// Percentage-POINT delta — for rate metrics, where a relative % change of a
-// percentage reads as confusing next to the value itself. `current`/`previous`
-// are 0-1 fractions. Currently unused: the cache hit rate was its only caller,
-// and it is kept for the next rate metric rather than reinvented.
-const PpDelta = ({current, previous}) => {
-  if (current == null || previous == null) return null;
-  const pp = Math.round((current - previous) * 100);
-  if (pp === 0) return <span className="mono text-[11px] font-semibold text-zinc-400">flat</span>;
-  const up = pp > 0;
-  return (
-    <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold" style={{color: up ? POS : NEG}}>
-      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(pp)}pp
-    </span>
-  );
-};
-
 // Period-over-period stat row — "this window vs the one before it". Shared by
-// Overview (messages/active reps/hit rate) and Expenses (spend), so the visual
-// language and delta math live in exactly one place. `metrics`:
-// [{label, current, previous, format(v), hint, kind:'pct'|'pp'}].
+// Overview (messages/active reps) and Expenses (spend), so the visual language
+// and delta math live in exactly one place. `metrics`:
+// [{label, current, previous, format(v), hint}].
 //
 // The grid-cols class is written as an explicit ternary, NOT
 // `sm:grid-cols-${metrics.length}` — Tailwind v4 scans source text
@@ -796,9 +780,7 @@ function PeriodCompare({ sub, metrics }) {
               {m.format ? m.format(m.current) : (m.current ?? 0).toLocaleString()}
             </span>
             <div className="mt-2 flex items-center gap-2">
-              {m.kind === 'pp'
-                ? <PpDelta current={m.current} previous={m.previous}/>
-                : <PctDelta current={m.current} previous={m.previous}/>}
+              <PctDelta current={m.current} previous={m.previous}/>
               <span className="text-[11px] text-zinc-400">vs {sub}</span>
             </div>
           </div>
@@ -1096,9 +1078,9 @@ function OverviewTab({s, onDrill}) {
       // different window — so these two carry their scope in the label. Without it
       // the page showed "Active reps 5" and "Active reps 4" two hundred pixels
       // apart and left the reader to guess which one was wrong.
-      {label:'Messages · 30d', kind:'pct', current:sumCount(vol, n-30, n), previous:sumCount(vol, n-60, n-30),
+      {label:'Messages · 30d', current:sumCount(vol, n-30, n), previous:sumCount(vol, n-60, n-30),
         format:v=>v.toLocaleString(), hint:'Total messages, this 30 days vs the 30 before'},
-      {label:'Active reps · 30d', kind:'pct', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
+      {label:'Active reps · 30d', current:s.activeRepsLast30??0, previous:s.activeRepsPrev30??0,
         format:v=>v.toLocaleString(), hint:'Distinct reps who messaged Hi Tech AI, this 30 days vs the 30 before'},
     ];
   }, [s.volumeDaily, s.activeRepsLast30, s.activeRepsPrev30]);
@@ -1820,6 +1802,42 @@ function filenameFromResponse(res) {
 // Normalize n8n's webhook response → { text, images, documents }. The cloned
 // workflow answers with { reply, images }, but we check the other common field
 // names too so a tweak to the "Respond to Webhook" node won't break the UI.
+const AGENT_UNREACHABLE = 'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.';
+
+// One transport for every call to the agent webhook. The three callers in ChatTab
+// — a typed message, a voice transcription, and a confirmed voice note — each
+// carried their own copy of this fetch, the same HTTP-status/detail extraction and
+// the same catch. The voice one's comment read "mirror it verbatim", which is the
+// tell that it should never have been a copy: a fix applied to one of three copies
+// is a bug in the other two.
+//
+// Throws an Error whose message is ALREADY the sentence a rep should read, so each
+// caller only decides WHERE to put it — which is the one thing the three genuinely
+// disagree about (the voice paths also drop back to 'preview', and drop the message
+// entirely if the take went stale while the request was in flight).
+async function postToAgent(payload, sessionId) {
+  let res;
+  try {
+    res = await fetch(N8N_CHAT_WEBHOOK, {
+      method: 'POST',
+      headers: await chatWebhookHeaders(),
+      body: JSON.stringify({ ...payload, session_id: sessionId, name: currentUserName() }),
+    });
+  } catch {
+    // fetch itself threw → the request never completed (network down, wrong URL,
+    // or a genuine CORS block where no response is readable).
+    throw new Error(AGENT_UNREACHABLE);
+  }
+  // The request reached n8n but the workflow errored (e.g. a failing node). Surface
+  // the status + server message so it's clear this isn't a CORS issue.
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
+    throw new Error(`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.`);
+  }
+  return res;
+}
+
 async function parseChatReply(res) {
   const raw = await res.text();
   let data = null;
@@ -2684,6 +2702,12 @@ function ChatTab({ active }) {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: reduce ? 'auto' : 'smooth' });
   }, [messages, sending, reduce, expanded]);
 
+  // Every failure in this panel lands as an assistant bubble marked error:true.
+  // That object literal was spelled out nine times; the shape is the thing worth
+  // naming, not the call.
+  const pushError = useCallback(text =>
+    setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(), text }]), []);
+
   const grow = useCallback(() => {
     const ta = taRef.current; if (!ta) return;
     ta.style.height = 'auto';
@@ -2702,31 +2726,15 @@ function ChatTab({ active }) {
     requestAnimationFrame(() => { if (taRef.current) taRef.current.style.height = 'auto'; });
     setSending(true);
     try {
-      const res = await fetch(N8N_CHAT_WEBHOOK, {
-        method: 'POST',
-        headers: await chatWebhookHeaders(),
-        body: JSON.stringify({ message: text, session_id: sessionId, name: currentUserName() }),
-      });
-      // The request reached n8n but the workflow errored (e.g. a failing node).
-      // Surface the status + server message so it's clear this isn't a CORS issue.
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
-        setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-          text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
-        return;
-      }
+      const res = await postToAgent({ message: text }, sessionId);
       const { text: reply, images, documents } = await parseChatReply(res);
       setMessages(m => [...m, { role:'assistant', text: reply, images, documents, ts:Date.now() }]);
-    } catch {
-      // fetch itself threw → the request never completed (network down, wrong URL,
-      // or a genuine CORS block where no response is readable).
-      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+    } catch (e) {
+      pushError(userMsg(e, AGENT_UNREACHABLE));
     } finally {
       setSending(false);
     }
-  }, [input, sending, configured, sessionId]);
+  }, [input, sending, configured, sessionId, pushError]);
 
   // Stops the M:SS ticker; always called before the recorder itself is torn down
   // so a slow stop() can't let one more tick sneak in.
@@ -2770,12 +2778,11 @@ function ChatTab({ active }) {
       }, LIVE_METER_MS);
     } catch (ex) {
       setVoicePhase('idle'); // always reset — this can also fire mid-'preview' via reRecord()
-      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text: ex.name === 'NotAllowedError'
-          ? 'Microphone access is blocked. Allow it in your browser’s site settings (the padlock icon next to the address bar), then try again.'
-          : 'Couldn’t access the microphone — check that it’s connected and not already in use by another app.' }]);
+      pushError(ex.name === 'NotAllowedError'
+        ? 'Microphone access is blocked. Allow it in your browser’s site settings (the padlock icon next to the address bar), then try again.'
+        : 'Couldn’t access the microphone — check that it’s connected and not already in use by another app.');
     }
-  }, [stopRecording]);
+  }, [stopRecording, pushError]);
 
   // Trash button while 'recording' — discard, no send, mic released.
   const cancelRecording = useCallback(() => {
@@ -2822,8 +2829,7 @@ function ChatTab({ active }) {
       if (stale()) return;
       // Transcode failed — preserve the recording in 'preview' so Send can be retried.
       setVoicePhase('preview');
-      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t process that recording — try sending it again, or re-record it.' }]);
+      pushError('Couldn’t process that recording — try sending it again, or re-record it.');
       return;
     }
 
@@ -2839,21 +2845,7 @@ function ChatTab({ active }) {
 
     try {
       const audio_base64 = await blobToBase64(wav);
-      const res = await fetch(N8N_CHAT_WEBHOOK, {
-        method: 'POST',
-        headers: await chatWebhookHeaders(),
-        body: JSON.stringify({ audio_base64, mime_type: 'audio/wav', session_id: sessionId, name: currentUserName() }),
-      });
-      // Same error handling as the typed-message path — mirror it verbatim.
-      if (!res.ok) {
-        if (stale()) return;
-        let detail = `HTTP ${res.status}`;
-        try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
-        setVoicePhase('preview');
-        setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-          text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
-        return;
-      }
+      const res = await postToAgent({ audio_base64, mime_type: 'audio/wav' }, sessionId);
       const { has_speech, transcript } = await parseTranscribeReply(res);
       if (stale()) return;
       if (!has_speech) {
@@ -2864,13 +2856,12 @@ function ChatTab({ active }) {
       }
       setVoiceTranscript(transcript);
       setVoicePhase('confirm');
-    } catch {
+    } catch (e) {
       if (stale()) return;
       setVoicePhase('preview');
-      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+      pushError(userMsg(e, AGENT_UNREACHABLE));
     }
-  }, [preview, sending, configured, sessionId]);
+  }, [preview, sending, configured, sessionId, pushError]);
 
   // Discard button in 'confirm' — same housekeeping as discardPreview: drop the
   // take, release its object URL.
@@ -2898,28 +2889,16 @@ function ChatTab({ active }) {
     const cid = crypto.randomUUID?.() || `v_${Date.now()}_${Math.random()}`;
     setMessages(m => [...m, { role:'audio', cid, ts:Date.now(), audioUrl, durationMs, peaks, transcript: text }]);
     try {
-      const res = await fetch(N8N_CHAT_WEBHOOK, {
-        method: 'POST',
-        headers: await chatWebhookHeaders(),
-        body: JSON.stringify({ message: text, session_id: sessionId, name: currentUserName() }),
-      });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try { const j = await res.clone().json(); if (j?.message) detail += ` — ${j.message}`; } catch { /* non-JSON body */ }
-        setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-          text:`The Hi Tech AI workflow returned an error (${detail}). Open the failed run in n8n → Executions to see which node failed.` }]);
-        return;
-      }
+      const res = await postToAgent({ message: text }, sessionId);
       const { text: reply, images, documents } = await parseChatReply(res);
       setMessages(m => [...m, { role:'assistant', text: reply, images, documents, ts:Date.now() }]);
-    } catch {
-      setMessages(m => [...m, { role:'assistant', error:true, ts:Date.now(),
-        text:'Couldn’t reach Hi Tech AI — the request never completed. Check the webhook URL and that n8n is reachable.' }]);
+    } catch (e) {
+      pushError(userMsg(e, AGENT_UNREACHABLE));
     } finally {
       setSending(false);
       setVoiceTranscript('');
     }
-  }, [voiceTranscript, sending, configured, preview, sessionId]);
+  }, [voiceTranscript, sending, configured, preview, sessionId, pushError]);
 
   const newChat = useCallback(() => {
     const user = currentUserName() || 'anon';
@@ -2949,7 +2928,7 @@ function ChatTab({ active }) {
   const startReceipt = useCallback(async (file) => {
     if (!file) return;
     const bad = validateImage(file);
-    if (bad) { setMessages(m => [...m, { role:'assistant', error:true, text:bad, ts:Date.now() }]); return; }
+    if (bad) { pushError(bad); return; }
     // Unique id per card (a spend-write target — don't reuse a millisecond timestamp).
     // The File stays in a ref map, never in `messages` (unserializable + would bloat storage).
     const cid = (crypto.randomUUID?.() || `r_${Date.now()}_${Math.random()}`);
@@ -2976,7 +2955,7 @@ function ChatTab({ active }) {
         .concat({ role:'assistant', error:true, ts:Date.now(),
                   text: userMsg(ex, 'Couldn’t read that receipt — try a sharper photo.') }));
     }
-  }, []);
+  }, [pushError]);
 
   const onPickReceipt = useCallback((e) => {
     const file = e.target.files?.[0];
@@ -4700,7 +4679,7 @@ function ExpensesTab({ role, phone, onAuthError }) {
     const cur  = idx >= 0 ? trend[idx].total : 0;
     const prev = idx > 0 ? trend[idx - 1].total : 0;
     return [{
-      label: isEmployee ? 'Your spend' : 'Total spend', kind: 'pct', current: cur, previous: prev,
+      label: isEmployee ? 'Your spend' : 'Total spend', current: cur, previous: prev,
       format: fmtPKR, hint: `Total spend, ${monthLabel(month)} vs the month before`,
     }];
   }, [trend, month, isEmployee]);

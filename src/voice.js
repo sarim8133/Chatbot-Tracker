@@ -215,9 +215,9 @@ export async function blobToWav16k(blob) {
 // against a confident hallucination is Layer 1, the `[NO_SPEECH]` sentinel in the
 // n8n transcription prompt; this is just the free win that skips a round trip for
 // the emptiest recordings. See the design doc's "Layer 2" section for the numbers.
-export const MIN_VOICE_DURATION_SEC = 0.7;    // shorter than this can't be a spoken utterance
-export const SILENCE_PEAK_THRESHOLD = 0.02;   // ~ -34 dBFS
-export const SILENCE_RMS_THRESHOLD  = 0.005;
+const MIN_VOICE_DURATION_SEC = 0.7;    // shorter than this can't be a spoken utterance
+const SILENCE_PEAK_THRESHOLD = 0.02;   // ~ -34 dBFS
+const SILENCE_RMS_THRESHOLD  = 0.005;
 
 export function isProbablySilent({ peak, rms, durationSec }) {
   if (durationSec < MIN_VOICE_DURATION_SEC) return true;

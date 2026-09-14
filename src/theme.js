@@ -13,19 +13,13 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 const KEY = 'ht_theme';
 const MODES = ['auto', 'light', 'dark'];
 
-export function storedMode() {
+function storedMode() {
   const m = localStorage.getItem(KEY);
   return MODES.includes(m) ? m : 'auto';
 }
 
 const systemPrefersDark = () =>
   window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-
-// A mode ('auto') resolves to a theme ('light' | 'dark'). CSS only ever sees a
-// concrete theme — never the literal 'auto'.
-export function resolveTheme(mode) {
-  return mode === 'auto' ? (systemPrefersDark() ? 'dark' : 'light') : mode;
-}
 
 function apply(theme) {
   document.documentElement.setAttribute('data-theme', theme);
