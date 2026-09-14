@@ -690,7 +690,7 @@ function HintIcon({ text }) {
         onMouseEnter={show} onMouseLeave={()=>setPos(null)}
         onFocus={show}      onBlur={()=>setPos(null)}
         aria-label={text}
-        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded text-zinc-400 hover:text-zinc-600 outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 transition-colors"
+        className="relative inline-flex items-center justify-center w-3.5 h-3.5 rounded text-zinc-400 hover:text-zinc-600 outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 transition-colors before:absolute before:-inset-[11px] before:rounded-full"
       >
         <Info size={10}/>
       </button>
@@ -996,7 +996,13 @@ const heatPeak = heat => {
 function Heatmap({heat}) {
   const max = Math.max(1, ...heat.flat());
   const dayOrder = [1,2,3,4,5,6,0];   // Mon-first
+  // Last cell pointed at, by any means. Deliberately NOT cleared on mouse-leave:
+  // the readout keeping the last value is what makes it useful after a tap, and a
+  // value that vanished as the finger lifted would be unreadable.
+  const [sel, setSel] = useState(null);
+  const say = (d, h, c) => `${DAY[d]} ${fmtHour(h)} — ${c} message${c === 1 ? '' : 's'}`;
   return (
+    <div>
     <div className="overflow-x-auto -mx-1 px-1 pb-1">
       <div className="inline-grid gap-[3px] min-w-full" style={{gridTemplateColumns:'30px repeat(24, minmax(13px, 1fr))'}}>
         {/* hour header */}
@@ -1012,16 +1018,26 @@ function Heatmap({heat}) {
             <div className="mono text-[10px] uppercase tracking-wide text-zinc-500 flex items-center">{DAY[d]}</div>
             {heat[d].map((c,h)=>{
               const a = c===0 ? 0 : 0.12 + 0.88*(c/max);
+              const on = sel?.d === d && sel?.h === h;
               return (
-                <div key={h}
-                  title={`${DAY[d]} ${fmtHour(h)} — ${c} message${c===1?'':'s'}`}
-                  className="aspect-square rounded-[2px]"
+                <button key={h} type="button"
+                  onClick={()=>setSel({d,h,c})}
+                  onMouseEnter={()=>setSel({d,h,c})}
+                  onFocus={()=>setSel({d,h,c})}
+                  aria-label={say(d,h,c)}
+                  title={say(d,h,c)}
+                  className={`aspect-square rounded-[2px] touch-manipulation outline-none ${on ? 'ring-1 ring-zinc-900' : ''} focus-visible:ring-2 focus-visible:ring-accent`}
                   style={{background: c===0 ? 'var(--color-zinc-100)' : tint(ACCENT, a*100)}}/>
               );
             })}
           </React.Fragment>
         ))}
       </div>
+    </div>
+    {/* min-h holds the line's height so selecting a cell doesn't nudge the panel. */}
+    <p className="mt-2 mono text-[11px] text-zinc-500 tabular-nums min-h-[16px]" aria-live="polite">
+      {sel ? say(sel.d, sel.h, sel.c) : 'Tap a cell for its count'}
+    </p>
     </div>
   );
 }
@@ -1035,7 +1051,7 @@ function BadResponseRow({ r }) {
   return (
     <li className="py-2.5">
       <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open}
-        className="w-full flex items-center gap-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-lg">
+        className="w-full flex items-center gap-2.5 min-h-[40px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-lg">
         <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{background:ACCENT}}/>
         <span className="flex-1 min-w-0 text-[14px] text-zinc-800 truncate">{trunc(r.user_message || '(no question captured)', 72)}</span>
         <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 hidden sm:inline">
@@ -1314,12 +1330,12 @@ function OverviewTab({s, onDrill}) {
                 </p>
               </div>
               <button onClick={() => setHeatExpanded(true)} aria-label="Expand heatmap" title="Click to expand"
-                className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 mt-0.5">
+                className="no-print flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 mt-0.5">
                 <Maximize2 size={14}/>
               </button>
             </div>
           </div>
-          <HelpNote>When reps message Hi Tech AI, by weekday and hour. Darker cells = busier; hover a cell for the exact count.</HelpNote>
+          <HelpNote>When reps message Hi Tech AI, by weekday and hour. Darker cells = busier; tap or hover a cell for the exact count.</HelpNote>
           <div className="mt-4" role="img"
             aria-label={peak.c>0 ? `Activity heatmap. Busiest is ${DAY[peak.d]} at ${fmtHour(peak.h)} with ${peak.c} messages.` : 'Activity heatmap — no activity yet.'}>
             <Heatmap heat={s.heat}/>
@@ -6571,7 +6587,7 @@ export default function Dashboard({ onLogout }) {
                  not the visual size — the button reads small because the label and
                  the extra horizontal padding are gone, not because it was shrunk
                  below what a thumb can hit. */
-              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-zinc-900 text-on-ink transition-colors hover:bg-accent outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-surface border border-zinc-300 text-zinc-700 transition-colors hover:border-zinc-900 hover:text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <motion.div
                 animate={refreshing ? {rotate:360} : {}}
@@ -6643,7 +6659,7 @@ export default function Dashboard({ onLogout }) {
               </p>
             </div>
             <button onClick={refresh} disabled={refreshing}
-              className="shrink-0 text-[12px] font-semibold px-3 py-2 rounded text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              className="shrink-0 text-[12px] font-semibold px-3 min-h-10 rounded text-on-ink bg-zinc-900 hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               Retry
             </button>
           </div>

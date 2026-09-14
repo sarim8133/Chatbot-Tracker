@@ -123,7 +123,7 @@ const ExpandBtn = ({ onClick }) => (
     onClick={onClick}
     aria-label="Expand chart"
     title="Click to expand"
-    className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0"
+    className="no-print flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0"
   >
     <Maximize2 size={14} />
   </button>
@@ -144,7 +144,7 @@ const DownloadBtn = ({ hostRef, title, disabled = false }) => {
       }}
       aria-label={`Download ${title} as an image`}
       title="Download as image (PNG)"
-      className="no-print flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0 disabled:opacity-35 disabled:cursor-not-allowed"
+      className="no-print flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 shrink-0 disabled:opacity-35 disabled:cursor-not-allowed"
     >
       <Download size={14} />
     </button>
@@ -250,7 +250,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
                     <button key={p.k} type="button"
                       onClick={()=>{ setRange(p.k); setFrom(''); setTo(''); setShowCustom(false); }}
                       aria-pressed={active}
-                      className={`px-2.5 py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${active ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
+                      className={`px-2.5 min-h-10 sm:min-h-0 sm:py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${active ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
                       {p.label}
                     </button>
                   );
@@ -260,7 +260,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
                 <button type="button"
                   onClick={()=>setShowCustom(o=>!o)}
                   aria-pressed={customOpen} aria-expanded={customOpen}
-                  className={`px-2.5 py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${customOpen ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
+                  className={`px-2.5 min-h-10 sm:min-h-0 sm:py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${customOpen ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
                   Custom
                 </button>
               </div>
