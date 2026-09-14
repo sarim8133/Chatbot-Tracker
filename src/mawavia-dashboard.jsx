@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion, MotionConfig } from 'framer-motion';
 import {
   LayoutDashboard, MessageSquare, Users,
-  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText, MoreHorizontal, GitCompare, Gauge, Boxes, BookOpen,
+  RefreshCw, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, AlertTriangle, Download, HelpCircle, X, ArrowRight, LogOut, Maximize2, Minimize2, Phone, CheckCircle2, Info, Bot, Send, Receipt, ExternalLink, ImageOff, Shield, UserCog, KeyRound, Power, Trash2, Eye, EyeOff, Mic, Square, Play, Pause, Sun, Moon, SunMoon, ThumbsDown, Copy, Check, Printer, FileText, MoreHorizontal, GitCompare, Gauge, Boxes, BookOpen, Banknote, Wallet, Ship,
 } from 'lucide-react';
 import { getAccessToken, changePasswordSecure } from './auth';
 import { SB_URL, SB_KEY, MSG_SOURCE, N8N_CHAT_WEBHOOK, WEB_CHAT_SOURCE, N8N_RECEIPT_WEBHOOK } from './config';
@@ -2503,6 +2503,30 @@ const CHAT_STARTERS = [
   { icon: BookOpen,   q: 'What screw diameter suits thin-wall parts?' },
 ];
 
+// The starters above are four GOOD questions; this is the map of everything
+// there is to ask. They are not the same job and one cannot do the other's:
+// every starter is a catalogue question, because those are the ones that read
+// well as a single tappable line, so a rep who only had the starters to go on
+// concluded the thing was a catalogue search and never asked it for a price.
+// It is not — behind the agent sit live SAP lookups for pricing, stock,
+// balances, receivables and order status, a quotation builder, the import
+// shipment tracker and the supplier-side order sheet.
+//
+// Grouped the way the agent's own router groups them (quotation / financial /
+// shipment / catalogue), so the list cannot promise a lane the bot does not
+// actually have. Deliberately NOT buttons: the rows name a capability rather
+// than a question, and the arguments are the rep's own customers and models,
+// which no canned line can supply. Anything phrased as a question here would
+// look identical to the starters and fire off a lookup for a model that may
+// not be on the price list, which teaches exactly the wrong lesson.
+const CHAT_ABILITIES = [
+  { icon: Banknote, label: 'Prices & stock',      eg: 'a model’s price, and which warehouse has one' },
+  { icon: FileText, label: 'Quotations',          eg: 'draft one to download, or find a turnkey proposal' },
+  { icon: Wallet,   label: 'Customer accounts',   eg: 'balance, credit left, who owes you money' },
+  { icon: Ship,     label: 'Orders & shipments',  eg: 'order status, container ETA, shipping papers' },
+  { icon: BookOpen, label: 'Specs & comparisons', eg: 'our catalogue, competitors, what fits a job' },
+];
+
 function ChatTab({ active }) {
   const reduce = useReducedMotion();
   // Two questions answered from ONE reading of localStorage, resolved together
@@ -3114,7 +3138,7 @@ function ChatTab({ active }) {
                   </span>
                   <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi Tech</p>
                   <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
-                    Comparisons, specs and recommendations — straight from the catalogue. The same AI as the WhatsApp bot.
+                    Prices, stock, quotations, customer balances and shipment status — plus specs and comparisons from the catalogue. The same AI as the WhatsApp bot.
                   </p>
                 </div>
 
@@ -3134,6 +3158,30 @@ function ChatTab({ active }) {
                       <ArrowRight size={13} className="shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-900"/>
                     </button>
                   ))}
+                </div>
+
+                {/* Styled as one card rather than five rows, so it cannot be
+                    mistaken for more of the tappable starters above it — same
+                    shape as the receipt note below, which is also a thing to
+                    know rather than a thing to press. */}
+                <div className="mt-4 rounded-lg border border-zinc-200 bg-surface px-3 py-3">
+                  <p className="mono text-[10px] uppercase tracking-widest text-zinc-400">What I can check</p>
+                  <div className="mt-2.5 space-y-1.5">
+                    {CHAT_ABILITIES.map(a => (
+                      <div key={a.label} className="flex items-start gap-2">
+                        <a.icon size={14} className="shrink-0 text-zinc-400 mt-[3px]"/>
+                        <p className="min-w-0 flex-1 text-[12.5px] text-zinc-600 leading-snug">
+                          <span className="font-semibold text-zinc-800">{a.label}</span> — {a.eg}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Said out loud because the tools answer "not authorised" for a
+                      customer that is not yours, and an unexplained refusal reads
+                      as the bot being broken. */}
+                  <p className="mt-2.5 pt-2.5 border-t border-zinc-200 text-[11.5px] text-zinc-500 leading-snug">
+                    Read live from SAP — you see your own customers only.
+                  </p>
                 </div>
 
                 {receiptEnabled && (
