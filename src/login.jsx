@@ -93,7 +93,7 @@ export default function Login({ onSuccess }) {
           <>
             <div className="flex items-center gap-2">
               <CheckCircle2 size={17} style={{ color: 'var(--pos)' }} />
-              <h1 className="text-[22px] font-extrabold tracking-[-0.02em] text-zinc-900">Check your email</h1>
+              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">Check your email</h1>
             </div>
             <p className="text-[13px] text-zinc-500 mt-2 mb-6 leading-relaxed">
               If an account exists, a password-reset link is on its way to <span className="font-medium text-zinc-700">{sentTo}</span>.
@@ -180,7 +180,7 @@ export default function Login({ onSuccess }) {
         </button>
       </form>
 
-      <p className="flex items-start gap-1.5 text-[11.5px] leading-snug text-zinc-400 mt-6 pt-4 border-t border-zinc-100">
+      <p className="flex items-start gap-1.5 text-[11px] leading-snug text-zinc-400 mt-6 pt-4 border-t border-zinc-100">
         <ShieldCheck size={13} className="mt-0.5 shrink-0 text-zinc-400" />
         <span>This is a private Hi Tech system. Access is restricted to authorized staff; logins, views, exports and uploads are logged and may be audited.</span>
       </p>
@@ -205,7 +205,7 @@ export function AupGate({ onAccept, onDecline }) {
     <Shell>
       <div className="flex items-center gap-2">
         <ShieldCheck size={16} style={{ color: 'var(--blue)' }} />
-        <h1 className="text-[22px] font-extrabold tracking-[-0.02em] text-zinc-900">Acceptable use</h1>
+        <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-zinc-900">Acceptable use</h1>
       </div>
       <p className="text-[13px] text-zinc-500 mt-1 mb-5">
         Before you continue, please review how this internal system may be used.

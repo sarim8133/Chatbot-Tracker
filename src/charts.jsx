@@ -40,7 +40,7 @@ const ChartTip = ({active, payload, label}) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
-      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
+      <p className="mono text-[10px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
       <p className="mono text-[14px] font-bold text-zinc-900">{payload[0].value}</p>
     </div>
   );
@@ -157,6 +157,7 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   const [from,     setFrom]     = useState('');
   const [to,       setTo]       = useState('');
   const [expanded, setExpanded] = useState(null); // 'volume' | 'reps' | null
+  const [showCustom, setShowCustom] = useState(false);
   const volumeRef = useRef(null);
   const repsRef   = useRef(null);
   // Unique prefix per component instance — prevents gradient ID collisions when
@@ -164,6 +165,8 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
   const uid = useId();
   const c = useThemeColors();
   const customActive = !!(from || to);
+  // Open if asked for, and always open while a custom range is actually in force.
+  const customOpen = showCustom || customActive;
 
   const view = useMemo(()=>{
     let rows = volumeDaily;
@@ -245,27 +248,35 @@ export default function ChartsRow({ volumeDaily = [], topReps }) {
                   const active = !customActive && range===p.k;
                   return (
                     <button key={p.k} type="button"
-                      onClick={()=>{ setRange(p.k); setFrom(''); setTo(''); }}
+                      onClick={()=>{ setRange(p.k); setFrom(''); setTo(''); setShowCustom(false); }}
                       aria-pressed={active}
                       className={`px-2.5 py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${active ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
                       {p.label}
                     </button>
                   );
                 })}
+                {/* Reads as a fifth preset because that is what it is — the window
+                    you pick yourself, sitting with the ones already picked for you. */}
+                <button type="button"
+                  onClick={()=>setShowCustom(o=>!o)}
+                  aria-pressed={customOpen} aria-expanded={customOpen}
+                  className={`px-2.5 py-1.5 mono text-[10px] uppercase tracking-wide border-l first:border-l-0 border-zinc-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${customOpen ? 'bg-zinc-900 text-on-ink' : 'bg-surface text-zinc-600 hover:text-zinc-900'}`}>
+                  Custom
+                </button>
               </div>
-              {/* custom date range */}
-              <div className="flex items-center gap-1.5">
-                <input type="date" value={from} min={minDate} max={to||maxDate}
-                  onChange={e=>setFrom(e.target.value)} aria-label="From date" className={dateField}/>
-                <span className="text-zinc-400 text-[11px]">→</span>
-                <input type="date" value={to} min={from||minDate} max={maxDate}
-                  onChange={e=>setTo(e.target.value)} aria-label="To date" className={dateField}/>
-                {customActive && (
-                  <button type="button" onClick={()=>{ setFrom(''); setTo(''); }}
+              {/* custom date range — only once asked for */}
+              {customOpen && (
+                <div className="flex items-center gap-1.5">
+                  <input type="date" value={from} min={minDate} max={to||maxDate}
+                    onChange={e=>setFrom(e.target.value)} aria-label="From date" className={dateField}/>
+                  <span className="text-zinc-400 text-[11px]">→</span>
+                  <input type="date" value={to} min={from||minDate} max={maxDate}
+                    onChange={e=>setTo(e.target.value)} aria-label="To date" className={dateField}/>
+                  <button type="button" onClick={()=>{ setFrom(''); setTo(''); setShowCustom(false); }}
                     aria-label="Clear custom range"
                     className="flex items-center justify-center w-6 h-6 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-accent/40">✕</button>
-                )}
-              </div>
+                </div>
+              )}
               <DownloadBtn hostRef={volumeRef} title="Message volume" disabled={!view.length} />
               <ExpandBtn onClick={() => setExpanded('volume')} />
             </div>
@@ -326,7 +337,7 @@ const RepTrendTip = ({active, payload, label}) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
-      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-1">{label}</p>
+      <p className="mono text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{label}</p>
       {payload.map(p => (
         <div key={p.dataKey} className="flex items-center gap-1.5 text-[12px]">
           <span className="w-2 h-2 rounded-sm shrink-0" style={{background:p.stroke}}/>
@@ -428,7 +439,7 @@ const MoneyTip = ({ active, payload }) => {
   const name = p.payload?.name || p.payload?.category || p.payload?.label || '';
   return (
     <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
-      {name && <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{name}</p>}
+      {name && <p className="mono text-[10px] uppercase tracking-widest text-zinc-500 mb-0.5">{name}</p>}
       <p className="mono text-[14px] font-bold text-zinc-900">{fmtPKR(p.value)}</p>
     </div>
   );
@@ -494,8 +505,8 @@ function CategoryDonut({ data, selected, onSelect }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="mono text-[9px] uppercase tracking-widest text-zinc-400">Total</span>
-          <span className="mono text-[17px] font-bold text-zinc-900 tabular-nums">{fmtPKR(total)}</span>
+          <span className="mono text-[10px] uppercase tracking-widest text-zinc-400">Total</span>
+          <span className="mono text-[16px] font-bold text-zinc-900 tabular-nums">{fmtPKR(total)}</span>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1">
@@ -566,7 +577,7 @@ const DaysTip = ({active, payload, label}) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-surface border border-zinc-900 rounded-xl px-3 py-2 shadow-[3px_3px_0_0_rgba(30,41,59,0.12)]">
-      <p className="mono text-[9px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
+      <p className="mono text-[10px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
       <p className="mono text-[14px] font-bold text-zinc-900">{payload[0].value.toFixed(1)} days</p>
     </div>
   );

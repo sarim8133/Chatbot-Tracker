@@ -702,7 +702,7 @@ function HintIcon({ text }) {
               initial={{opacity:0, y:-4, scale:0.97}}
               animate={{opacity:1, y:0,  scale:1}}
               exit={{opacity:0,   y:-4,  scale:0.97}}
-              transition={{duration:0.12, ease:[0.22,1,0.36,1]}}
+              transition={{duration:0.15, ease:[0.22,1,0.36,1]}}
               style={{
                 position:'fixed', left:pos.x, top:pos.y,
                 transform:'translateX(-50%)',
@@ -710,7 +710,7 @@ function HintIcon({ text }) {
                 background:INK,
                 zIndex:400,
               }}
-              className="pointer-events-none max-w-[220px] px-3 py-2 rounded-lg text-[11.5px] text-white leading-snug shadow-[0_8px_24px_-4px_rgba(0,0,0,0.4)]"
+              className="pointer-events-none max-w-[220px] px-3 py-2 rounded-lg text-[11px] text-white leading-snug shadow-[0_8px_24px_-4px_rgba(0,0,0,0.4)]"
             >
               {text}
             </motion.div>
@@ -729,7 +729,7 @@ const Delta = ({value}) => {
   return (
     <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold"
       style={{color: up ? POS : NEG}}>
-      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(value)}
+      <span className="text-[10px]">{up ? '▲' : '▼'}</span>{Math.abs(value)}
     </span>
   );
 };
@@ -749,7 +749,7 @@ const PctDelta = ({current, previous}) => {
   const up = pct > 0;
   return (
     <span className="inline-flex items-center gap-0.5 mono text-[11px] font-semibold" style={{color: up ? POS : NEG}}>
-      <span className="text-[9px]">{up ? '▲' : '▼'}</span>{Math.abs(pct)}%
+      <span className="text-[10px]">{up ? '▲' : '▼'}</span>{Math.abs(pct)}%
     </span>
   );
 };
@@ -1002,14 +1002,14 @@ function Heatmap({heat}) {
         {/* hour header */}
         <div/>
         {Array.from({length:24},(_,h)=>(
-          <div key={h} className="mono text-[8px] text-zinc-500 tabular-nums text-center">
+          <div key={h} className="mono text-[10px] text-zinc-500 tabular-nums text-center">
             {h%6===0 ? String(h).padStart(2,'0') : ''}
           </div>
         ))}
         {/* day rows */}
         {dayOrder.map(d=>(
           <React.Fragment key={d}>
-            <div className="mono text-[9px] uppercase tracking-wide text-zinc-500 flex items-center">{DAY[d]}</div>
+            <div className="mono text-[10px] uppercase tracking-wide text-zinc-500 flex items-center">{DAY[d]}</div>
             {heat[d].map((c,h)=>{
               const a = c===0 ? 0 : 0.12 + 0.88*(c/max);
               return (
@@ -1051,8 +1051,8 @@ function BadResponseRow({ r }) {
       </div>
       {open && (
         <div className="mt-2 ml-4 pl-3 border-l-2 border-zinc-200 space-y-2">
-          {r.note && <p className="text-[12.5px] text-zinc-700"><span className="text-zinc-400">Rep said:</span> {r.note}</p>}
-          <p className="text-[12.5px] text-zinc-500 whitespace-pre-wrap break-words">{trunc(r.ai_response || '(no reply captured)', 600)}</p>
+          {r.note && <p className="text-[12px] text-zinc-700"><span className="text-zinc-400">Rep said:</span> {r.note}</p>}
+          <p className="text-[12px] text-zinc-500 whitespace-pre-wrap break-words">{trunc(r.ai_response || '(no reply captured)', 600)}</p>
           <p className="text-[11px] text-zinc-400">{r.user_name || 'unknown'}</p>
         </div>
       )}
@@ -1111,31 +1111,41 @@ function OverviewTab({s, onDrill}) {
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:ACCENT}}/>
-              <span className="mono text-[9px] uppercase tracking-widest text-zinc-500">live</span>
+              <span className="mono text-[10px] uppercase tracking-widest text-zinc-500">live</span>
             </span>
           </div>
-          <div className="mt-4 flex items-end justify-between gap-4">
+          <div className="mt-4 flex items-end justify-between gap-4 min-h-[39px]">
             <span className="text-[46px] leading-[0.85] font-extrabold tracking-[-0.035em] text-zinc-900 tabular-nums">{total}</span>
             <Sparkline data={s.msgsByDay}/>
           </div>
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-4 flex items-center gap-2 min-h-[17px]">
             <Delta value={delta}/>
-            <span className="text-[12px] text-zinc-400">vs yesterday</span>
+            <span className="text-[12px] text-zinc-500">vs yesterday</span>
           </div>
         </div>
         {/* Ledger cells */}
         {ledger.map(c=>(
-          <div key={c.label} className="p-6 flex flex-col justify-between gap-6">
+          <div key={c.label} className="p-6">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1">
                 <Label>{c.label}</Label>
                 {c.hint && <HintIcon text={c.hint}/>}
               </span>
-              {c.delta!=null && <Delta value={c.delta}/>}
             </div>
-            <span className="mono text-[30px] leading-none font-bold tracking-tight text-zinc-900">
-              {typeof c.value==='number' ? c.value.toLocaleString() : c.value}
-            </span>
+            {/* items-end against the hero's own 39px row is what puts these numbers
+                on its baseline despite being 16px smaller. */}
+            <div className="mt-4 flex items-end min-h-[39px]">
+              <span className="mono text-[30px] leading-none font-bold tracking-tight text-zinc-900 tabular-nums">
+                {typeof c.value==='number' ? c.value.toLocaleString() : c.value}
+              </span>
+            </div>
+            {/* The delta moved out of the label row and down here, where the hero
+                keeps its own — so the three cells read as one instrument rather
+                than three layouts. Empty on a cell with no delta, on purpose: the
+                row holds the rhythm. */}
+            <div className="mt-4 flex items-center gap-2 min-h-[17px]">
+              {c.delta!=null && <><Delta value={c.delta}/><span className="text-[12px] text-zinc-500">{c.deltaNote || 'vs yesterday'}</span></>}
+            </div>
           </div>
         ))}
       </Panel>
@@ -1219,7 +1229,7 @@ function OverviewTab({s, onDrill}) {
           <div>
             {s.recent.slice(0,7).map((m,i)=>(
               <motion.div key={i}
-                whileHover={{x:2,transition:{duration:0.12}}}
+                whileHover={{x:2,transition:{duration:0.15}}}
                 className="flex items-start gap-3 py-2.5 border-t border-zinc-100 first:border-t-0 cursor-default">
                 <span className="mt-[7px] w-1.5 h-1.5 rotate-45 shrink-0"
                   style={{background: i===0 ? ACCENT : INK}}/>
@@ -2033,12 +2043,12 @@ function ReceiptCard({ card, onAccept, onReject }) {
           </button>
         </div>
       )}
-      {card.status === 'saving' && <p className="text-[12.5px] text-zinc-500">Saving…</p>}
-      {card.status === 'saved' && <p className="text-[12.5px] font-medium" style={{ color: POS }}>✓ Saved to your expenses.</p>}
-      {card.status === 'rejected' && <p className="text-[12.5px] text-zinc-500">Discarded — upload it again, or contact the accountant if it keeps coming out wrong.</p>}
-      {card.status === 'error' && <p className="text-[12.5px] text-zinc-500">Couldn’t read that receipt — attach a clearer photo, or contact the accountant.</p>}
-      {card.status === 'notreceipt' && <p className="text-[12.5px] text-zinc-500">That doesn’t look like a receipt — attach a photo of the receipt itself.</p>}
-      {card.status === 'expired' && <p className="text-[12.5px] text-zinc-500">This upload expired when you left the chat — please attach the receipt again.</p>}
+      {card.status === 'saving' && <p className="text-[12px] text-zinc-500">Saving…</p>}
+      {card.status === 'saved' && <p className="text-[12px] font-medium" style={{ color: POS }}>✓ Saved to your expenses.</p>}
+      {card.status === 'rejected' && <p className="text-[12px] text-zinc-500">Discarded — upload it again, or contact the accountant if it keeps coming out wrong.</p>}
+      {card.status === 'error' && <p className="text-[12px] text-zinc-500">Couldn’t read that receipt — attach a clearer photo, or contact the accountant.</p>}
+      {card.status === 'notreceipt' && <p className="text-[12px] text-zinc-500">That doesn’t look like a receipt — attach a photo of the receipt itself.</p>}
+      {card.status === 'expired' && <p className="text-[12px] text-zinc-500">This upload expired when you left the chat — please attach the receipt again.</p>}
     </div>
   );
 }
@@ -2467,7 +2477,7 @@ function AudioBubble({ m }) {
         <div className="px-3 py-1.5 rounded-2xl rounded-br-sm w-full min-w-[220px] max-w-[340px]" style={{background:INK}}>
           {m.audioUrl
             ? <VoicePlayer src={m.audioUrl} durationMs={m.durationMs} peaks={m.peaks} dark/>
-            : <span className="flex items-center gap-1.5 text-[12.5px] text-white/70 px-1 py-2">
+            : <span className="flex items-center gap-1.5 text-[12px] text-white/70 px-1 py-2">
                 <Mic size={13}/> Voice note (expired — reload started a fresh session)
               </span>}
         </div>
@@ -2504,7 +2514,7 @@ function VoiceCard({ preview, transcript, onTranscriptChange, onConfirm, onDisca
         rows={2}
         maxLength={1500}
         aria-label="Edit transcript before sending"
-        className="w-full resize-none px-3 py-2 mb-3 bg-surface border border-zinc-300 rounded-lg text-[13.5px] text-zinc-800 leading-relaxed outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20"
+        className="w-full resize-none px-3 py-2 mb-3 bg-surface border border-zinc-300 rounded-lg text-[13px] text-zinc-800 leading-relaxed outline-none transition-colors focus:border-zinc-900 focus:ring-2 focus:ring-accent/20"
       />
       <div className="flex gap-2">
         <button onClick={onConfirm} disabled={!transcript.trim()}
@@ -3140,41 +3150,36 @@ function ChatTab({ active }) {
                     <Bot size={22} style={{color:ACCENT_DK}}/>
                   </span>
                   <p className="text-[15px] font-semibold text-zinc-900">Ask me anything about Hi Tech</p>
+                  {/* The prose list of capabilities that used to live here is now the
+                      card below, which says the same thing in a form you can scan.
+                      Two copies of it cost 60px of a 516px phone viewport. */}
                   <p className="text-[13px] text-zinc-500 mt-2 leading-relaxed">
-                    Prices, stock, quotations, customer balances and shipment status — plus specs and comparisons from the catalogue. The same AI as the WhatsApp bot.
+                    The same AI as the WhatsApp bot.
                   </p>
                 </div>
 
-                {/* Tap to send, rather than fill the box: the answer is the point,
-                    and the not-found fallback lists near matches, so even a miss
-                    leaves the rep somewhere useful. Disabled while a turn is in
-                    flight for the same reason the send button is. */}
-                <div className="mt-5 grid gap-2">
-                  {CHAT_STARTERS.map(st => (
-                    <button key={st.q} type="button"
-                      onClick={() => send(st.q)}
-                      disabled={!configured || sending}
-                      className="group flex items-center gap-2.5 w-full text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5 min-h-[44px] transition-colors hover:border-zinc-900 outline-none focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <st.icon size={15} className="shrink-0 text-zinc-400 transition-colors group-hover:text-accent-dark"/>
-                      <span className="min-w-0 flex-1 text-[12.5px] text-zinc-700 leading-snug">{st.q}</span>
-                      <ArrowRight size={13} className="shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-900"/>
-                    </button>
-                  ))}
-                </div>
+                {/* Capabilities BEFORE examples. This card used to sit last, under
+                    four starters, which on a 390px phone put 290 of its 299px below
+                    the fold — so the rep who opened the tab not knowing what the bot
+                    could do was shown four catalogue questions and nothing else, and
+                    concluded it was a catalogue search. Teach the range first, then
+                    show what a question looks like.
 
-                {/* Styled as one card rather than five rows, so it cannot be
-                    mistaken for more of the tappable starters above it — same
-                    shape as the receipt note below, which is also a thing to
-                    know rather than a thing to press. */}
-                <div className="mt-4 rounded-lg border border-zinc-200 bg-surface px-3 py-3">
+                    Styled as one card rather than five rows, so it cannot be mistaken
+                    for more of the tappable starters below it — same shape as the
+                    receipt note, which is also a thing to know rather than to press. */}
+                <div className="mt-5 rounded-lg border border-zinc-200 bg-surface px-3 py-3">
                   <p className="mono text-[10px] uppercase tracking-widest text-zinc-400">What I can check</p>
                   <div className="mt-2.5 space-y-1.5">
                     {CHAT_ABILITIES.map(a => (
                       <div key={a.label} className="flex items-start gap-2">
                         <a.icon size={14} className="shrink-0 text-zinc-400 mt-[3px]"/>
-                        <p className="min-w-0 flex-1 text-[12.5px] text-zinc-600 leading-snug">
-                          <span className="font-semibold text-zinc-800">{a.label}</span> — {a.eg}
+                        <p className="min-w-0 flex-1 text-[12px] text-zinc-600 leading-snug">
+                          <span className="font-semibold text-zinc-800">{a.label}</span>
+                          {/* The example is what makes each row two lines instead of
+                              one. On a phone that is 90px for detail the rep can get
+                              by asking; the label alone still names the capability. */}
+                          <span className="hidden sm:inline"> — {a.eg}</span>
                         </p>
                       </div>
                     ))}
@@ -3182,15 +3187,34 @@ function ChatTab({ active }) {
                   {/* Said out loud because the tools answer "not authorised" for a
                       customer that is not yours, and an unexplained refusal reads
                       as the bot being broken. */}
-                  <p className="mt-2.5 pt-2.5 border-t border-zinc-200 text-[11.5px] text-zinc-500 leading-snug">
+                  <p className="mt-2.5 pt-2.5 border-t border-zinc-200 text-[11px] text-zinc-500 leading-snug">
                     Read live from SAP — you see your own customers only.
                   </p>
+                </div>
+
+                {/* Tap to send, rather than fill the box: the answer is the point,
+                    and the not-found fallback lists near matches, so even a miss
+                    leaves the rep somewhere useful. Disabled while a turn is in
+                    flight for the same reason the send button is. */}
+                <p className="mono text-[10px] uppercase tracking-widest text-zinc-400 mt-4">Try one of these</p>
+                <div className="mt-2.5 grid gap-2">
+                  {CHAT_STARTERS.map(st => (
+                    <button key={st.q} type="button"
+                      onClick={() => send(st.q)}
+                      disabled={!configured || sending}
+                      className="group flex items-center gap-2.5 w-full text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5 min-h-[44px] transition-colors hover:border-zinc-900 outline-none focus-visible:border-zinc-900 focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <st.icon size={15} className="shrink-0 text-zinc-400 transition-colors group-hover:text-accent-dark"/>
+                      <span className="min-w-0 flex-1 text-[12px] text-zinc-700 leading-snug">{st.q}</span>
+                      <ArrowRight size={13} className="shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-900"/>
+                    </button>
+                  ))}
                 </div>
 
                 {receiptEnabled && (
                   <div className="mt-4 flex items-start gap-2 text-left rounded-lg border border-zinc-200 bg-surface px-3 py-2.5">
                     <Receipt size={15} className="text-zinc-500 shrink-0 mt-0.5"/>
-                    <p className="text-[12.5px] text-zinc-600 leading-relaxed">
+                    <p className="text-[12px] text-zinc-600 leading-relaxed">
                       <span className="font-semibold text-zinc-800">Log an expense:</span> tap the receipt icon below, or just paste a screenshot — I’ll read the vendor, total and category, and you just confirm before it’s saved.
                     </p>
                   </div>
@@ -3625,7 +3649,7 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
               {/* Why it was flagged — the submitter sees this too, so it has to
                   read as an explanation rather than an internal marker. */}
               {r.flagged && r.flag_reason && (
-                <div className="mt-3 text-[12.5px] leading-snug rounded-md px-3 py-2"
+                <div className="mt-3 text-[12px] leading-snug rounded-md px-3 py-2"
                      style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)' }}>
                   {r.flag_reason}
                 </div>
@@ -3639,7 +3663,7 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
                   <Label>Remarks &amp; history</Label>
                   <ul className="mt-1.5 space-y-1.5">
                     {rowEvents.map(ev => (
-                      <li key={ev.id} className="text-[12.5px] leading-snug min-w-0">
+                      <li key={ev.id} className="text-[12px] leading-snug min-w-0">
                         <span className="font-medium text-zinc-800">{ev.actor_name || 'Finance'}</span>
                         <span className="text-zinc-500"> {EVENT_VERB[ev.kind] || ev.kind} · {fmtDay(ev.created_at)}</span>
                         {/* break-words is load-bearing: a remark is free text and
@@ -3716,13 +3740,20 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
                     </RowBtn>
                     {mode === 'remark' && (
                       <RowBtn busy={busy} disabled={!draft.trim()}
-                        title="Kept between finance — the submitter will not see it"
                         onClick={() => run(() => addRemark(r.expense_id, draft.trim(), false))}>
                         Save as internal
                       </RowBtn>
                     )}
                     <RowBtn onClick={() => { setMode(null); setDraft(''); setError(''); }}>Cancel</RowBtn>
                   </div>
+                  {/* Was a title= tooltip on the button, which does not exist on a
+                      touch device — and this is a promise about who can read the
+                      note, not a decoration. */}
+                  {mode === 'remark' && (
+                    <p className="mt-2 text-[11px] text-zinc-500 leading-snug">
+                      An internal note is kept between finance — the submitter will not see it.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -3753,13 +3784,13 @@ function ReceiptRow({ r, open, onToggle, showEmployee, canManage, team, splitRow
               {canManage && mode === 'confirmDelete' && (
                 <div className="mt-3 pt-3 border-t border-zinc-200" onClick={e => e.stopPropagation()}>
                   <p className="text-[13px] font-semibold text-zinc-900">Delete this receipt?</p>
-                  <p className="text-[12.5px] text-zinc-600 mt-1">
+                  <p className="text-[12px] text-zinc-600 mt-1">
                     {fmtPKR(r.total)} from {r.vendor_name || 'an unknown vendor'}, logged by{' '}
                     {r.employee_name || 'unknown'}. The receipt image is deleted too, and{' '}
                     {shares.length > 0 ? 'its split is removed. ' : ''}
                     this can’t be undone from here.
                   </p>
-                  <p className="text-[11.5px] text-zinc-400 mt-1.5">
+                  <p className="text-[11px] text-zinc-400 mt-1.5">
                     A record of the deletion is kept for the audit trail.
                   </p>
                   {error && <p role="alert" className="text-[12px] mt-2" style={{ color: NEG }}>{error}</p>}
@@ -3911,7 +3942,7 @@ function SplitEditor({ receipt, team, existing, onClose, onSaved }) {
           className="text-[12px] px-2.5 py-1.5 rounded-md border border-zinc-300 bg-surface text-zinc-700 hover:border-zinc-900 transition-colors">
           Split evenly
         </button>
-        <span className="mono text-[11.5px] tabular-nums ml-auto"
+        <span className="mono text-[11px] tabular-nums ml-auto"
           style={{ color: Math.abs(remainder) <= 0.01 ? POS : 'var(--warn)' }}>
           {Math.abs(remainder) <= 0.01
             ? 'Balances exactly'
@@ -4071,7 +4102,7 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
                 {p.limit > 0 && (
-                  <span className={`text-[11.5px] ${over || near ? '' : 'text-zinc-400'}`}
+                  <span className={`text-[11px] ${over || near ? '' : 'text-zinc-400'}`}
                     style={over ? { color: NEG } : near ? { color: 'var(--warn)' } : undefined}>
                     {over
                       ? `${fmtPKR(p.spent - p.limit)} over budget`
@@ -4080,7 +4111,7 @@ function BudgetPanel({ team, spendByPhone, month, canManage, onSaved }) {
                 )}
                 {canManage && editing !== p.phone && (
                   <button type="button" onClick={() => start(p)}
-                    className="text-[11.5px] text-accent hover:underline ml-auto">
+                    className="text-[11px] text-accent hover:underline ml-auto">
                     {p.limit > 0 ? 'Change limit' : 'Set a limit'}
                   </button>
                 )}
@@ -4354,14 +4385,14 @@ function ReceiptDownloadMenu({ rows, splitsByExpense, scope, disabled }) {
           <button role="menuitem" type="button" onClick={doCsv}
             className="w-full text-left px-3 py-2.5 hover:bg-zinc-50 transition-colors">
             <span className="block text-[13px] font-medium text-zinc-800">Spreadsheet only</span>
-            <span className="block text-[11.5px] text-zinc-500 mt-0.5">
+            <span className="block text-[11px] text-zinc-500 mt-0.5">
               {rows.length} row{rows.length === 1 ? '' : 's'} · CSV for Excel
             </span>
           </button>
           <button role="menuitem" type="button" onClick={doZip} disabled={!imageCount}
             className="w-full text-left px-3 py-2.5 hover:bg-zinc-50 transition-colors border-t border-zinc-100 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-transparent">
             <span className="block text-[13px] font-medium text-zinc-800">Receipt images + spreadsheet</span>
-            <span className="block text-[11.5px] text-zinc-500 mt-0.5">
+            <span className="block text-[11px] text-zinc-500 mt-0.5">
               {imageCount ? `${imageCount} image${imageCount === 1 ? '' : 's'} · ZIP` : 'No stored images in this view'}
             </span>
           </button>
@@ -4919,7 +4950,7 @@ function ExpensesTab({ role, phone, onAuthError }) {
                         <button
                           onMouseDown={ev => { ev.preventDefault(); setSelEmp(e.pkey); setEmpSearch(''); setSuggestOpen(false); }}
                           className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 transition-colors">
-                          <span className="text-[12.5px] text-zinc-800 truncate">{e.name}</span>
+                          <span className="text-[12px] text-zinc-800 truncate">{e.name}</span>
                           <span className="mono text-[11px] text-zinc-400 shrink-0">{fmtPKR(e.total)}</span>
                         </button>
                       </li>
@@ -5256,7 +5287,7 @@ function DeptCombo({ value, onChange, options, placeholder, className = 'w-full'
             <li key={o} role="option" aria-selected={o.toLowerCase() === q}>
               <button type="button"
                 onMouseDown={ev => { ev.preventDefault(); onChange(o); setOpen(false); }}
-                className="w-full text-left px-3 py-2 text-[12.5px] text-zinc-800 hover:bg-zinc-50 transition-colors">
+                className="w-full text-left px-3 py-2 text-[12px] text-zinc-800 hover:bg-zinc-50 transition-colors">
                 {o}
               </button>
             </li>
@@ -5579,7 +5610,7 @@ function TeamTab({ role, onAuthError }) {
                   <div className="min-w-0">
                     <p className="text-[14px] font-medium text-zinc-800 truncate">
                       {u.full_name || u.email}
-                      {u.banned && <span className="ml-2 mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded align-middle" style={{ color: NEG, background: tint(NEG, 7) }}>Inactive</span>}
+                      {u.banned && <span className="ml-2 mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded align-middle" style={{ color: NEG, background: tint(NEG, 7) }}>Inactive</span>}
                     </p>
                     <p className="mono text-[10px] text-zinc-400 mt-0.5 truncate">{u.phone || u.email}</p>
                   </div>
@@ -5909,7 +5940,7 @@ function AccountMenu({ displayName, initials, roleMeta,
     };
   }, [open, place]);
 
-  const row = 'flex items-center gap-3 w-full px-3.5 py-2.5 text-[13.5px] text-zinc-700 rounded-md transition-colors hover:bg-zinc-100 hover:text-zinc-900 outline-none focus-visible:bg-zinc-100';
+  const row = 'flex items-center gap-3 w-full px-3.5 py-2.5 text-[13px] text-zinc-700 rounded-md transition-colors hover:bg-zinc-100 hover:text-zinc-900 outline-none focus-visible:bg-zinc-100';
   const run = fn => () => { setOpen(false); fn(); };
 
   return (
@@ -5933,15 +5964,15 @@ function AccountMenu({ displayName, initials, roleMeta,
           {open && rect && (
             <motion.div ref={menuRef} role="menu"
               initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               style={{ position: 'fixed', top: rect.top, left: rect.left, width: MENU_W, zoom: rect.z, zIndex: 60 }}
               className="rounded-xl border border-zinc-200 bg-surface shadow-[0_12px_32px_-8px_rgba(24,24,27,0.22)] p-1.5"
             >
               {/* Identity — the block that used to sit in the header's left corner. */}
               <div className="px-3.5 py-2.5">
-                <p className="text-[13.5px] font-semibold text-zinc-900 truncate">{displayName}</p>
+                <p className="text-[13px] font-semibold text-zinc-900 truncate">{displayName}</p>
                 {roleMeta && (
-                  <p className="mono text-[9px] uppercase tracking-[0.14em] mt-1" style={{ color: roleMeta.color }}>
+                  <p className="mono text-[10px] uppercase tracking-[0.14em] mt-1" style={{ color: roleMeta.color }}>
                     {roleMeta.label}
                   </p>
                 )}
@@ -5955,7 +5986,7 @@ function AccountMenu({ displayName, initials, roleMeta,
                 {/* A word, not a coloured dot. The state has to be readable by
                     someone who can't distinguish the accent from the muted grey,
                     and aria-checked alone is invisible to everyone not using AT. */}
-                <span className="mono text-[9px] uppercase tracking-[0.12em]"
+                <span className="mono text-[10px] uppercase tracking-[0.12em]"
                   style={{ color: helpOpen ? ACCENT_DK : 'var(--color-zinc-400)' }}>
                   {helpOpen ? 'On' : 'Off'}
                 </span>
@@ -5964,7 +5995,7 @@ function AccountMenu({ displayName, initials, roleMeta,
               <button type="button" role="menuitem" onClick={run(onCycleTheme)} title={themeLabel} className={row}>
                 <ThemeIcon size={15} className="shrink-0 text-zinc-400"/>
                 <span className="flex-1 text-left">Theme</span>
-                <span className="mono text-[9px] uppercase tracking-[0.12em] text-zinc-400">{themeMode}</span>
+                <span className="mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">{themeMode}</span>
               </button>
 
               <button type="button" role="menuitem" onClick={run(onChangePassword)} className={row}>
@@ -6056,7 +6087,7 @@ function BottomNav({ bar, more, tab, goTab }) {
           it is. overflow-hidden is what lets the slots' own hover/focus fills
           stop at the rounded corners instead of squaring them off. */}
       <nav aria-label="Main"
-        className="lg:hidden no-print fixed left-4 right-4 z-40 flex items-stretch rounded-3xl bg-surface border border-zinc-200 overflow-hidden shadow-[0_6px_24px_-4px_rgba(24,24,27,0.20),0_2px_6px_-2px_rgba(24,24,27,0.12)]"
+        className="lg:hidden no-print fixed left-4 right-4 z-40 flex items-stretch rounded-2xl bg-surface border border-zinc-200 overflow-hidden shadow-[0_6px_24px_-4px_rgba(24,24,27,0.20),0_2px_6px_-2px_rgba(24,24,27,0.12)]"
         style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bar.map(n => (
@@ -6080,13 +6111,13 @@ function BottomNav({ bar, more, tab, goTab }) {
                   it with is still the thing you tap to close it. */}
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.16 }}
+                transition={{ duration: 0.18 }}
                 className="lg:hidden fixed inset-0 z-[38]" style={{ background: 'rgba(24,24,27,0.28)' }}
                 onClick={() => setMoreOpen(false)} aria-hidden="true"/>
               <motion.div role="menu" aria-label="More tabs"
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                className="lg:hidden fixed left-4 right-4 z-[39] bg-surface border border-zinc-200 rounded-3xl p-1.5 shadow-[0_6px_24px_-4px_rgba(24,24,27,0.20)]"
+                className="lg:hidden fixed left-4 right-4 z-[39] bg-surface border border-zinc-200 rounded-2xl p-1.5 shadow-[0_6px_24px_-4px_rgba(24,24,27,0.20)]"
                 style={{ bottom: 'calc(var(--app-navbar-h) + 8px)' }}
               >
                 {more.map(n => {
@@ -6490,7 +6521,7 @@ export default function Dashboard({ onLogout }) {
                     onClick={()=>{ if(!active) goTab(n.id); }}
                     aria-current={active ? 'page' : undefined}
                     title={`${n.label} · press ${idx+1}`}
-                    className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-full shrink-0 whitespace-nowrap text-[13.5px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40
+                    className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-full shrink-0 whitespace-nowrap text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40
                       ${active ? 'font-semibold' : 'text-zinc-500 hover:text-zinc-900 font-medium'}`}
                     style={active ? {color:ACCENT_DK} : undefined}
                   >
@@ -6622,7 +6653,10 @@ export default function Dashboard({ onLogout }) {
         <motion.div
           initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}
           transition={{duration:0.4,delay:0.05}}
-          className="mb-7 flex items-end justify-between gap-4"
+          // Below sm the filter drops onto its own row instead of disappearing:
+          // there is no room for a 3-way control beside a 30px title, but "no room
+          // beside the title" was never a reason to deny a phone the filter itself.
+          className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div>
             <h1 className="text-[30px] font-extrabold tracking-[-0.02em] text-zinc-900 leading-none">
@@ -6634,11 +6668,11 @@ export default function Dashboard({ onLogout }) {
           </div>
           {/* Channel filter — the analytics source combines WhatsApp + website chat. */}
           {capsFor(role).chats && ['overview','conversations','users'].includes(tab) && (
-            <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-zinc-100 border border-zinc-200 shrink-0" role="group" aria-label="Filter by channel">
+            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-zinc-100 border border-zinc-200 shrink-0 self-start sm:self-auto" role="group" aria-label="Filter by channel">
               {[['all','All'],['whatsapp','WhatsApp'],['web','Website']].map(([v,label])=>(
                 <button key={v} type="button" onClick={()=>setChannelFilter(v)}
                   aria-pressed={channelFilter===v}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${channelFilter===v?'bg-surface text-zinc-900 shadow-sm':'text-zinc-500 hover:text-zinc-800'}`}>
+                  className={`px-3 sm:px-2.5 min-h-10 sm:min-h-0 sm:py-1 rounded-md text-[12px] font-medium transition-colors ${channelFilter===v?'bg-surface text-zinc-900 shadow-sm':'text-zinc-500 hover:text-zinc-800'}`}>
                   {label}
                 </button>
               ))}
