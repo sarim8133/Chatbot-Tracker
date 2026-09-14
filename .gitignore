@@ -12,19 +12,33 @@ dist
 dist-ssr
 *.local
 
-# Local AI tool dirs
+# Local AI tool dirs — agent configs, caches and generated output. Every one of
+# these is rebuilt by its own tool, so committing them only makes git status noisy.
 .claude
 .gemini
 .impeccable
+.agents/
+.codex/
+.superpowers/
+graphify-out/
+skills-lock.json
+
+# Supabase CLI scratch
+supabase/.temp/
 
 # Env / secrets
 .env
 .env.*
 !.env.example
 
-# Raw n8n workflow exports — they embed live API keys/credentials. Keep local only.
-# The sanitized clone under n8n/ (no secrets) is safe to commit.
-/Mawavia Whatsapp Chatbot.json
+# Raw n8n workflow exports land in the download folder as "… (2).json", "… (3).json".
+# n8n/ keeps exactly ONE snapshot per workflow, under the workflow's own name; the
+# numbered copies are duplicates of it and should not be committed. (An export
+# carries credential ids and names, never the secret values — checked before
+# committing the two that are in there.)
+*(2).json
+*(3).json
+*(4).json
 
 # Editor directories and files
 .vscode/*
@@ -37,4 +51,3 @@ dist-ssr
 *.sln
 *.sw?
 
-.superpowers/
