@@ -33,3 +33,13 @@ catalogue_manifest.json
 # Same again for the backfill: rendered pages of the OEM brochures, plus the
 # cached vision output that lets a --go run reuse what the dry run already read.
 .render_backfill/
+
+# Competitor brochures gathered for the DG Tech comparison work. Same rule as
+# "new catalogues/" above, for the same reason, plus one more: these are a
+# competitor's documents rather than ours, and the folder is 117 MB. A git
+# remote keeps that forever even if a later commit deletes the files, and the
+# note at the top of this file applies -- publishing is not undoable.
+# What the ingest produced from them IS committed: competitor_review.md,
+# competitor_size_review.md/.json and competitor_manifest.json. The sources
+# stay local.
+DG TECH competetion/

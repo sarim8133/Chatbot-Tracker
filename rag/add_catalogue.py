@@ -121,6 +121,25 @@ CATALOGUES = [
     # collision report before letting this one through.
     {"folder": "SCR_Compressor_Booklet_2", "company": "SCR", "label": "SCR Compressor",
      "pdf": "SCR Compressor_Booklet.pdf", "collision_risk": True},
+    # Two standalone parameter-table screenshots, not brochure pages -- Sarim
+    # supplied the machine_type by hand (type_override, source "supplied").
+    # model_prefix: "D100" here is the SAME clamp platform as the existing
+    # "DT (Toggle-Clamp)" D100 (identical 1000 kN / 360x360 tie bars / 530x530
+    # platen) but a different, PVC-tuned injection unit (239 g PVC shot at
+    # 165 rpm vs the general D100's 181 g PS at 240 rpm) -- confirmed against
+    # the live record before ingesting. "PVC" in the name keeps the two apart.
+    {"folder": "Tederic_PVC_Drainage", "company": "Tederic", "label": "PVC Pipe-Fitting IMM (Drainage)",
+     "pdf": "PVC Tederic Injection Molding Machine.jpg",
+     "model_prefix": "PVC",
+     "type_override": "Horizontal servo-hydraulic and toggle injection moulding machine (IMM) series "
+                      "to process rigid or plasticized PVC, for drainage pipe fittings (PVC "
+                      "排水管件专机, drainage-pipe-fitting special machine)"},
+    {"folder": "Tederic_PVC_Water_Supply", "company": "Tederic", "label": "PVC Pipe-Fitting IMM (Water Supply)",
+     "pdf": "PVC Tederic 2 .jpg",
+     "model_prefix": "PVC",
+     "type_override": "Horizontal servo-hydraulic and toggle injection moulding machine (IMM) series "
+                      "to process rigid or plasticized PVC, for water-supply pipe fittings (PVC "
+                      "给水管件专机, water-supply-pipe-fitting special machine)"},
 ]
 
 # Not machines. The partnership A4 is corporate news and belongs in the
@@ -278,7 +297,149 @@ def pinecone_id(folder, model):
     return re.sub(r"[^a-zA-Z0-9_\-]", "", raw)[:400]
 
 
+def apply_model_prefix(cat, model):
+    px = cat.get("model_prefix")
+    if not px or px.lower() in model.lower():
+        return model
+    return f"{px} {model}"
+
+
+# Rule 5 of the prompt says "translate Chinese labels, keep the numbers" --
+# reliably true on the brochures this pipeline usually sees, because they print
+# English right next to the Chinese for the model to copy. These two PVC tables
+# print ONLY Chinese, no English anchor anywhere on the page, and across
+# several vision-pass runs the labels came back untranslated every time
+# ("合模力: 1000 kN" instead of "Clamping force: 1000 kN") -- unusable for
+# retrieval against an otherwise-English namespace. Patterns tolerate the
+# spacing/typo variants actually seen across runs (顶出力 vs 顶出出力,
+# 最大模开距 vs 最大模具开距, 理论容量 vs the OCR-flavoured 理论容最).
+CHINESE_LABEL_MAP = [
+    (r"合模力", "Clamping force"),
+    (r"移模行程", "Opening stroke"),
+    (r"拉杆内间距", "Space between tie bars"),
+    (r"最大模厚", "Max. mold thickness"),
+    (r"最小模厚", "Min. mold thickness"),
+    (r"顶出行程", "Ejector stroke"),
+    (r"顶出出?力", "Ejector force"),
+    (r"顶出杆数", "No. of ejector pins"),
+    (r"最大模具?开距", "Max. daylight"),
+    (r"最小模具尺寸", "Min. mold dimension"),
+    (r"模板尺寸(?:\s*\([^)]*\))?", "Platen dimensions"),
+    (r"螺杆直径", "Screw diameter"),
+    (r"螺杆长径比(?:\s*L/D)?", "Screw L/D ratio"),
+    (r"理论容[量最]", "Shot volume (theoretical)"),
+    (r"注射重量\s*\(?\s*PVC\s*\)?", "Injection weight (PVC)"),
+    (r"注射压力", "Injection pressure"),
+    (r"对空注射速率\s*\(?\s*PVC\s*\)?", "Injection rate into air (PVC)"),
+    (r"螺杆转速", "Screw speed"),
+    (r"最大注射速度", "Max. injection speed"),
+    (r"注射行程", "Injection stroke"),
+    (r"最大油泵压力", "Max. pump pressure"),
+    (r"油泵电机功率", "Pump motor power"),
+    (r"电热功率", "Heating power"),
+    (r"料斗容积", "Hopper capacity"),
+    (r"油箱容积", "Oil tank capacity"),
+]
+
+
+def translate_chinese_labels(specs):
+    """Deterministic label translation, not another model call -- see
+    pinecone-specs-summarized-lossy for why an LLM does not touch specs text
+    twice. Returns (translated, leftover) where leftover is any CJK text that
+    survived, so an unmapped label is reported instead of shipped silently."""
+    for pat, eng in CHINESE_LABEL_MAP:
+        specs = re.sub(pat, eng, specs)
+    leftover = re.findall(r"[一-鿿]+", specs)
+    return specs, leftover
+
+
+# The PVC parameter tables print each machine as TWO header rows sharing one
+# table -- a clamping-unit row keyed by its "D" code (D100, D130, ...) and an
+# injection-unit row keyed by its "i" code (i380, i510, ...) directly below it,
+# same column. The vision pass reads them as two separate machines: "D100"
+# comes back with clamping force, tie-bar spacing etc. and NOTHING about the
+# screw; "i380" comes back with screw diameter and shot weight and NOTHING
+# about clamping force. Neither is a usable record alone -- a rep who finds
+# "D100" cannot quote a shot weight, and "i380" is not even how the machine is
+# sold. This is a column-position fact the image shows and the JSON discards,
+# so it is corrected here by hand from the same two images, not re-derived.
+# Where one injection code serves two clamp sizes (same screw, same shot
+# volume in both columns -- verified against the source image) its specs are
+# copied into both, matching what the table actually prints.
+MERGE_INJECTION_UNIT = {
+    "Tederic_PVC_Drainage": {
+        "D100": "i380", "D130": "i510", "D160": "i600", "D200": "i850",
+        "D250": "i1100", "D350": "i1900", "D400": "i2500", "D500": "i3800",
+        "D600": "i4800", "D700": "i5800", "D800": "i7500",
+        "D1050": "i9500", "D1250": "i9500", "D1500": "i10600",
+    },
+    "Tederic_PVC_Water_Supply": {
+        "D100": "i510", "D130": "i600", "D160": "i850", "D200": "i1100",
+        "D250": "i1900", "D350": "i2500", "D400": "i3800", "D500": "i4800",
+        "D600": "i5800", "D700": "i7500", "D800": "i9500",
+        "D1050": "i10600", "D1250": "i10600",
+        "D1500": "i41000", "D1800": "i41000",
+        "D2400": "i66600", "D2800": "i66600",
+    },
+}
+
+
+def merge_split_models(cat, found):
+    """Undo the clamp/injection split described above, before anything else
+    touches `found`. A clamp row (its name is a key in the mapping) absorbs its
+    injection row's specs; the injection row (its name is a value in the
+    mapping) is then dropped -- it has no clamping data and was never a real
+    model on its own. An i-code reused by two clamp sizes is intentionally
+    looked up twice, once per clamp row, which is what makes the same specs
+    land in both."""
+    mapping = MERGE_INJECTION_UNIT.get(cat["folder"])
+    if not mapping:
+        return found
+    by_name = {}
+    for m in found:
+        by_name.setdefault(str(m.get("model_name") or "").strip(), m)
+    injection_codes = set(mapping.values())
+
+    out = []
+    for m in found:
+        name = str(m.get("model_name") or "").strip()
+        if name in mapping:
+            inj = by_name.get(mapping[name])
+            if inj is None:
+                print(f"    !! MERGE_INJECTION_UNIT[{name!r}]={mapping[name]!r} not found on "
+                      f"the page -- keeping {name!r} as clamp-unit specs only, check by eye")
+            else:
+                m = dict(m)
+                m["specs"] = f"{m.get('specs', '')}, {inj.get('specs', '')}"
+            out.append(m)
+        elif name in injection_codes:
+            continue  # folded into its clamp row above, or orphaned and reported there
+        else:
+            out.append(m)
+    return out
+
+
+def apply_model_suffix(cat, model):
+    """Tag a model with the application/configuration its catalogue is FOR.
+
+    Ported from add_competitor.py, needed here for the same reason it was
+    needed there: a model CODE can be reused across two catalogues for two
+    genuinely different injection-unit configurations on the same clamp
+    platform. Left bare, both records answer the same query and nothing tells
+    the rep which one they got."""
+    sfx = cat.get("model_suffix")
+    if not sfx or sfx.lower() in model.lower():
+        return model
+    return f"{model} [{sfx}]"
+
+
 def render_pages(pdf_path, out_dir, dpi=RENDER_DPI):
+    # A source that is already an image (a spec-table screenshot, not a scanned
+    # brochure) has no pages to render -- it IS the one page. Poppler only
+    # accepts PDF input, so handing it a .jpg would fail; treat it as a
+    # single-page "render" instead of teaching every caller about the distinction.
+    if pdf_path.lower().endswith((".jpg", ".jpeg", ".png")):
+        return [pdf_path]
     os.makedirs(out_dir, exist_ok=True)
     prefix = os.path.join(out_dir, "page")
     subprocess.run([poppler_bin("pdftoppm"), "-jpeg", "-r", str(dpi), pdf_path, prefix],
@@ -444,6 +605,7 @@ def process(cat, args, index, live_models):
         if not found:
             print(f"    page {n}: no models")
             continue
+        found = merge_split_models(cat, found)
 
         dest = f"{cat['folder']}/{cat['folder']}_page_{n}.jpg"
         # Retried like the Gemini calls: storage returned a one-off 400 midway
@@ -462,6 +624,12 @@ def process(cat, args, index, live_models):
                 # silent drop looks identical to a page the vision call missed.
                 dropped.append(model or "(unnamed)")
                 continue
+
+            specs, leftover_cjk = translate_chinese_labels(specs)
+            if leftover_cjk:
+                print(f"    !! {model}: untranslated label(s) after CHINESE_LABEL_MAP: "
+                      f"{', '.join(set(leftover_cjk))} -- add a pattern before ingesting")
+
             key = re.sub(r"[^a-z0-9]", "", model.lower())
             mt = str(m.get("machine_type") or "").strip()
             src = str(m.get("machine_type_source") or "unknown").strip().lower()
@@ -478,6 +646,17 @@ def process(cat, args, index, live_models):
             if mt and ev_key and (ev_key in key or key in ev_key):
                 dropped_type.append(model)
                 mt, src = "", "unknown"
+
+            # A hand-supplied type beats anything the vision pass produced or
+            # left blank -- see the registry comment on Tederic_PVC_*.
+            if cat.get("type_override"):
+                mt, src = cat["type_override"], "supplied"
+
+            # AFTER the collision lookup (which must key on the bare model code
+            # to find the platform it shares) -- the prefix only changes what
+            # gets stored and displayed.
+            model = apply_model_prefix(cat, model)
+
             rows.append({
                 "id": pinecone_id(cat["folder"], model),
                 "page": n, "model": model, "machine_type": mt,
@@ -514,6 +693,7 @@ def write_review(all_rows):
         by_cat.setdefault(r["label"], []).append(r)
     n_print = sum(1 for r in all_rows if r["source"] == "printed")
     n_deriv = sum(1 for r in all_rows if r["source"] == "derived")
+    n_supp = sum(1 for r in all_rows if r["source"] == "supplied")
     n_unk = sum(1 for r in all_rows if r["source"] == "unknown")
     coll = [r for r in all_rows if r["collides_with"]]
 
@@ -522,7 +702,7 @@ def write_review(all_rows):
         f.write("Correct anything wrong here BEFORE a non-dry run. You know the catalogue.\n\n")
         f.write(f"- **{len(all_rows)}** models across **{len(by_cat)}** catalogues\n")
         f.write(f"- machine_type source: **{n_print} printed**, **{n_deriv} derived**, "
-                f"**{n_unk} unknown** (left blank on purpose)\n")
+                f"**{n_supp} supplied**, **{n_unk} unknown** (left blank on purpose)\n")
         f.write(f"- **{len(coll)}** model names already exist in the live namespace\n\n")
         if coll:
             f.write("## Collisions -- resolve before ingesting\n\n")

@@ -72,6 +72,12 @@ MANIFEST = os.path.join(HERE, "pdf_manifest.json")
 # used to cut assistant reasoning traces and research-log front matter, which
 # are about the making of the document rather than its subject.
 DOC_CONFIG = {
+    "Huare Crusher Models Codes.pdf": {
+        "title": "Huare Crusher Models Codes",
+        # Everything above this heading is a restatement of the question and the
+        # assistant's framing of it; the answer proper starts at the breakdown.
+        "start_after": "Model Nomenclature System Breakdown",
+    },
     "data file 1 @hitech.pdf": {
         "title": "HiTech Machinery — Complete Research Compendium",
         # Part I is a log of the research session itself ("Request 4 — Method:
@@ -87,6 +93,16 @@ DOC_CONFIG = {
     },
     "tederic all models details.pdf": {
         "title": "Tederic Series Guide — NEO·T, NEO·M, NEO·H, NEO·E and specialised lines",
+    },
+    # Positioning, not specifications: which blow-moulding technology answers which
+    # enquiry, and who HiTech is up against in each one (DG Tech/Victor on
+    # 3-station rotary IBM, Liuzhou Jingye on ISBM, Aoktac on 2-step reheat PET).
+    # It names competitors but belongs in `knowledge`, not the `competitor`
+    # namespace -- that namespace is transcribed rival SPEC SHEETS, and this
+    # document contains none. It is HiTech's own argument.
+    "rotary and IBM ISBM COMAPRISION.pdf": {
+        "title": "Blow Moulding Technology Comparison — Rotary IBM, ISBM and Extrusion Blow, and how HiTech competes",
+        "end_before": "If you are mapping out your next plant layout",
     },
 }
 
@@ -332,7 +348,7 @@ def save_manifest(m):
 
 
 def prepare(path, cfg):
-    """PDF -> cleaned text, honouring the per-document start_after cut."""
+    """PDF -> cleaned text, honouring the per-document start_after/end_before cuts."""
     raw = extract_pdf(path)
     text = strip_artifacts(repair_layout(raw))
     marker = cfg.get("start_after")
@@ -345,6 +361,22 @@ def prepare(path, cfg):
         text = text[i + len(marker):].lstrip("\n :.-")
         if cfg.get("prepend"):
             text = cfg["prepend"] + "\n" + text
+    # The mirror of start_after, for scaffolding at the END. CHATTY_SENTENCE
+    # already removes short conversational asides, but it is capped at
+    # CHATTY_MAX_WORDS on purpose -- a long sentence is usually carrying content,
+    # and the cap is what stops the filter eating real paragraphs. A closing
+    # "let me know if you'd like me to draft an inquiry message you can send to
+    # the HiTech sales team" runs to 38 words and sails straight through. Left in,
+    # a rep asking about blow moulding gets the bot offering to write them an
+    # email to their own employer.
+    tail = cfg.get("end_before")
+    if tail:
+        j = text.find(tail)
+        if j == -1:
+            raise SystemExit(
+                f"end_before marker not found in {os.path.basename(path)!r}: {tail!r}\n"
+                "The document changed -- re-check the cut before ingesting.")
+        text = text[:j].rstrip("\n :.-")
     return raw, text
 
 

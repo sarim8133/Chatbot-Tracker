@@ -1,0 +1,8407 @@
+[
+ {
+  "id": "Chi_Wai_Manual_QWS_475ZY",
+  "model": "QWS-475ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   355.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "355",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80B_64",
+  "model": "MF-80B-64",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   85000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "85000-100000",
+  "note": "range 85000-100000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_45WX",
+  "model": "QWL-45WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_300ZBY",
+  "model": "QWL-300ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   220.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "220",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_525ZY",
+  "model": "QWS-525ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   400.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "400",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_4SS",
+  "model": "OGB-4SS",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   6000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "6000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_40SA_A",
+  "model": "QWL-40SA (A)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   30.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "30",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80B_36",
+  "model": "MF-80B-36",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   45000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "45000-52000",
+  "note": "range 45000-52000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_20WX",
+  "model": "QWL-20WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_30ZBY",
+  "model": "QWL-30ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   22.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "22",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_50_32",
+  "model": "MF-50-32",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   32000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "32000-35000",
+  "note": "range 32000-35000, took low end"
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_6SM",
+  "model": "OGB-6SM",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   9000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "9000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_60ZY",
+  "model": "QWS-60ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   45.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "45",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_30WX",
+  "model": "QWL-30WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_6S",
+  "model": "OGB-6S",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   6000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "6000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_425ZBY",
+  "model": "QWL-425ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   315.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "315",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_50_24",
+  "model": "MF-50-24",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   25000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "25000-28000",
+  "note": "range 25000-28000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_300ZY",
+  "model": "QWS-300ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   220.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "220",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGS_1_10",
+  "model": "OGS-1-10",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   150.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "150-400 Pcs/h",
+  "note": "range 150-400, took low end"
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_5SS",
+  "model": "OGB-5SS",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   7500.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "7500 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_250ZBY",
+  "model": "QWL-250ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   185.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "185",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_200ZBY",
+  "model": "QWL-200ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   160.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "160",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_420_G_900",
+  "model": "LS 420 G (900)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   4200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4200 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_100ZY",
+  "model": "QWS-100ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   75.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "75",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_75SA_A",
+  "model": "QWL-75SA (A)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   55.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "55",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80G",
+  "model": "MF-80G",
+  "category": "Cap Machine",
+  "was_category": "Other / Needs Review",
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   20000.0,
+   "pcs/h"
+  ],
+  "matched": "Capacity",
+  "raw": "20000-30000pcs/hr\n\u4ea7\u91cf: 20000-30000\u4e2a/\u5c0f\u65f6",
+  "note": "range 20000-30000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_20ZY",
+  "model": "QWS-20ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   15.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "15",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_50ZBY",
+  "model": "QWL-50ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   37.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "37",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_40SA_W",
+  "model": "QWL-40SA (W)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   30.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "30",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_75ZY",
+  "model": "QWS-75ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   55.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "55",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_75SA_W",
+  "model": "QWL-75SA (W)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   55.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "55",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_3_7",
+  "model": "OGB-3-7",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   1800.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "1800 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_100ZBY",
+  "model": "QWL-100ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   75.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "75",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_350ZY",
+  "model": "QWS-350ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   250.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "250",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_10SA",
+  "model": "QWL-10SA",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   7.5,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "7.5",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_375ZBY",
+  "model": "QWL-375ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   280.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "280",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_4S",
+  "model": "OGB-4S",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   4500.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "4500 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_170_G_400",
+  "model": "LS 170 G (400)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_30ZCY",
+  "model": "QWL-30ZCY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   22.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "22",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_490_G_1000",
+  "model": "LS 490 G (1000)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   4900.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4900 KN",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80E",
+  "model": "MF-80E",
+  "category": "Cap Machine",
+  "was_category": "Other / Needs Review",
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   25000.0,
+   "pcs/h"
+  ],
+  "matched": "Capacity",
+  "raw": "25000-30000pcs/hr;\u4ea7\u91cf: 25000-30000\u4e2a/\u5c0f\u65f6",
+  "note": "range 25000-30000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_200ZY",
+  "model": "QWS-200ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   160.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "160",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_928_G_3900",
+  "model": "LS 928 G (3900)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   9280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "9280 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_15WX",
+  "model": "QWL-15WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_40ZCY",
+  "model": "QWL-40ZCY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   30.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "30",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_250ZY",
+  "model": "QWS-250ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   185.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "185",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_40ZBY",
+  "model": "QWL-40ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   30.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "30",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_150ZY",
+  "model": "QWS-150ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   110.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "110",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_290_G_770",
+  "model": "LS 290 G (770)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   2900.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2900 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_30ZY",
+  "model": "QWS-30ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   22.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "22",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_310_G_770",
+  "model": "LS 310 G (770)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   3100.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3100 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_175ZY",
+  "model": "QWS-175ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   132.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "132",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_275ZY",
+  "model": "QWS-275ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   200.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "200",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_6SS",
+  "model": "OGB-6SS",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   9000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "9000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_125ZBY",
+  "model": "QWL-125ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   90.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "90",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_30SA",
+  "model": "QWL-30SA",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   22.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "22",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_375ZY",
+  "model": "QWS-375ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   280.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "280",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_60ZBY",
+  "model": "QWL-60ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   45.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "45",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_350_G_770",
+  "model": "LS 350 G (770)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_15SA",
+  "model": "QWL-15SA",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   11.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "11",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_50ZCY",
+  "model": "QWL-50ZCY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   37.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "37",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80B_24",
+  "model": "MF-80B-24",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   30000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "30000-35000",
+  "note": "range 30000-35000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_40ZY",
+  "model": "QWS-40ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   30.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "30",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80B_32",
+  "model": "MF-80B-32",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   38000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "38000-40000",
+  "note": "range 38000-40000, took low end"
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_220_G_600",
+  "model": "LS 220 G (600)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   2200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2200 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_6ZCY",
+  "model": "QWL-6ZCY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   4.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "4",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_50SA_A",
+  "model": "QWL-50SA (A)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   37.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "37",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_60SA_A",
+  "model": "QWL-60SA (A)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   45.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "45",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_50ZY",
+  "model": "QWS-50ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   37.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "37",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_130_G_340",
+  "model": "LS 130 G (340)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   1300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1300 KN",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGS_1_20",
+  "model": "OGS-1-20",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   90.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "90-200 Pcs/h",
+  "note": "range 90-200, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_5WX",
+  "model": "QWL-5WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_3S",
+  "model": "OGB-3S",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   3500.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "3500 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGS_2",
+  "model": "OGS-2",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   900.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "900 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_350ZBY",
+  "model": "QWL-350ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   250.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "250",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_20ZCY",
+  "model": "QWL-20ZCY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   15.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "15",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80C",
+  "model": "MF-80C",
+  "category": "Cap Machine",
+  "was_category": "Other / Needs Review",
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   25000.0,
+   "pcs/h"
+  ],
+  "matched": "Capacity",
+  "raw": "25000-30000pcs/hr;\u4ea7\u91cf: 25000-30000\u4e2a/\u5c0f\u65f6",
+  "note": "range 25000-30000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_10ZCY",
+  "model": "QWL-10ZCY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   7.5,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "7.5",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_60SA_W",
+  "model": "QWL-60SA (W)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   45.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "45",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_7SA",
+  "model": "QWL-7SA",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   5.5,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "5.5",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_50_18",
+  "model": "MF-50-18",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   17000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "17000-19000",
+  "note": "range 17000-19000, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_125ZY",
+  "model": "QWS-125ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   90.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "90",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_20SA",
+  "model": "QWL-20SA",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   15.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "15",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_680_G_3300",
+  "model": "LS 680 G (3300)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   6800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "6800 KN",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGB_2_10",
+  "model": "OGB-2-10",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   1200.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "1200 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_150ZBY",
+  "model": "QWL-150ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   110.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "110",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_7_5WX",
+  "model": "QWL-7.5WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_458_G_1000",
+  "model": "LS 458 G (1000)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   4580.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4580 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_50SA_W",
+  "model": "QWL-50SA (W)",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   37.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "37",
+  "note": ""
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_380_G_900",
+  "model": "LS 380 G (900)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   3800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3800 KN",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGS_1",
+  "model": "OGS-1",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   200.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "200-900 Pcs/h",
+  "note": "range 200-900, took low end"
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_10WX",
+  "model": "QWL-10WX",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80B_48",
+  "model": "MF-80B-48",
+  "category": "Cap Machine",
+  "was_category": null,
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   65000.0,
+   "pcs/h"
+  ],
+  "matched": "Max. Capacity (pcs/hr)",
+  "raw": "65000-70000",
+  "note": "range 65000-70000, took low end"
+ },
+ {
+  "id": "LS_Thin_Wall_IMM_LS_200_G_600",
+  "model": "LS 200 G (600)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "LS Thin-Wall Injection",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2000 KN",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_275ZBY",
+  "model": "QWL-275ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   200.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "200",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_75ZBY",
+  "model": "QWL-75ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   55.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "55",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWS_425ZY",
+  "model": "QWS-425ZY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   315.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "315",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_175ZBY",
+  "model": "QWL-175ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   132.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "132",
+  "note": ""
+ },
+ {
+  "id": "Chi_Wai_Manual_QWL_20ZBY",
+  "model": "QWL-20ZBY",
+  "category": "Screw Air Compressor",
+  "was_category": null,
+  "catalogue": "Chi-Wai",
+  "size": [
+   "motor_power",
+   15.0,
+   "kW"
+  ],
+  "matched": "KW",
+  "raw": "15",
+  "note": ""
+ },
+ {
+  "id": "MINFENG_Cap_MF_80D",
+  "model": "MF-80D",
+  "category": "Cap Machine",
+  "was_category": "Other / Needs Review",
+  "catalogue": "MINFENG Cap Machinery",
+  "size": [
+   "output_rate",
+   30000.0,
+   "pcs/h"
+  ],
+  "matched": "Capacity",
+  "raw": "30000-35000pcs/hr(Thirty-six heads)\n\u4ea7\u91cf: 30000-35000\u4e2a/\u5c0f\u65f6(36\u5934)",
+  "note": "range 30000-35000, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_3000L",
+  "model": "SHD-3000L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   2000.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "2000 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SD_9",
+  "model": "SD-9",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   80.0,
+   "kg"
+  ],
+  "matched": "Capacity(kg)",
+  "raw": "80",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_150",
+  "model": "SHD-150",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   150.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "150 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_1000",
+  "model": "SHD-1000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1000.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "1000 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_120L",
+  "model": "SHD-120L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   75.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "75 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_600",
+  "model": "SHD-600",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   600.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "600 kg",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_3SS",
+  "model": "SJ-3SS",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   4000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "4000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_4HP_F_E",
+  "model": "SAL-4HP(-F)(E)",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   600.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "600",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_4000L",
+  "model": "SHD-4000L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   3000.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "3000 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_1200L",
+  "model": "SHD-1200L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   800.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "800 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_15",
+  "model": "SHD-15",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   15.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "15 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_600B",
+  "model": "SCB-600B",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   600.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "600",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_400JF",
+  "model": "SG-400JF",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_300L",
+  "model": "SHD-300L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   200.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "200 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_700G",
+  "model": "SAL-700G",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   300.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_400TB",
+  "model": "SCB-400TB",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   400.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "400",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCM_16S_M",
+  "model": "SCM-16S(M)",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "barrel_volume",
+   10.0,
+   "L"
+  ],
+  "matched": "Materials barrel (L)",
+  "raw": "10",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_50",
+  "model": "SHD-50",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   50.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "50 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_240FET_2B_2C",
+  "model": "SG-240FET-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   50.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "50-80",
+  "note": "range 50-80, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SG_3242_2B_2C",
+  "model": "SG-3242-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   25.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "25-30",
+  "note": "range 25-30, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_460L",
+  "model": "SHD-460L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   300.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "300 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_500JF",
+  "model": "SG-500JF",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_1000F",
+  "model": "SG-1000F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_3HP_F_E",
+  "model": "SAL-3HP(-F)(E)",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   550.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "550",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_500",
+  "model": "SCB-500",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   500.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "500",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_160L",
+  "model": "SHD-160L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   100.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "100 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_800G2",
+  "model": "SAL-800G2",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   400.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "400",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_3844_2B_2C",
+  "model": "SG-3844-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   35.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "35-40",
+  "note": "range 35-40, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SG_500F",
+  "model": "SG-500F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_300B",
+  "model": "SCB-300B",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   300.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_230F",
+  "model": "SG-230F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_4MS",
+  "model": "SJ-4MS",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   5000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "5000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_5000L",
+  "model": "SHD-5000L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   3000.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "3000 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_800G2E",
+  "model": "SAL-800G2E",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   400.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "400",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_180FET_2B_2C",
+  "model": "SG-180FET-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   30.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "30-50",
+  "note": "range 30-50, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_75",
+  "model": "SHD-75",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   75.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "75 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_40L",
+  "model": "SHD-40L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   25.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "25 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_300",
+  "model": "SHD-300",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   300.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "300 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_360",
+  "model": "SAL-360",
+  "category": "Loader / Conveying System",
+  "was_category": "Injection Molding Machine",
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   300.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_4SS",
+  "model": "SJ-4SS",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   6000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "6000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_10HP_F_E",
+  "model": "SAL-10HP(-F)(E)",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   1000.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "1000",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_600JF",
+  "model": "SG-600JF",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_3L",
+  "model": "SHD-3L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   2.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "2 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_300TB",
+  "model": "SCB-300TB",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   300.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_800JF",
+  "model": "SG-800JF",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_5L",
+  "model": "SHD-5L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   3.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "3 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCM_12S_M",
+  "model": "SCM-12S(M)",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "barrel_volume",
+   10.0,
+   "L"
+  ],
+  "matched": "Materials barrel (L)",
+  "raw": "10",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_600F",
+  "model": "SG-600F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_800G1",
+  "model": "SAL-800G1",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   350.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "350",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SBL_50",
+  "model": "SBL-50",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_400F",
+  "model": "SG-400F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_360FET_2B_2C",
+  "model": "SG-360FET-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   80.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "80-130",
+  "note": "range 80-130, took low end"
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_1W",
+  "model": "SJ-1W",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   600.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "600 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_300",
+  "model": "SCB-300",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   300.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_3S",
+  "model": "SJ-3S",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   3500.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "3500 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_25",
+  "model": "SHD-25",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   25.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "25 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_300C",
+  "model": "SAL-300C",
+  "category": "Loader / Conveying System",
+  "was_category": "Injection Molding Machine",
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   250.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "250",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_7_5HP_F_E",
+  "model": "SAL-7.5HP(-F)(E)",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   800.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "800",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_2",
+  "model": "SJ-2",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   2500.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "2500 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_360E",
+  "model": "SAL-360E",
+  "category": "Loader / Conveying System",
+  "was_category": "Injection Molding Machine",
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   300.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGS_2_5",
+  "model": "OGS-2-5",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   300.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "300-500 Pcs/h",
+  "note": "range 300-500, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SCM_14S_M",
+  "model": "SCM-14S(M)",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "barrel_volume",
+   10.0,
+   "L"
+  ],
+  "matched": "Materials barrel (L)",
+  "raw": "10",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_420FET_2B_2C",
+  "model": "SG-420FET-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   100.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "100-150",
+  "note": "range 100-150, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_380L",
+  "model": "SHD-380L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   250.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "250 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCM_14SD_M",
+  "model": "SCM-14SD(M)",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "barrel_volume",
+   20.0,
+   "L"
+  ],
+  "matched": "Materials barrel (L)",
+  "raw": "10x2",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SG_1200F",
+  "model": "SG-1200F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SBL_100",
+  "model": "SBL-100",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_2W",
+  "model": "SJ-2W",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   1200.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "1200 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCM_16SD_M",
+  "model": "SCM-16SD(M)",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "barrel_volume",
+   20.0,
+   "L"
+  ],
+  "matched": "Materials barrel (L)",
+  "raw": "10x2",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SG_300F",
+  "model": "SG-300F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_500",
+  "model": "SHD-500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   500.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "500 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_800F",
+  "model": "SG-800F",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_1500L",
+  "model": "SHD-1500L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1000.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "1000 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_100",
+  "model": "SHD-100",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   100.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "100 kg",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_OGS_4",
+  "model": "OGS-4",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   1800.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "1800 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_800G1E",
+  "model": "SAL-800G1E",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   350.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "350",
+  "note": ""
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_1_20",
+  "model": "SJ-1-20",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   600.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "600 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_2000L",
+  "model": "SHD-2000L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1500.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "1500 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_2425_2B_2C",
+  "model": "SG-2425-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   15.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "15-20",
+  "note": "range 15-20, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_600",
+  "model": "SCB-600",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   600.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "600",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_400",
+  "model": "SCB-400",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   400.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "400",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_2838_2B_2C",
+  "model": "SG-2838-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   20.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "20-25",
+  "note": "range 20-25, took low end"
+ },
+ {
+  "id": "SML_Auxiliaries_SD_5",
+  "model": "SD-5",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   45.0,
+   "kg"
+  ],
+  "matched": "Capacity(kg)",
+  "raw": "45",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_5HP_F_E",
+  "model": "SAL-5HP(-F)(E)",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   700.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "700",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_1000L",
+  "model": "SHD-1000L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   700.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "700 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCM_12SD_M",
+  "model": "SCM-12SD(M)",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "barrel_volume",
+   20.0,
+   "L"
+  ],
+  "matched": "Materials barrel (L)",
+  "raw": "10x2",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_400",
+  "model": "SHD-400",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   400.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "400 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_250",
+  "model": "SHD-250",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   250.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "250 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_800G",
+  "model": "SAL-800G",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   350.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "350",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_700GE",
+  "model": "SAL-700GE",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   300.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "300",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_500B",
+  "model": "SCB-500B",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   500.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "500",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SAL_400",
+  "model": "SAL-400",
+  "category": "Loader / Conveying System",
+  "was_category": "Injection Molding Machine",
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   350.0,
+   "kg/h"
+  ],
+  "matched": "Conveying Capacity (kg/hr)",
+  "raw": "350",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_230L",
+  "model": "SHD-230L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   150.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "150 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SCB_400B",
+  "model": "SCB-400B",
+  "category": "Loader / Conveying System",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "belt_width",
+   400.0,
+   "mm"
+  ],
+  "matched": "Belt width (mm)",
+  "raw": "400",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SG_300FET_2B_2C",
+  "model": "SG-300FET-2B/2C",
+  "category": "Crusher / Granulator",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   50.0,
+   "kg/h"
+  ],
+  "matched": "Crush Capacity(Kg/H)",
+  "raw": "50-100",
+  "note": "range 50-100, took low end"
+ },
+ {
+  "id": "OUGE_PET_Blow_SJ_2S",
+  "model": "SJ-2S",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "OUGE PET Blow",
+  "size": [
+   "output_rate",
+   3000.0,
+   "pcs/h"
+  ],
+  "matched": "Theoretical output",
+  "raw": "3000 Pcs/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_600L",
+  "model": "SHD-600L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   400.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "400 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_1700L",
+  "model": "SHD-1700L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1200.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "1200 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_3300L",
+  "model": "SHD-3300L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   3000.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "3000 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_200",
+  "model": "SHD-200",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   200.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "200 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLC_40L_D",
+  "model": "SLC-40L(D)",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   40.0,
+   "L"
+  ],
+  "matched": "Capacity (L)",
+  "raw": "40",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL3100_SP92500_screw_240mm",
+  "model": "DPL3100-SP92500 (screw 240mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   31000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "31000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_1000L_700",
+  "model": "SLH-1000L-700",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1000.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "1000, Dry blower(m\u00b3/hr): 700",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_9Z",
+  "model": "STCH-9Z",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "9",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLC_160L_D",
+  "model": "SLC-160L(D)",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   160.0,
+   "L"
+  ],
+  "matched": "Capacity (L)",
+  "raw": "160",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SWH_800",
+  "model": "SWH-800",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   1000.0,
+   "kg/h"
+  ],
+  "matched": "The max. capacity",
+  "raw": "1000",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_5AA",
+  "model": "SL-5AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   14.87,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "14.87 kW, 12800 Kcal/h",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL3100_SP72200_screw_220mm",
+  "model": "DPL3100-SP72200 (screw 220mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   31000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "31000 KN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN100EMH_PLUS_B",
+  "model": "UN100EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN; Space between tie bars(H\u00d7V): 410\u00d7360 mm; MIN.mold dimension(H\u00d7V): 310\u00d7310 mm",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SMD_2000",
+  "model": "SMD-2000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_18Z",
+  "model": "STCH-18Z",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   18.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "18",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_120",
+  "model": "SLD-120",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_6W",
+  "model": "STC-6W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "6",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_300L_150",
+  "model": "SLHJ-300L-150",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   300.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "300, Dry blower(m\u00b3/hr): 150",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_80L_40",
+  "model": "SLHJ-80L-40",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   80.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "80, Dry blower(m\u00b3/hr): 40",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_160L_100",
+  "model": "SLHJ-160L-100",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   160.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "160, Dry blower(m\u00b3/hr): 100",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL3100_SP92500_screw_260mm",
+  "model": "DPL3100-SP92500 (screw 260mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   31000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "31000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_12WZ",
+  "model": "STCH-12WZ",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "12",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_18",
+  "model": "STC-18",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "9X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_18W",
+  "model": "STC-18W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "9X2",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL2100_SP26000_screw_150mm",
+  "model": "DPL2100-SP26000 (screw 150mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   21000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "21000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_9WZ",
+  "model": "STCH-9WZ",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "9",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_2000L_1500",
+  "model": "SLH-2000L-1500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   2000.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "2000, Dry blower(m\u00b3/hr): 1500",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_6Z",
+  "model": "STCH-6Z",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "6",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_5W",
+  "model": "SL-5W",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   14.87,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "14.87 kW, 12800 Kcal/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_30AA",
+  "model": "SL-30AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   88.80000000000001,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "29.6x3 kW, 77400 Kcal/h",
+  "note": "x3 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SL_12AA",
+  "model": "SL-12AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   38.72,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "19.36x2 kW, 30960 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SL_15W",
+  "model": "SL-15W",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   47.78,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "23.89x2 kW, 38700 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_STC_9W_2D",
+  "model": "STC-9W-2D",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "9X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_12W",
+  "model": "STC-12W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "12",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_12Z",
+  "model": "STCH-12Z",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "12",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_15AA",
+  "model": "SL-15AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   47.78,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "23.89x2 kW, 38700 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_STC_6",
+  "model": "STC-6",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "6",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_400",
+  "model": "SLD-400",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_40AA",
+  "model": "SL-40AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   118.4,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "29.6x4 kW, 103200 Kcal/h",
+  "note": "x4 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_300",
+  "model": "SLD-300",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_120L_100",
+  "model": "SLHJ-120L-100",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   120.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "120, Dry blower(m\u00b3/hr): 100",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL3100_SP72200_screw_240mm",
+  "model": "DPL3100-SP72200 (screw 240mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   31000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "31000 KN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN100EMH_PLUS_A",
+  "model": "UN100EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN; Space between tie bars(H\u00d7V): 410\u00d7360 mm; MIN.mold dimension(H\u00d7V): 310\u00d7310 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL2800_SP52700_screw_200mm",
+  "model": "DPL2800-SP52700 (screw 200mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   28000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "28000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SWH_500",
+  "model": "SWH-500",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   500.0,
+   "kg/h"
+  ],
+  "matched": "The max. capacity",
+  "raw": "500",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_1700L_1000",
+  "model": "SLH-1700L-1000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1800.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "1800, Dry blower(m\u00b3/hr): 1000",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_800L_500",
+  "model": "SLH-800L-500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   800.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "800, Dry blower(m\u00b3/hr): 500",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL2400_SP40600_screw_180mm",
+  "model": "DPL2400-SP40600 (screw 180mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   24000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "24000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_2AA",
+  "model": "SL-2AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   5.74,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "5.74 kW, 5160 Kcal/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_9",
+  "model": "STC-9",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "9",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_12W",
+  "model": "STCH-12W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "12",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLC_120L_D",
+  "model": "SLC-120L(D)",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   120.0,
+   "L"
+  ],
+  "matched": "Capacity (L)",
+  "raw": "120",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_8AA",
+  "model": "SL-8AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   25.0,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "25 kW, 20640 Kcal/h",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_40L_40",
+  "model": "SLHJ-40L-40",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   40.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "40, Dry blower(m\u00b3/hr): 40",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_12W_2D",
+  "model": "STC-12W-2D",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "12X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_100",
+  "model": "SLD-100",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_800L",
+  "model": "SHD-800L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   600.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "600 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_12",
+  "model": "STC-12",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "12",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLC_80L_D",
+  "model": "SLC-80L(D)",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   80.0,
+   "L"
+  ],
+  "matched": "Capacity (L)",
+  "raw": "80",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_9W",
+  "model": "STCH-9W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "9",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_1500",
+  "model": "SLD-1500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN100EMH_PLUS_AA",
+  "model": "UN100EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN; Space between tie bars(H\u00d7V): 410\u00d7360 mm; MIN.mold dimension(H\u00d7V): 310\u00d7310 mm",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_40W",
+  "model": "SL-40W",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   118.4,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "29.6x4 kW, 103200 Kcal/h",
+  "note": "x4 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_6WZ",
+  "model": "STCH-6WZ",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "6",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_1200L_700",
+  "model": "SLH-1200L-700",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1200.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "1200, Dry blower(m\u00b3/hr): 700",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_700",
+  "model": "SLD-700",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL2800_SP52700_screw_220mm",
+  "model": "DPL2800-SP52700 (screw 220mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   28000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "28000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_30W",
+  "model": "SL-30W",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   88.80000000000001,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "29.6x3 kW, 77400 Kcal/h",
+  "note": "x3 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_2000",
+  "model": "SLD-2000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SMD_500",
+  "model": "SMD-500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_6_2D",
+  "model": "STC-6-2D",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "6X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_80",
+  "model": "SLD-80",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_600L_400",
+  "model": "SLH-600L-400",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   600.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "600, Dry blower(m\u00b3/hr): 400",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_200",
+  "model": "SLD-200",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_460L_300",
+  "model": "SLH-460L-300",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   460.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "460, Dry blower(m\u00b3/hr): 300",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_20W",
+  "model": "SL-20W",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   59.2,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "29.6x2 kW, 51600 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_800",
+  "model": "SHD-800",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   800.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "800 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_150",
+  "model": "SLD-150",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_24",
+  "model": "STC-24",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "12X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_230L_120",
+  "model": "SLHJ-230L-120",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   230.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "230, Dry blower(m\u00b3/hr): 120",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STCH_6W",
+  "model": "STCH-6W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat (kW)",
+  "raw": "6",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_6W_2D",
+  "model": "STC-6W-2D",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   6.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "6X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SHD_80L",
+  "model": "SHD-80L",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   50.0,
+   "L"
+  ],
+  "matched": "Capacity",
+  "raw": "50 kg",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_60AA",
+  "model": "SL-60AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   180.0,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "45x4 kW, 154800 Kcal/h",
+  "note": "x4 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SMD_1500",
+  "model": "SMD-1500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLH_1500L_1000",
+  "model": "SLH-1500L-1000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   1500.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "1500, Dry blower(m\u00b3/hr): 1000",
+  "note": ""
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL2100_SP26000_screw_165mm",
+  "model": "DPL2100-SP26000 (screw 165mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   21000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "21000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_10W",
+  "model": "SL-10W",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   29.74,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "14.87x2 kW, 25800 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_380L_200",
+  "model": "SLHJ-380L-200",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   380.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "380, Dry blower(m\u00b3/hr): 200",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SWH_700",
+  "model": "SWH-700",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   640.0,
+   "kg/h"
+  ],
+  "matched": "The max. capacity",
+  "raw": "640",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_12_2D",
+  "model": "STC-12-2D",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "12X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_500",
+  "model": "SLD-500",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_STC_9W",
+  "model": "STC-9W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "9",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SWH_100",
+  "model": "SWH-100",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   100.0,
+   "kg/h"
+  ],
+  "matched": "The max. capacity",
+  "raw": "100",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_20AA",
+  "model": "SL-20AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   59.2,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "29.6x2 kW, 51600 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_STC_24W",
+  "model": "STC-24W",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   12.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "12X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLHJ_80L_80",
+  "model": "SLHJ-80L-80",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "capacity",
+   80.0,
+   "L"
+  ],
+  "matched": "Capacity(L)",
+  "raw": "80, Dry blower(m\u00b3/hr): 80",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SLD_1000",
+  "model": "SLD-1000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_50AA",
+  "model": "SL-50AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   135.36,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "33.84x4 kW, 129000 Kcal/h",
+  "note": "x4 applied"
+ },
+ {
+  "id": "SML_Auxiliaries_STC_9_2D",
+  "model": "STC-9-2D",
+  "category": "Mould Temperature Controller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "heater_power",
+   9.0,
+   "kW"
+  ],
+  "matched": "Heat(Kw)",
+  "raw": "9X2",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SWH_200",
+  "model": "SWH-200",
+  "category": "Mixing & Dosing Unit",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "throughput",
+   220.0,
+   "kg/h"
+  ],
+  "matched": "The max. capacity",
+  "raw": "220",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SL_10AA",
+  "model": "SL-10AA",
+  "category": "Chiller",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": [
+   "refrigeration_capacity",
+   29.74,
+   "kW"
+  ],
+  "matched": "Refrigeration capacity",
+  "raw": "14.87x2 kW, 25800 Kcal/h",
+  "note": "x2 applied"
+ },
+ {
+  "id": "SOUND_DP_Two_Platen_DPL2400_SP40600_screw_200mm",
+  "model": "DPL2400-SP40600 (screw 200mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND DP Two-Platen Series",
+  "size": [
+   "clamping_force",
+   24000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "24000 KN",
+  "note": ""
+ },
+ {
+  "id": "SML_Auxiliaries_SMD_1000",
+  "model": "SMD-1000",
+  "category": "Plastic Material Dryer / Loader",
+  "was_category": null,
+  "catalogue": "SML Auxiliaries",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN3300EPIII_69200_screw_230mm",
+  "model": "UN3300EPIII/69200 (screw 230mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   33000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "33000 KN, Space between tie bars(H\u00d7V): 2270\u00d71900 mm, Min.mold dimension(H\u00d7V): 1600\u00d71600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2900EPIII_50500_screw_specification_200mm",
+  "model": "UN2900EPIII/50500 (screw specification 200mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   29000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "29000KN, Space between tie bars(H\u00d7V): 2100\u00d71800mm, MIN.mold dimension(H\u00d7V): 1550\u00d71550mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN100EPIII_screw_40mm",
+  "model": "UN100EPIII (screw 40mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN, Space between tie bars(H\u00d7V): 410X360 mm, MIN.mold dimension(H\u00d7V): 310X310 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1350EPIII_screw_120mm",
+  "model": "UN1350EPIII (screw 120mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   13500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "13500 KN, Space between tie bars(H\u00d7V): 1380\u00d71280 mm, MIN.mold dimension(H\u00d7V): 1000\u00d71000 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN4200EPIII_107500_screw_260mm",
+  "model": "UN4200EPIII/107500 (screw 260mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   42000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "42000 KN, Space between tie bars(H\u00d7V): 2450\u00d72050 mm, Min.mold dimension(H\u00d7V): 1800\u00d71800 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1850EPIII_screw_150mm",
+  "model": "UN1850EPIII (screw 150mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   18500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "18500 KN, Space between tie bars(H\u00d7V): 1680\u00d71530 mm, MIN.mold dimension(H\u00d7V): 1250\u00d71250 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1600EPIII_screw_140mm",
+  "model": "UN1600EPIII (screw 140mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   16000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "16000 KN, Space between tie bars(H\u00d7V): 1570\u00d71430 mm, MIN.mold dimension(H\u00d7V): 1150\u00d71150 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN140EPIII_screw_45mm",
+  "model": "UN140EPIII (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN, Space between tie bars(H\u00d7V): 460X410 mm, MIN.mold dimension(H\u00d7V): 340X340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN270EMH_PLUS_B",
+  "model": "UN270EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN; Space between tie bars(H\u00d7V): 620\u00d7570 mm; MIN.mold dimension(H\u00d7V): 450\u00d7450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN530_EPIII_UPVC_PVC_configuration",
+  "model": "UN530-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   5300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "5300 kN, Space between tie bars (H\u00d7V): 870\u00d7820 mm, MIN. mold dimension (H\u00d7V): 650\u00d7650 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1350EPIII_screw_140mm",
+  "model": "UN1350EPIII (screw 140mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   13500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "13500 KN, Space between tie bars(H\u00d7V): 1380\u00d71280 mm, MIN.mold dimension(H\u00d7V): 1000\u00d71000 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2200EPIII_23700_screw_specification_170mm",
+  "model": "UN2200EPIII/23700 (screw specification 170mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   22000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "22000KN, Space between tie bars(H\u00d7V): 1800\u00d71600mm, MIN.mold dimension(H\u00d7V): 1350\u00d71350mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2200EPIII_23700_screw_specification_160mm",
+  "model": "UN2200EPIII/23700 (screw specification 160mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   22000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "22000KN, Space between tie bars(H\u00d7V): 1800\u00d71600mm, MIN.mold dimension(H\u00d7V): 1350\u00d71350mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN300_EPIII_UPVC_PVC_configuration",
+  "model": "UN300-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 kN, Space between tie bars (H\u00d7V): 670\u00d7620 mm, MIN. mold dimension (H\u00d7V): 500\u00d7500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN270_EPIII_PET_configuration",
+  "model": "UN270-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN, Space between tie-bars(H\u00d7V): 620X570 mm, MIN.mold dimension(H\u00d7V): 450X450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN180EMH_PLUS_C",
+  "model": "UN180EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN; Space between tie bars(H\u00d7V): 520\u00d7470 mm; MIN.mold dimension(H\u00d7V): 380\u00d7380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2900EPIII_50500_screw_specification_190mm",
+  "model": "UN2900EPIII/50500 (screw specification 190mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   29000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "29000KN, Space between tie bars(H\u00d7V): 2100\u00d71800mm, MIN.mold dimension(H\u00d7V): 1550\u00d71550mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN270EPIII_screw_65mm",
+  "model": "UN270EPIII (screw 65mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN\nSpace between tie bars(H\u00d7V): 620X570 mm\nMIN.mold dimension(H\u00d7V): 450X450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN300EPIII_screw_70mm",
+  "model": "UN300EPIII (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN\nSpace between tie bars(H\u00d7V): 670X620 mm\nMIN.mold dimension(H\u00d7V): 500X500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN300EPIII_screw_60mm",
+  "model": "UN300EPIII (screw 60mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN\nSpace between tie bars(H\u00d7V): 670X620 mm\nMIN.mold dimension(H\u00d7V): 500X500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN180EPIII_screw_40mm",
+  "model": "UN180EPIII (screw 40mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN, Space between tie bars(H\u00d7V): 520X470 mm, MIN.mold dimension(H\u00d7V): 380X380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN350EPIII_screw_65mm",
+  "model": "UN350EPIII (screw 65mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN\nSpace between tie bars(H\u00d7V): 730X670 mm\nMIN.mold dimension(H\u00d7V): 550X550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN180EMH_PLUS_A",
+  "model": "UN180EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN; Space between tie bars(H\u00d7V): 520\u00d7470 mm; MIN.mold dimension(H\u00d7V): 380\u00d7380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN180EPIII_screw_45mm",
+  "model": "UN180EPIII (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN, Space between tie bars(H\u00d7V): 520X470 mm, MIN.mold dimension(H\u00d7V): 380X380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2500EPIII_40600_screw_specification_180mm",
+  "model": "UN2500EPIII/40600 (screw specification 180mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   25000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "25000KN, Space between tie bars(H\u00d7V): 1950\u00d71700mm, MIN.mold dimension(H\u00d7V): 1450\u00d71450mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2200EPIII_23700_screw_specification_150mm",
+  "model": "UN2200EPIII/23700 (screw specification 150mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   22000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "22000KN, Space between tie bars(H\u00d7V): 1800\u00d71600mm, MIN.mold dimension(H\u00d7V): 1350\u00d71350mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1050EPIII_screw_specification_130mm",
+  "model": "UN1050EPIII (screw specification 130mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   10500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "10500KN, Space between tie bars(H\u00d7V): 1220X1120mm, MIN.mold dimension(H\u00d7V): 950X950mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN230_EPIII_PET_configuration",
+  "model": "UN230-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN, Space between tie-bars(H\u00d7V): 570X520 mm, MIN.mold dimension(H\u00d7V): 430X430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN4200EPIII_107500_screw_240mm",
+  "model": "UN4200EPIII/107500 (screw 240mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   42000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "42000 KN, Space between tie bars(H\u00d7V): 2450\u00d72050 mm, Min.mold dimension(H\u00d7V): 1800\u00d71800 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN420EPIII_screw_70mm",
+  "model": "UN420EPIII (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   4200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4200 KN\nSpace between tie bars(H\u00d7V): 770X720 mm\nMIN.mold dimension(H\u00d7V): 600X600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN350EMH_PLUS_C",
+  "model": "UN350EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN; Space between tie bars(H\u00d7V): 730\u00d7670 mm; MIN.mold dimension(H\u00d7V): 550\u00d7550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN270_EPIII_UPVC_PVC_configuration",
+  "model": "UN270-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 kN; Space between tie bars (H\u00d7V): 620\u00d7570 mm; MIN. mold dimension (H\u00d7V): 450\u00d7450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN230EMH_PLUS_AA",
+  "model": "UN230EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN; Space between tie bars(H\u00d7V): 570\u00d7520 mm; MIN.mold dimension(H\u00d7V): 430\u00d7430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN140EPIII_screw_40mm",
+  "model": "UN140EPIII (screw 40mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN, Space between tie bars(H\u00d7V): 460X410 mm, MIN.mold dimension(H\u00d7V): 340X340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN100EPIII_screw_32mm",
+  "model": "UN100EPIII (screw 32mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN, Space between tie bars(H\u00d7V): 410X360 mm, MIN.mold dimension(H\u00d7V): 310X310 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN230EMH_PLUS_B",
+  "model": "UN230EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN; Space between tie bars(H\u00d7V): 570\u00d7520 mm; MIN.mold dimension(H\u00d7V): 430\u00d7430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN300EPIII_screw_65mm",
+  "model": "UN300EPIII (screw 65mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN\nSpace between tie bars(H\u00d7V): 670X620 mm\nMIN.mold dimension(H\u00d7V): 500X500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1600EPIII_screw_150mm",
+  "model": "UN1600EPIII (screw 150mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   16000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "16000 KN, Space between tie bars(H\u00d7V): 1570\u00d71430 mm, MIN.mold dimension(H\u00d7V): 1150\u00d71150 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1850EPIII_screw_160mm",
+  "model": "UN1850EPIII (screw 160mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   18500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "18500 KN, Space between tie bars(H\u00d7V): 1680\u00d71530 mm, MIN.mold dimension(H\u00d7V): 1250\u00d71250 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1050EPIII_screw_specification_120mm",
+  "model": "UN1050EPIII (screw specification 120mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   10500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "10500KN, Space between tie bars(H\u00d7V): 1220X1120mm, MIN.mold dimension(H\u00d7V): 950X950mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN230EPIII_screw_45mm",
+  "model": "UN230EPIII (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN, Space between tie bars(H\u00d7V): 570X520 mm, MIN.mold dimension(H\u00d7V): 430X430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1850EPIII_screw_130mm",
+  "model": "UN1850EPIII (screw 130mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   18500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "18500 KN, Space between tie bars(H\u00d7V): 1680\u00d71530 mm, MIN.mold dimension(H\u00d7V): 1250\u00d71250 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN230EMH_PLUS_A",
+  "model": "UN230EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN; Space between tie bars(H\u00d7V): 570\u00d7520 mm; MIN.mold dimension(H\u00d7V): 430\u00d7430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN100EPIII_screw_36mm",
+  "model": "UN100EPIII (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN, Space between tie bars(H\u00d7V): 410X360 mm, MIN.mold dimension(H\u00d7V): 310X310 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN140EMH_PLUS_AA",
+  "model": "UN140EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN; Space between tie bars(H\u00d7V): 460\u00d7410 mm; MIN.mold dimension(H\u00d7V): 340\u00d7340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN350EMH_PLUS_AA",
+  "model": "UN350EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN; Space between tie bars(H\u00d7V): 730\u00d7670 mm; MIN.mold dimension(H\u00d7V): 550\u00d7550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN300EMH_PLUS_C",
+  "model": "UN300EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN; Space between tie bars(H\u00d7V): 670\u00d7620 mm; MIN.mold dimension(H\u00d7V): 500\u00d7500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN230EPIII_screw_50mm",
+  "model": "UN230EPIII (screw 50mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN, Space between tie bars(H\u00d7V): 570X520 mm, MIN.mold dimension(H\u00d7V): 430X430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN3300EPIII_69200_screw_220mm",
+  "model": "UN3300EPIII/69200 (screw 220mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   33000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "33000 KN, Space between tie bars(H\u00d7V): 2270\u00d71900 mm, Min.mold dimension(H\u00d7V): 1600\u00d71600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN350EMH_PLUS_A",
+  "model": "UN350EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN; Space between tie bars(H\u00d7V): 730\u00d7670 mm; MIN.mold dimension(H\u00d7V): 550\u00d7550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN350EPIII_screw_75mm",
+  "model": "UN350EPIII (screw 75mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN\nSpace between tie bars(H\u00d7V): 730X670 mm\nMIN.mold dimension(H\u00d7V): 550X550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN180EMH_PLUS_AA",
+  "model": "UN180EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN; Space between tie bars(H\u00d7V): 520\u00d7470 mm; MIN.mold dimension(H\u00d7V): 380\u00d7380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN350_EPIII_UPVC_PVC_configuration",
+  "model": "UN350-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 kN, Space between tie bars (H\u00d7V): 730\u00d7670 mm, MIN. mold dimension (H\u00d7V): 550\u00d7550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2500EPIII_40600_screw_specification_200mm",
+  "model": "UN2500EPIII/40600 (screw specification 200mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   25000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "25000KN, Space between tie bars(H\u00d7V): 1950\u00d71700mm, MIN.mold dimension(H\u00d7V): 1450\u00d71450mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2200EPIII_23700_screw_specification_140mm",
+  "model": "UN2200EPIII/23700 (screw specification 140mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   22000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "22000KN, Space between tie bars(H\u00d7V): 1800\u00d71600mm, MIN.mold dimension(H\u00d7V): 1350\u00d71350mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN270EMH_PLUS_C",
+  "model": "UN270EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN; Space between tie bars(H\u00d7V): 620\u00d7570 mm; MIN.mold dimension(H\u00d7V): 450\u00d7450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN140EPIII_screw_36mm",
+  "model": "UN140EPIII (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN, Space between tie bars(H\u00d7V): 460X410 mm, MIN.mold dimension(H\u00d7V): 340X340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN3300EPIII_69200_screw_240mm",
+  "model": "UN3300EPIII/69200 (screw 240mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   33000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "33000 KN, Space between tie bars(H\u00d7V): 2270\u00d71900 mm, Min.mold dimension(H\u00d7V): 1600\u00d71600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1350EPIII_screw_130mm",
+  "model": "UN1350EPIII (screw 130mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   13500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "13500 KN, Space between tie bars(H\u00d7V): 1380\u00d71280 mm, MIN.mold dimension(H\u00d7V): 1000\u00d71000 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1600EPIII_screw_120mm",
+  "model": "UN1600EPIII (screw 120mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   16000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "16000 KN, Space between tie bars(H\u00d7V): 1570\u00d71430 mm, MIN.mold dimension(H\u00d7V): 1150\u00d71150 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2500EPIII_40600_screw_specification_190mm",
+  "model": "UN2500EPIII/40600 (screw specification 190mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   25000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "25000KN, Space between tie bars(H\u00d7V): 1950\u00d71700mm, MIN.mold dimension(H\u00d7V): 1450\u00d71450mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1600EPIII_screw_130mm",
+  "model": "UN1600EPIII (screw 130mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   16000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "16000 KN, Space between tie bars(H\u00d7V): 1570\u00d71430 mm, MIN.mold dimension(H\u00d7V): 1150\u00d71150 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2500EPIII_40600_screw_specification_170mm",
+  "model": "UN2500EPIII/40600 (screw specification 170mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   25000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "25000KN, Space between tie bars(H\u00d7V): 1950\u00d71700mm, MIN.mold dimension(H\u00d7V): 1450\u00d71450mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN420_EPIII_UPVC_PVC_configuration",
+  "model": "UN420-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   4200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4200 kN, Space between tie bars (H\u00d7V): 770\u00d7720 mm, MIN. mold dimension (H\u00d7V): 600\u00d7600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN270EPIII_screw_55mm",
+  "model": "UN270EPIII (screw 55mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN\nSpace between tie bars(H\u00d7V): 620X570 mm\nMIN.mold dimension(H\u00d7V): 450X450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN300EMH_PLUS_B",
+  "model": "UN300EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN; Space between tie bars(H\u00d7V): 670\u00d7620 mm; MIN.mold dimension(H\u00d7V): 500\u00d7500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN4200EPIII_107500_screw_230mm",
+  "model": "UN4200EPIII/107500 (screw 230mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   42000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "42000 KN, Space between tie bars(H\u00d7V): 2450\u00d72050 mm, Min.mold dimension(H\u00d7V): 1800\u00d71800 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN230EMH_PLUS_C",
+  "model": "UN230EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN; Space between tie bars(H\u00d7V): 570\u00d7520 mm; MIN.mold dimension(H\u00d7V): 430\u00d7430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN300_EPIII_PET_configuration",
+  "model": "UN300-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN, Space between tie-bars(H\u00d7V): 670X620 mm, MIN.mold dimension(H\u00d7V): 500X500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN140EMH_PLUS_A",
+  "model": "UN140EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN; Space between tie bars(H\u00d7V): 460\u00d7410 mm; MIN.mold dimension(H\u00d7V): 340\u00d7340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1050EPIII_screw_specification_110mm",
+  "model": "UN1050EPIII (screw specification 110mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   10500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "10500KN, Space between tie bars(H\u00d7V): 1220X1120mm, MIN.mold dimension(H\u00d7V): 950X950mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN100EMH_PLUS_C",
+  "model": "UN100EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000 KN; Space between tie bars(H\u00d7V): 410\u00d7360 mm; MIN.mold dimension(H\u00d7V): 310\u00d7310 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN180_EPIII_UPVC_PVC_configuration",
+  "model": "UN180-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 kN\nSpace between tie bars(H\u00d7V): 520\u00d7470 mm\nMIN. mold dimension(H\u00d7V): 380\u00d7380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1850EPIII_screw_140mm",
+  "model": "UN1850EPIII (screw 140mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   18500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "18500 KN, Space between tie bars(H\u00d7V): 1680\u00d71530 mm, MIN.mold dimension(H\u00d7V): 1250\u00d71250 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN350_EPIII_PET_configuration",
+  "model": "UN350-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN, Space between tie-bars(H\u00d7V): 730X670 mm, MIN.mold dimension(H\u00d7V): 550X550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2900EPIII_50500_screw_specification_180mm",
+  "model": "UN2900EPIII/50500 (screw specification 180mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   29000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "29000KN, Space between tie bars(H\u00d7V): 2100\u00d71800mm, MIN.mold dimension(H\u00d7V): 1550\u00d71550mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN180EPIII_screw_50mm",
+  "model": "UN180EPIII (screw 50mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN, Space between tie bars(H\u00d7V): 520X470 mm, MIN.mold dimension(H\u00d7V): 380X380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN230EPIII_screw_55mm",
+  "model": "UN230EPIII (screw 55mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 KN, Space between tie bars(H\u00d7V): 570X520 mm, MIN.mold dimension(H\u00d7V): 430X430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN180_EPIII_PET_configuration",
+  "model": "UN180-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN, Space between tie-bars(H\u00d7V): 520X470 mm, MIN.mold dimension(H\u00d7V): 380X380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN700_EPIII_UPVC_PVC_configuration",
+  "model": "UN700-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   7000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "7000 kN, Space between tie bars (H\u00d7V): 1000\u00d7950 mm, MIN. mold dimension (H\u00d7V): 750\u00d7750 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN230_EPIII_UPVC_PVC_configuration",
+  "model": "UN230-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   2300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2300 kN\nSpace between tie bars(H\u00d7V): 570\u00d7520 mm\nMIN. mold dimension(H\u00d7V): 430\u00d7430 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN350EMH_PLUS_B",
+  "model": "UN350EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN; Space between tie bars(H\u00d7V): 730\u00d7670 mm; MIN.mold dimension(H\u00d7V): 550\u00d7550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN300EMH_PLUS_AA",
+  "model": "UN300EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN; Space between tie bars(H\u00d7V): 670\u00d7620 mm; MIN.mold dimension(H\u00d7V): 500\u00d7500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN420_EPIII_PET_configuration",
+  "model": "UN420-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   4200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4200 KN, Space between tie-bars(H\u00d7V): 770X720 mm, MIN.mold dimension(H\u00d7V): 600X600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN4200EPIII_107500_screw_250mm",
+  "model": "UN4200EPIII/107500 (screw 250mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   42000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "42000 KN, Space between tie bars(H\u00d7V): 2450\u00d72050 mm, Min.mold dimension(H\u00d7V): 1800\u00d71800 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN3300EPIII_69200_screw_200mm",
+  "model": "UN3300EPIII/69200 (screw 200mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   33000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "33000 KN, Space between tie bars(H\u00d7V): 2270\u00d71900 mm, Min.mold dimension(H\u00d7V): 1600\u00d71600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN140_EPIII_UPVC_PVC_configuration",
+  "model": "UN140-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 kN, Space between tie bars (H\u00d7V): 460\u00d7410 mm, MIN. mold dimension (H\u00d7V): 340\u00d7340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1350EPIII_screw_110mm",
+  "model": "UN1350EPIII (screw 110mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   13500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "13500 KN, Space between tie bars(H\u00d7V): 1380\u00d71280 mm, MIN.mold dimension(H\u00d7V): 1000\u00d71000 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN140EMH_PLUS_B",
+  "model": "UN140EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN; Space between tie bars(H\u00d7V): 460\u00d7410 mm; MIN.mold dimension(H\u00d7V): 340\u00d7340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PET_UN530_EPIII_PET_configuration",
+  "model": "UN530-EPIII [PET configuration]",
+  "category": "PET Preform Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 PET Parameters",
+  "size": [
+   "clamping_force",
+   5300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "5300 KN, Space between tie-bars(H\u00d7V): 870X820 mm, MIN.mold dimension(H\u00d7V): 650X650 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN1050EPIII_screw_specification_100mm",
+  "model": "UN1050EPIII (screw specification 100mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   10500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "10500KN, Space between tie bars(H\u00d7V): 1220X1120mm, MIN.mold dimension(H\u00d7V): 950X950mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN350EPIII_screw_70mm",
+  "model": "UN350EPIII (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   3500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3500 KN\nSpace between tie bars(H\u00d7V): 730X670 mm\nMIN.mold dimension(H\u00d7V): 550X550 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN2900EPIII_50500_screw_specification_220mm",
+  "model": "UN2900EPIII/50500 (screw specification 220mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   29000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "29000KN, Space between tie bars(H\u00d7V): 2100\u00d71800mm, MIN.mold dimension(H\u00d7V): 1550\u00d71550mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN270EMH_PLUS_A",
+  "model": "UN270EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN; Space between tie bars(H\u00d7V): 620\u00d7570 mm; MIN.mold dimension(H\u00d7V): 450\u00d7450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN180EMH_PLUS_B",
+  "model": "UN180EMH PLUS (B)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1800 KN; Space between tie bars(H\u00d7V): 520\u00d7470 mm; MIN.mold dimension(H\u00d7V): 380\u00d7380 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN140EMH_PLUS_C",
+  "model": "UN140EMH PLUS (C)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   1400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1400 KN; Space between tie bars(H\u00d7V): 460\u00d7410 mm; MIN.mold dimension(H\u00d7V): 340\u00d7340 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN300EMH_PLUS_A",
+  "model": "UN300EMH PLUS (A)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   3000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "3000 KN; Space between tie bars(H\u00d7V): 670\u00d7620 mm; MIN.mold dimension(H\u00d7V): 500\u00d7500 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN270EPIII_screw_60mm",
+  "model": "UN270EPIII (screw 60mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN\nSpace between tie bars(H\u00d7V): 620X570 mm\nMIN.mold dimension(H\u00d7V): 450X450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_EMH_PLUS_UN270EMH_PLUS_AA",
+  "model": "UN270EMH PLUS (AA)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND EMH PLUS Series",
+  "size": [
+   "clamping_force",
+   2700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2700 KN; Space between tie bars(H\u00d7V): 620\u00d7570 mm; MIN.mold dimension(H\u00d7V): 450\u00d7450 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_PVC_UN600_EPIII_UPVC_PVC_configuration",
+  "model": "UN600-EPIII [UPVC/PVC configuration]",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Series \u2014 UPVC/PVC Parameters",
+  "size": [
+   "clamping_force",
+   6000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "6000 kN, Space between tie bars (H\u00d7V): 920\u00d7870 mm, MIN. mold dimension (H\u00d7V): 700\u00d7700 mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD160_screw_36mm",
+  "model": "HD160 (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   160.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "160 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250P_Pen_making_Special_screw_36mm",
+  "model": "HD250P (Pen-making Special) (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD450_screw_50mm",
+  "model": "HD450 (screw 50mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   450.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "450 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1500LP_3HD1500LP_screw_55mm",
+  "model": "HD1500LP/3HD1500LP (screw 55mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1500 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1000_screw_55mm_1380",
+  "model": "HD1000 (screw 55mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD280_screw_42mm",
+  "model": "HD280 (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "280 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250BR_Toothbrush_Special_screw_38mm",
+  "model": "HD250BR (Toothbrush Special) (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD450_screw_45mm",
+  "model": "HD450 (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   450.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "450 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD400NB_screw_28mm_230",
+  "model": "HD400NB (screw 28mm, 230)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "400kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD280_screw_32mm",
+  "model": "HD280 (screw 32mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "280 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN850EPIII_screw_specification_110mm",
+  "model": "UN850EPIII (screw specification 110mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   8500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "8500KN, Space between tie bars(H\u00d7V): 1120X1020mm, MIN.mold dimension(H\u00d7V): 900X900mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD230_screw_26mm",
+  "model": "HD230 (screw 26mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   230.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "230 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN700EPIII_screw_specification_85mm",
+  "model": "UN700EPIII (screw specification 85mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   7000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "7000KN, Space between tie bars(H\u00d7V): 1000X950mm, MIN.mold dimension(H\u00d7V): 750X750mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD350_screw_36mm",
+  "model": "HD350 (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "350 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN700EPIII_screw_specification_100mm",
+  "model": "UN700EPIII (screw specification 100mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   7000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "7000KN, Space between tie bars(H\u00d7V): 1000X950mm, MIN.mold dimension(H\u00d7V): 750X750mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD550_screw_42mm",
+  "model": "HD550 (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   550.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "550kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1700LP_3HD1700LP_screw_50mm",
+  "model": "HD1700LP/3HD1700LP (screw 50mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD400NB_screw_24mm_230",
+  "model": "HD400NB (screw 24mm, 230)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "400kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1000_screw_60mm_2960",
+  "model": "HD1000 (screw 60mm, 2960)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD320BR_Toothbrush_Special_screw_36mm",
+  "model": "HD320BR (Toothbrush Special) (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   320.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "320 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1700LP_3HD1700LP_screw_70mm",
+  "model": "HD1700LP/3HD1700LP (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1000_screw_70mm_3600",
+  "model": "HD1000 (screw 70mm, 3600)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD160_screw_28mm",
+  "model": "HD160 (screw 28mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   160.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "160 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN530EPIII_screw_specification_80mm",
+  "model": "UN530EPIII (screw specification 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   5300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "5300KN, Space between tie bars(H\u00d7V): 870X820mm, MIN.mold dimension(H\u00d7V): 650X650mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN600EPIII_screw_specification_90mm",
+  "model": "UN600EPIII (screw specification 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   6000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "6000KN, Space between tie bars(H\u00d7V): 920X870mm, MIN.mold dimension(H\u00d7V): 700X700mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD230_screw_28mm",
+  "model": "HD230 (screw 28mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   230.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "230 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1700LP_3HD1700LP_screw_80mm",
+  "model": "HD1700LP/3HD1700LP (screw 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD320BR_Toothbrush_Special_screw_45mm",
+  "model": "HD320BR (Toothbrush Special) (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   320.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "320 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250BR_Toothbrush_Special_screw_48mm",
+  "model": "HD250BR (Toothbrush Special) (screw 48mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD230_screw_30mm",
+  "model": "HD230 (screw 30mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   230.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "230 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250BR_Toothbrush_Special_screw_45mm",
+  "model": "HD250BR (Toothbrush Special) (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD280_screw_36mm",
+  "model": "HD280 (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "280 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD280_screw_45mm",
+  "model": "HD280 (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "280 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1000_screw_50mm_1380",
+  "model": "HD1000 (screw 50mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD450_screw_60mm",
+  "model": "HD450 (screw 60mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   450.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "450 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD400NB_screw_32mm_300",
+  "model": "HD400NB (screw 32mm, 300)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "400kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD160_screw_30mm",
+  "model": "HD160 (screw 30mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   160.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "160 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD280_screw_38mm",
+  "model": "HD280 (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "280 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD200BR_Toothbrush_Special_screw_42mm",
+  "model": "HD200BR (Toothbrush Special) (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "200 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1000_screw_45mm_1380",
+  "model": "HD1000 (screw 45mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD200BR_Toothbrush_Special_screw_36mm",
+  "model": "HD200BR (Toothbrush Special) (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "200 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN700EPIII_screw_specification_110mm",
+  "model": "UN700EPIII (screw specification 110mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   7000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "7000KN, Space between tie bars(H\u00d7V): 1000X950mm, MIN.mold dimension(H\u00d7V): 750X750mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD160_screw_24mm",
+  "model": "HD160 (screw 24mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   160.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "160 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN530EPIII_screw_specification_90mm",
+  "model": "UN530EPIII (screw specification 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   5300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "5300KN, Space between tie bars(H\u00d7V): 870X820mm, MIN.mold dimension(H\u00d7V): 650X650mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD280_screw_30mm",
+  "model": "HD280 (screw 30mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   280.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "280 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD450_screw_55mm",
+  "model": "HD450 (screw 55mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   450.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "450 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250P_Pen_making_Special_screw_32mm",
+  "model": "HD250P (Pen-making Special) (screw 32mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD350_screw_45mm",
+  "model": "HD350 (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "350 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250BR_Toothbrush_Special_screw_36mm",
+  "model": "HD250BR (Toothbrush Special) (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD230_screw_24mm",
+  "model": "HD230 (screw 24mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   230.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "230 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250P_Pen_making_Special_screw_42mm",
+  "model": "HD250P (Pen-making Special) (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD230_screw_36mm",
+  "model": "HD230 (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   230.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "230 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1500LP_3HD1500LP_screw_60mm",
+  "model": "HD1500LP/3HD1500LP (screw 60mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1500 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1700LP_3HD1700LP_screw_60mm",
+  "model": "HD1700LP/3HD1700LP (screw 60mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN420EPIII_screw_80mm",
+  "model": "UN420EPIII (screw 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   4200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4200 KN\nSpace between tie bars(H\u00d7V): 770X720 mm\nMIN.mold dimension(H\u00d7V): 600X600 mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD400NB_screw_36mm_300",
+  "model": "HD400NB (screw 36mm, 300)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "400kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN850EPIII_screw_specification_120mm",
+  "model": "UN850EPIII (screw specification 120mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   8500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "8500KN, Space between tie bars(H\u00d7V): 1120X1020mm, MIN.mold dimension(H\u00d7V): 900X900mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1500LP_3HD1500LP_screw_90mm",
+  "model": "HD1500LP/3HD1500LP (screw 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1500 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1500LP_3HD1500LP_screw_80mm",
+  "model": "HD1500LP/3HD1500LP (screw 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1500 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250P_Pen_making_Special_screw_30mm",
+  "model": "HD250P (Pen-making Special) (screw 30mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD350_screw_38mm",
+  "model": "HD350 (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "350 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN700EPIII_screw_specification_90mm",
+  "model": "UN700EPIII (screw specification 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   7000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "7000KN, Space between tie bars(H\u00d7V): 1000X950mm, MIN.mold dimension(H\u00d7V): 750X750mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD350_screw_42mm",
+  "model": "HD350 (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "350 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD200BR_Toothbrush_Special_screw_45mm",
+  "model": "HD200BR (Toothbrush Special) (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "200 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN6000EPIII_107500_screw_230mm",
+  "model": "UN6000EPIII/107500 (screw 230mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   60000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "60000 KN, Space between tie bars(H\u00d7V): 2750\u00d72450 mm, Min.mold dimension(H\u00d7V): 2000\u00d72000 mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250BR_Toothbrush_Special_screw_42mm",
+  "model": "HD250BR (Toothbrush Special) (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD550_screw_55mm_1380",
+  "model": "HD550 (screw 55mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   550.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "550kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1700LP_3HD1700LP_screw_90mm",
+  "model": "HD1700LP/3HD1700LP (screw 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1000_screw_80mm_3600",
+  "model": "HD1000 (screw 80mm, 3600)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1000kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN6000EPIII_107500_screw_260mm",
+  "model": "UN6000EPIII/107500 (screw 260mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   60000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "60000 KN, Space between tie bars(H\u00d7V): 2750\u00d72450 mm, Min.mold dimension(H\u00d7V): 2000\u00d72000 mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD160_screw_26mm",
+  "model": "HD160 (screw 26mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   160.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "160 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD230_screw_32mm",
+  "model": "HD230 (screw 32mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   230.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "230 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1500LP_3HD1500LP_screw_70mm",
+  "model": "HD1500LP/3HD1500LP (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1500 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD350_screw_50mm",
+  "model": "HD350 (screw 50mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "350 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD550_screw_50mm_1380",
+  "model": "HD550 (screw 50mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   550.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "550kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD200BR_Toothbrush_Special_screw_38mm",
+  "model": "HD200BR (Toothbrush Special) (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "200 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN420EPIII_screw_75mm",
+  "model": "UN420EPIII (screw 75mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   4200.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "4200 KN\nSpace between tie bars(H\u00d7V): 770X720 mm\nMIN.mold dimension(H\u00d7V): 600X600 mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN600EPIII_screw_specification_80mm",
+  "model": "UN600EPIII (screw specification 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   6000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "6000KN, Space between tie bars(H\u00d7V): 920X870mm, MIN.mold dimension(H\u00d7V): 700X700mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD320BR_Toothbrush_Special_screw_42mm",
+  "model": "HD320BR (Toothbrush Special) (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   320.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "320 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN6000EPIII_107500_screw_240mm",
+  "model": "UN6000EPIII/107500 (screw 240mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   60000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "60000 KN, Space between tie bars(H\u00d7V): 2750\u00d72450 mm, Min.mold dimension(H\u00d7V): 2000\u00d72000 mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD550_screw_45mm_1380",
+  "model": "HD550 (screw 45mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   550.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "550kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD160_screw_32mm",
+  "model": "HD160 (screw 32mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   160.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "160 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD400NB_screw_30mm_300",
+  "model": "HD400NB (screw 30mm, 300)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "400kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD400NB_screw_26mm_230",
+  "model": "HD400NB (screw 26mm, 230)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   400.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "400kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD450_screw_42mm",
+  "model": "HD450 (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   450.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "450 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN850EPIII_screw_specification_100mm",
+  "model": "UN850EPIII (screw specification 100mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   8500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "8500KN, Space between tie bars(H\u00d7V): 1120X1020mm, MIN.mold dimension(H\u00d7V): 900X900mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD320BR_Toothbrush_Special_screw_38mm",
+  "model": "HD320BR (Toothbrush Special) (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   320.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "320 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD320BR_Toothbrush_Special_screw_48mm",
+  "model": "HD320BR (Toothbrush Special) (screw 48mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   320.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "320 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN600EPIII_screw_specification_100mm",
+  "model": "UN600EPIII (screw specification 100mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   6000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "6000KN, Space between tie bars(H\u00d7V): 920X870mm, MIN.mold dimension(H\u00d7V): 700X700mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD450_screw_48mm",
+  "model": "HD450 (screw 48mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   450.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "450 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN530EPIII_screw_specification_85mm",
+  "model": "UN530EPIII (screw specification 85mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   5300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "5300KN, Space between tie bars(H\u00d7V): 870X820mm, MIN.mold dimension(H\u00d7V): 650X650mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN600EPIII_screw_specification_85mm",
+  "model": "UN600EPIII (screw specification 85mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   6000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "6000KN, Space between tie bars(H\u00d7V): 920X870mm, MIN.mold dimension(H\u00d7V): 700X700mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN850EPIII_screw_specification_90mm",
+  "model": "UN850EPIII (screw specification 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   8500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "8500KN, Space between tie bars(H\u00d7V): 1120X1020mm, MIN.mold dimension(H\u00d7V): 900X900mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD550_screw_45mm",
+  "model": "HD550 (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   550.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "550kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD350_screw_48mm",
+  "model": "HD350 (screw 48mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "350 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD550_screw_48mm",
+  "model": "HD550 (screw 48mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   550.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "550kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD1700LP_3HD1700LP_screw_45mm",
+  "model": "HD1700LP/3HD1700LP (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1700.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1700 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD250P_Pen_making_Special_screw_38mm",
+  "model": "HD250P (Pen-making Special) (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   250.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "250 kN",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN530EPIII_screw_specification_75mm",
+  "model": "UN530EPIII (screw specification 75mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   5300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "5300KN, Space between tie bars(H\u00d7V): 870X820mm, MIN.mold dimension(H\u00d7V): 650X650mm",
+  "note": ""
+ },
+ {
+  "id": "SOUND_UN_Standard_UN6000EPIII_107500_screw_250mm",
+  "model": "UN6000EPIII/107500 (screw 250mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "SOUND UN Standard Series",
+  "size": [
+   "clamping_force",
+   60000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "60000 KN, Space between tie bars(H\u00d7V): 2750\u00d72450 mm, Min.mold dimension(H\u00d7V): 2000\u00d72000 mm",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2500_3HD_2500LP_screw_45mm",
+  "model": "HD-2500/3HD-2500LP (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2500 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70S_screw_diameter_55mm",
+  "model": "MSZ 70S (screw diameter 55mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   712.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "712 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D13_Pro_screw_diameter_75mm",
+  "model": "D13-Pro (screw diameter 75mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "2000 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ95S_HE_screw_diameter_65mm",
+  "model": "MSZ95S-HE (screw diameter 65mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1008.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1008 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D7_screw_diameter_55mm",
+  "model": "D7 (screw diameter 55mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1000 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70_screw_diameter_55mm",
+  "model": "MSZ 70 (screw diameter 55mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   742.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "742 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_30HE_screw_diameter_40mm",
+  "model": "MSZ 30HE (screw diameter 40mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   323.2,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "323.2 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ50S_HE_screw_diameter_50mm",
+  "model": "MSZ50S-HE (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   528.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "528 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70S_screw_diameter_50mm",
+  "model": "MSZ 70S (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   712.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "712 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2000_3HD_2000LP_screw_42mm",
+  "model": "HD-2000/3HD-2000LP (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2000 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D7_screw_diameter_50mm",
+  "model": "D7 (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1000 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D9_Pro_screw_diameter_60mm",
+  "model": "D9-Pro (screw diameter 60mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1500 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD850_screw_45mm_1380",
+  "model": "HD850 (screw 45mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   850.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "850kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70_application_case_150_ml_HDPE_bottle",
+  "model": "MSZ 70 (application case: 150 ml HDPE bottle)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_Q3_screw_diameter_28mm",
+  "model": "Q3 (screw diameter 28mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "350 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD650_screw_45mm_1380",
+  "model": "HD650 (screw 45mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   650.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "650kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_135_screw_diameter_75mm",
+  "model": "MSZ 135 (screw diameter 75mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1344.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1344 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD850_screw_60mm_2960",
+  "model": "HD850 (screw 60mm, 2960)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   850.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "850kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2000_3HD_2000LP_screw_80mm",
+  "model": "HD-2000/3HD-2000LP (screw 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2000 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70AE_application_case_150_ml_HDPE_bottle",
+  "model": "MSZ 70AE (application case: 150 ml HDPE bottle)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ50S_HE_screw_diameter_45mm",
+  "model": "MSZ50S-HE (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   528.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "528 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_135HE_screw_diameter_75mm",
+  "model": "MSZ 135HE (screw diameter 75mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1344.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1344 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_50AE_screw_diameter_50mm",
+  "model": "MSZ 50AE (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   528.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "528 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70S_HE_screw_diameter_50mm",
+  "model": "MSZ 70S-HE (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   712.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "712 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_30HE_screw_diameter_45mm",
+  "model": "MSZ 30HE (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   323.2,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "323.2 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ95S_HE_screw_diameter_60mm",
+  "model": "MSZ95S-HE (screw diameter 60mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1008.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1008 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD650_screw_42mm",
+  "model": "HD650 (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   650.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "650kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD850_screw_70mm_3600",
+  "model": "HD850 (screw 70mm, 3600)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   850.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "850kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70AE_screw_diameter_50mm",
+  "model": "MSZ 70AE (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   712.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "712 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_135_screw_diameter_70mm",
+  "model": "MSZ 135 (screw diameter 70mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1344.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1344 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD800NB_Note_Book_Special_screw_42mm",
+  "model": "HD800NB (Note Book Special) (screw 42mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "800 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D9_Pro_screw_diameter_65mm",
+  "model": "D9-Pro (screw diameter 65mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1500 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_135HE_screw_diameter_70mm",
+  "model": "MSZ 135HE (screw diameter 70mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1344.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1344 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD650_screw_50mm_1380",
+  "model": "HD650 (screw 50mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   650.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "650kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D7_Pro_screw_diameter_55mm",
+  "model": "D7-Pro (screw diameter 55mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1000 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2000_3HD_2000LP_screw_70mm",
+  "model": "HD-2000/3HD-2000LP (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2000 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D7_Pro_screw_diameter_50mm",
+  "model": "D7-Pro (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1000.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1000 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_50S_screw_diameter_50mm",
+  "model": "MSZ 50S (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   528.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "528 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_1300LP_3HD1300LP_screw_45mm",
+  "model": "HD-1300LP/3HD1300LP (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1300 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_30_screw_diameter_45mm",
+  "model": "MSZ 30 (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   323.2,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "323.2 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD850_screw_50mm_1380",
+  "model": "HD850 (screw 50mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   850.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "850kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD800NB_Note_Book_Special_screw_36mm",
+  "model": "HD800NB (Note Book Special) (screw 36mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "800 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D9_screw_diameter_65mm",
+  "model": "D9 (screw diameter 65mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1500 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD850_screw_55mm_1380",
+  "model": "HD850 (screw 55mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   850.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "850kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_50S_screw_diameter_45mm",
+  "model": "MSZ 50S (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   528.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "528 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD650_screw_48mm",
+  "model": "HD650 (screw 48mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   650.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "650kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70S_HE_screw_diameter_55mm",
+  "model": "MSZ 70S-HE (screw diameter 55mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   712.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "712 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_1300LP_3HD1300LP_screw_50mm",
+  "model": "HD-1300LP/3HD1300LP (screw 50mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1300 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ50H_screw_diameter_50mm",
+  "model": "MSZ50H (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   504.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "504 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD800NB_Note_Book_Special_screw_38mm",
+  "model": "HD800NB (Note Book Special) (screw 38mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "800 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D7_Pro_application_case_1_L_pesticide_bottle",
+  "model": "D7-Pro (application case: 1 L pesticide bottle)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": null,
+  "matched": null,
+  "raw": null,
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_95S_screw_diameter_60mm",
+  "model": "MSZ 95S (screw diameter 60mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1008.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1008 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD850_screw_80mm_3600",
+  "model": "HD850 (screw 80mm, 3600)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   850.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "850kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2500_3HD_2500LP_screw_90mm",
+  "model": "HD-2500/3HD-2500LP (screw 90mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2500 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D13_Pro_screw_diameter_70mm",
+  "model": "D13-Pro (screw diameter 70mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "2000 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70AE_screw_diameter_55mm",
+  "model": "MSZ 70AE (screw diameter 55mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   712.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "712 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2500_3HD_2500LP_screw_70mm",
+  "model": "HD-2500/3HD-2500LP (screw 70mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2500 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD650_screw_45mm",
+  "model": "HD650 (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   650.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "650kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_30_screw_diameter_40mm",
+  "model": "MSZ 30 (screw diameter 40mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   323.2,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "323.2 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_95S_screw_diameter_65mm",
+  "model": "MSZ 95S (screw diameter 65mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1008.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1008 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD800NB_Note_Book_Special_screw_45mm",
+  "model": "HD800NB (Note Book Special) (screw 45mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   800.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "800 kN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2000_3HD_2000LP_screw_60mm",
+  "model": "HD-2000/3HD-2000LP (screw 60mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2000.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2000 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_30AE_screw_diameter_40mm",
+  "model": "MSZ 30AE (screw diameter 40mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "350 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_50AE_screw_diameter_45mm",
+  "model": "MSZ 50AE (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   528.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "528 KN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ50H_screw_diameter_45mm",
+  "model": "MSZ50H (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   504.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "504 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_1300LP_3HD1300LP_screw_55mm",
+  "model": "HD-1300LP/3HD1300LP (screw 55mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   1300.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "1300 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_D9_screw_diameter_60mm",
+  "model": "D9 (screw diameter 60mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   1500.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "1500 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD_2500_3HD_2500LP_screw_80mm",
+  "model": "HD-2500/3HD-2500LP (screw 80mm)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   2500.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "2500 kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_70_screw_diameter_50mm",
+  "model": "MSZ 70 (screw diameter 50mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   742.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "742 KN",
+  "note": ""
+ },
+ {
+  "id": "TUP_Two_Colour_HD650_screw_55mm_1380",
+  "model": "HD650 (screw 55mm, 1380)",
+  "category": "Injection Molding Machine",
+  "was_category": null,
+  "catalogue": "TUP Two-Colour Solution",
+  "size": [
+   "clamping_force",
+   650.0,
+   "kN"
+  ],
+  "matched": "Clamping force",
+  "raw": "650kN",
+  "note": ""
+ },
+ {
+  "id": "Victor_2026_MSZ_30AE_screw_diameter_45mm",
+  "model": "MSZ 30AE (screw diameter 45mm)",
+  "category": "PET / Blow Molding Machine (SBM/ISBM/IBM)",
+  "was_category": null,
+  "catalogue": "Victor Catalogue 2026",
+  "size": [
+   "clamping_force",
+   350.0,
+   "kN"
+  ],
+  "matched": "Clamping force of preform",
+  "raw": "350 KN",
+  "note": ""
+ }
+]

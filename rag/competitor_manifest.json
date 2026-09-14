@@ -1,0 +1,98 @@
+{
+ "SOUND_DP_Two_Platen": {
+  "pdf": "SOUND-DP-Two-Platen-Series.pdf",
+  "brand": "SOUND",
+  "sha256": "ac8688e7bbbf162ede1e426dee8b38f3bf94649e1a990be90ace045b2eb247f5",
+  "records": 10,
+  "verified": false,
+  "at": "2026-07-28 22:18:51"
+ },
+ "SOUND_UN_Standard": {
+  "pdf": "SOUND-UN-Standard-Series.pdf",
+  "brand": "SOUND",
+  "company": "DG Tech",
+  "sha256": "eefa22e1c2b4036ac49d68208f02f1de6cad14042104906520e13daa33f2c6d3",
+  "records": 80,
+  "at": "2026-07-29 14:40:40"
+ },
+ "LS_Thin_Wall_IMM": {
+  "pdf": "LS-Thin-wall-IMM.pdf",
+  "brand": "LS",
+  "company": "DG Tech",
+  "sha256": "c5ff561dfceeecb157b7b1a082b35a0d8791ec9ba220c918bbcd0be6a8bd0857",
+  "records": 13,
+  "at": "2026-07-29 14:41:23"
+ },
+ "TUP_Two_Colour": {
+  "pdf": "TUP-Two-Colour-Solution.pdf",
+  "brand": "TUP",
+  "company": "DG Tech",
+  "sha256": "e00cc6e76747c6dc8654c73b11b5701ae0c204c693c0e30ad48735db08a239ee",
+  "records": 105,
+  "at": "2026-07-29 14:46:07"
+ },
+ "OUGE_PET_Blow": {
+  "pdf": "OUGE-PET-Blow-Machines.pdf",
+  "brand": "OUGE",
+  "company": "DG Tech",
+  "sha256": "8998ab81293b548625c8e1c11f763a872fd61ebb8b0fe5c4f03833adc7d22cda",
+  "records": 24,
+  "at": "2026-07-29 15:03:23"
+ },
+ "Victor_2026": {
+  "pdf": "Victor-catalogue-2026.pdf",
+  "brand": "Victor",
+  "company": "DG Tech",
+  "sha256": "838d506e15fb719a6fcd0e2bd5c3631fd5e6b354d14ac01640c88ae840de560c",
+  "records": 44,
+  "at": "2026-07-29 15:07:26"
+ },
+ "SML_Auxiliaries": {
+  "pdf": "SML-Auxiliaries.pdf",
+  "brand": "SML",
+  "company": "DG Tech",
+  "sha256": "b13626dee759e9bfcb2fb966c315cbcdf6f21b01fd7d7c252feee24ec9ef1e25",
+  "records": 176,
+  "at": "2026-07-29 15:12:39"
+ },
+ "MINFENG_Cap": {
+  "pdf": "MINFENG-Cap-Machinery.pdf",
+  "brand": "MINFENG",
+  "company": "DG Tech",
+  "sha256": "c26e6399262483fb42ab49876286d614bc626f7b07bb4e4ea4038799112cdaf3",
+  "records": 12,
+  "at": "2026-07-29 15:13:35"
+ },
+ "Chi_Wai_Manual": {
+  "pdf": "Chi-Wai_Manual.pdf",
+  "brand": "Chi-Wai",
+  "company": "DG Tech",
+  "sha256": "8da698bf34366be2d7616b87512137bdc9897e05aa88ac437d489f231b4e5d7f",
+  "records": 62,
+  "at": "2026-07-29 15:15:54"
+ },
+ "SOUND_UN_PVC": {
+  "pdf": "SOUND-UN-PVC-Parameters.pdf",
+  "brand": "SOUND",
+  "company": "DG Tech",
+  "sha256": "392067ffe02ab2d20a4f45ce2622ffb85f4afc6fb72696a39efa57452b8ad77f",
+  "records": 10,
+  "at": "2026-08-04 00:15:01"
+ },
+ "SOUND_UN_PET": {
+  "pdf": "SOUND-UN-PET-Parameters.pdf",
+  "brand": "SOUND",
+  "company": "DG Tech",
+  "sha256": "8840b49fac28f64b197f237a2ef656568091614e68b07ce3909994dc467a64b8",
+  "records": 7,
+  "at": "2026-08-04 00:22:08"
+ },
+ "SOUND_EMH_PLUS": {
+  "pdf": "SOUND-EMH-PLUS-Series.pdf",
+  "brand": "SOUND",
+  "company": "DG Tech",
+  "sha256": "320e46b17fc6bd28b7f1be553ccb88b952ea543a9b9db0877c301451100ac22d",
+  "records": 28,
+  "at": "2026-08-04 00:32:37"
+ }
+}
